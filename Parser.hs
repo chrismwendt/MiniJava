@@ -9,7 +9,7 @@ import Text.Parsec.Prim
 import qualified Text.ParserCombinators.Parsec.Token as Token
 
 main :: IO ()
-main = parseFile "examples/Leet.java" >>= print
+main = parseFile "examples/While.java" >>= print
 
 parseString :: String -> Program
 parseString str =
@@ -51,16 +51,60 @@ pClass = do
     return Class
 
 pStatement :: Parser Statement
-pStatement = do
+pStatement =
+        pBlockStatement
+    <|> pIfStatement
+    <|> pWhileStatement
+    <|> pPrintStatement
+    <|> pExpressionStatement
+
+pBlockStatement :: Parser Statement
+pBlockStatement = braces $ do
+    ss <- many pStatement
+    return $ BlockStatement ss
+
+pIfStatement :: Parser Statement
+pIfStatement = do
+    reserved "if"
+    condition <- parens pExpression
+    ifTrue <- pStatement
+    ifFalse <- optionMaybe (reserved "else" >> pStatement)
+    return $ IfStatement condition ifTrue ifFalse
+
+pWhileStatement :: Parser Statement
+pWhileStatement = do
+    reserved "while"
+    condition <- parens pExpression
+    s <- pStatement
+    return $ WhileStatement condition s
+
+pPrintStatement :: Parser Statement
+pPrintStatement = do
     reserved "System.out.println"
     e <- parens pExpression
     semi
-    return $ Print e
+    return $ PrintStatement e
+
+pExpressionStatement :: Parser Statement
+pExpressionStatement = do
+    e <- pExpression
+    semi
+    return $ ExpressionStatement e
 
 pExpression :: Parser Expression
-pExpression = do
+pExpression =
+        pIntLiteral
+    <|> pBooleanLiteral
+
+pIntLiteral :: Parser Expression
+pIntLiteral = do
     i <- integer
     return $ IntLiteral (fromIntegral i)
+
+pBooleanLiteral :: Parser Expression
+pBooleanLiteral =
+        (reserved "false" >> return (BooleanLiteral False))
+    <|> (reserved "true" >> return (BooleanLiteral True))
 
 data Program = Program MainClass [Class] deriving (Show)
 
@@ -68,9 +112,18 @@ data MainClass = MainClass Statement deriving (Show)
 
 data Class = Class deriving (Show)
 
-data Statement = Print Expression deriving (Show)
+data Statement =
+      BlockStatement [Statement]
+    | IfStatement Expression Statement (Maybe Statement)
+    | WhileStatement Expression Statement
+    | PrintStatement Expression
+    | ExpressionStatement Expression
+    deriving (Show)
 
-data Expression = IntLiteral Int deriving (Show)
+data Expression =
+      IntLiteral Int
+    | BooleanLiteral Bool
+    deriving (Show)
 
 languageDef = emptyDef
     { Token.commentStart    = "/*"
