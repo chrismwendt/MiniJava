@@ -9,7 +9,7 @@ import Text.Parsec.Prim
 import qualified Text.ParserCombinators.Parsec.Token as Token
 
 main :: IO ()
-main = parseFile "examples/While.java" >>= print
+main = parseFile "examples/Arg.java" >>= print
 
 parseString :: String -> Program
 parseString str =
@@ -120,6 +120,29 @@ pVarDeclaration = do
     semi
     return $ VarDeclaration t name
 
+pParams :: Parser [Parameter]
+pParams = chainr (pParam >>= \p -> return [p]) (comma >> return (++)) []
+
+pParam :: Parser Parameter
+pParam = do
+    t <- pType
+    name <- identifier
+    return $ Parameter t name
+
+pMethodDeclaration :: Parser MethodDeclaration
+pMethodDeclaration = do
+    reserved "public"
+    t <- pType
+    name <- identifier
+    params <- parens pParams
+    braces $ do
+        fields <- many $ Text.Parsec.Prim.try pVarDeclaration
+        body <- many pStatement
+        reserved "return"
+        retExp <- pExpression
+        semi
+        return $ MethodDeclaration t name params fields body retExp
+
 data Program = Program MainClass [Class] deriving (Show)
 
 data MainClass = MainClass Statement deriving (Show)
@@ -146,7 +169,11 @@ data Type =
     | ObjectType String
     deriving (Show)
 
+data Parameter = Parameter Type String deriving (Show)
+
 data VarDeclaration = VarDeclaration Type String deriving (Show)
+
+data MethodDeclaration = MethodDeclaration Type String [Parameter] [VarDeclaration] [Statement] Expression deriving (Show)
 
 languageDef = emptyDef
     { Token.commentStart    = "/*"
@@ -168,6 +195,7 @@ semi       = Token.semi       lexer
 whiteSpace = Token.whiteSpace lexer
 braces     = Token.braces     lexer
 brackets   = Token.brackets   lexer
+comma      = Token.comma      lexer
 symbol     = Token.symbol     lexer
 
 empty :: Parser ()
