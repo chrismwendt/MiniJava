@@ -21,7 +21,7 @@ matchAgainst acceptors string = case mapMaybe ($ string) acceptors of
 
 patterns :: [TokenPattern]
 patterns = map (\(n, p) -> fmap (Token n) . p) $
-    (map (\keyword -> (keyword, makeLiteral keyword)) $ words "class public static void main String extends return int boolean if else while true false this new System.out.println { } ( ) [ ] ; = && || < <= == != > >= + - * / % ! . ,")
+    map (\keyword -> (keyword, makeLiteral keyword)) (words "class public static void main String extends return int boolean if else while true false this new System.out.println { } ( ) [ ] ; = && || < <= == != > >= + - * / % ! . ,")
     ++
     [ ("identifier", identifier)
     , ("integer", integer)
