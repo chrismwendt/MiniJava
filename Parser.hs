@@ -40,7 +40,7 @@ pMainClass = do
         reserved "static"
         reserved "void"
         reserved "main"
-        parens $ reserved "String" >> brackets empty >> identifier
+        parens $ symbol "String" >> brackets empty >> identifier
         braces $ do
             s <- pStatement
             return $ MainClass s
@@ -154,7 +154,7 @@ languageDef = emptyDef
     , Token.commentLine     = "//"
     , Token.identStart      = letter
     , Token.identLetter     = alphaNum <|> char '_'
-    , Token.reservedNames   = words "class main public static void String extends return int boolean if else while System.out.println true false this new"
+    , Token.reservedNames   = words "class main public static void extends return int boolean if else while System.out.println true false this new"
     }
 
 lexer = Token.makeTokenParser languageDef
@@ -168,6 +168,7 @@ semi       = Token.semi       lexer
 whiteSpace = Token.whiteSpace lexer
 braces     = Token.braces     lexer
 brackets   = Token.brackets   lexer
+symbol     = Token.symbol     lexer
 
 empty :: Parser ()
 empty = return ()
