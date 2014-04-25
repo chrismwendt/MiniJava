@@ -4,6 +4,7 @@ import Data.List
 import Data.Maybe
 import Data.Ord
 import Data.Char
+import Data.Maybe.HT
 
 data Token = Token { name :: String, lexeme :: String }
 
@@ -31,26 +32,22 @@ patterns = map (\(n, p) -> fmap (Token n) . p) $
     ]
 
 makeLiteral :: String -> LexemePattern
-makeLiteral l = \string -> if l `isPrefixOf` string
-    then Just l
-    else Nothing
+makeLiteral l = \string -> toMaybe (l `isPrefixOf` string) l
 
 identifier :: LexemePattern
 identifier string = let i = takeWhile (\c -> isAlphaNum c || c == '_') string in
-    if null i || isDigit (head i) then Nothing else Just i
+    toMaybe (not $ null i || isDigit (head i)) i
 
 whitespace :: LexemePattern
 whitespace string = let w = takeWhile (`elem` " \n\t\f") string in
-    if null w then Nothing else Just w
+    toMaybe (not $ null w) w
 
 integer :: LexemePattern
 integer string = let i = takeWhile isDigit string in
-    if null i then Nothing else Just i
+    toMaybe (not $ null i) i
 
 commentLine :: LexemePattern
-commentLine string = do
-    rest <- stripPrefix "//" string
-    return $ "//" ++ takeWhile (/= '\n') rest
+commentLine string = toMaybe (isPrefixOf "//" string) $ takeWhile (/= '\n') string
 
 commentBlock :: LexemePattern
 commentBlock string = do
