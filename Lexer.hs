@@ -8,11 +8,11 @@ import Data.Maybe.HT
 
 data Token = Token { name :: String, lexeme :: String }
 
-type TokenPattern = String -> Maybe Token
+type TokenMatcher = String -> Maybe Token
 
-type LexemePattern = String -> Maybe String
+type LexemeMatcher = String -> Maybe String
 
-matchAgainst :: [TokenPattern] -> String -> Maybe (Token, String)
+matchAgainst :: [TokenMatcher] -> String -> Maybe (Token, String)
 matchAgainst [] _ = Nothing
 matchAgainst _ [] = Nothing
 matchAgainst acceptors string = case mapMaybe ($ string) acceptors of
@@ -20,7 +20,7 @@ matchAgainst acceptors string = case mapMaybe ($ string) acceptors of
     tokens -> let token = maximumBy (comparing (length . lexeme)) tokens
               in Just (token, string \\ lexeme token)
 
-patterns :: [TokenPattern]
+patterns :: [TokenMatcher]
 patterns = map (\(n, p) -> fmap (Token n) . p) $
     map (\keyword -> (keyword, makeLiteral keyword)) (words "class public static void main String extends return int boolean if else while true false this new System.out.println { } ( ) [ ] ; = && || < <= == != > >= + - * / % ! . ,")
     ++
@@ -31,20 +31,20 @@ patterns = map (\(n, p) -> fmap (Token n) . p) $
     , ("comment block", commentBlock)
     ]
 
-makeLiteral :: String -> LexemePattern
+makeLiteral :: String -> LexemeMatcher
 makeLiteral l = \string -> toMaybe (l `isPrefixOf` string) l
 
-matchWhile :: (Char -> Bool) -> LexemePattern
+matchWhile :: (Char -> Bool) -> LexemeMatcher
 matchWhile f = \string -> let s = takeWhile f string in toMaybe (not $ null s) s
 
-identifier :: LexemePattern
+identifier :: LexemeMatcher
 identifier string = let i = takeWhile (\c -> isAlphaNum c || c == '_') string in
     toMaybe (not $ null i || isDigit (head i)) i
 
-commentLine :: LexemePattern
+commentLine :: LexemeMatcher
 commentLine string = toMaybe (isPrefixOf "//" string) $ takeWhile (/= '\n') string
 
-commentBlock :: LexemePattern
+commentBlock :: LexemeMatcher
 commentBlock string = do
     rest <- stripPrefix "/*" string
     (c, _) <- find (isPrefixOf "*/" . snd) $ zip (inits rest) (tails rest)
