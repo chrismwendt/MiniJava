@@ -25,8 +25,8 @@ patterns = map (\(n, p) -> fmap (Token n) . p) $
     map (\keyword -> (keyword, makeLiteral keyword)) (words "class public static void main String extends return int boolean if else while true false this new System.out.println { } ( ) [ ] ; = && || < <= == != > >= + - * / % ! . ,")
     ++
     [ ("identifier", identifier)
-    , ("integer", integer)
-    , ("whitespace", whitespace)
+    , ("integer", matchWhile isDigit)
+    , ("whitespace", matchWhile isSpace)
     , ("comment line", commentLine)
     , ("comment block", commentBlock)
     ]
@@ -34,17 +34,12 @@ patterns = map (\(n, p) -> fmap (Token n) . p) $
 makeLiteral :: String -> LexemePattern
 makeLiteral l = \string -> toMaybe (l `isPrefixOf` string) l
 
+matchWhile :: (Char -> Bool) -> LexemePattern
+matchWhile f = \string -> let s = takeWhile f string in toMaybe (not $ null s) s
+
 identifier :: LexemePattern
 identifier string = let i = takeWhile (\c -> isAlphaNum c || c == '_') string in
     toMaybe (not $ null i || isDigit (head i)) i
-
-whitespace :: LexemePattern
-whitespace string = let w = takeWhile (`elem` " \n\t\f") string in
-    toMaybe (not $ null w) w
-
-integer :: LexemePattern
-integer string = let i = takeWhile isDigit string in
-    toMaybe (not $ null i) i
 
 commentLine :: LexemePattern
 commentLine string = toMaybe (isPrefixOf "//" string) $ takeWhile (/= '\n') string
