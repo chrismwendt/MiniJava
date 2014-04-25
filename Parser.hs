@@ -106,7 +106,12 @@ pBooleanLiteral =
         (reserved "false" >> return (BooleanLiteral False))
     <|> (reserved "true" >> return (BooleanLiteral True))
 
-
+pType :: Parser Type
+pType =
+        (Text.Parsec.Prim.try $ reserved "int" >> brackets empty >> return IntArrayType)
+    <|> (reserved "boolean" >> return BooleanType)
+    <|> (reserved "int" >> return IntType)
+    <|> (identifier >>= return . ObjectType)
 
 data Program = Program MainClass [Class] deriving (Show)
 
@@ -125,6 +130,13 @@ data Statement =
 data Expression =
       IntLiteral Int
     | BooleanLiteral Bool
+    deriving (Show)
+
+data Type =
+      BooleanType
+    | IntType
+    | IntArrayType
+    | ObjectType String
     deriving (Show)
 
 languageDef = emptyDef
