@@ -40,7 +40,7 @@ pMainClass = do
         reserved "static"
         reserved "void"
         reserved "main"
-        parens $ reserved "String" >> brackets (return ()) >> identifier
+        parens $ reserved "String" >> brackets empty >> identifier
         braces $ do
             s <- pStatement
             return $ MainClass s
@@ -106,6 +106,8 @@ pBooleanLiteral =
         (reserved "false" >> return (BooleanLiteral False))
     <|> (reserved "true" >> return (BooleanLiteral True))
 
+
+
 data Program = Program MainClass [Class] deriving (Show)
 
 data MainClass = MainClass Statement deriving (Show)
@@ -145,3 +147,6 @@ semi       = Token.semi       lexer
 whiteSpace = Token.whiteSpace lexer
 braces     = Token.braces     lexer
 brackets   = Token.brackets   lexer
+
+empty :: Parser ()
+empty = return ()
