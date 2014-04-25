@@ -4,7 +4,7 @@ import Data.List
 import Text.Printf
 
 main :: IO ()
-main = interact (pretty 80 . read)
+main = interact (pretty 80 . read) >> putStrLn ""
 
 data SExp = Leaf String | Branch [SExp]
 
