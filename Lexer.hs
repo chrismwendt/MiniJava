@@ -21,7 +21,7 @@ matchAgainst acceptors string = case mapMaybe ($ string) acceptors of
               in Just (token, string \\ lexeme token)
 
 patterns :: [TokenMatcher]
-patterns = map (\(n, p) -> fmap (Token n) . p) $
+patterns = map (\(name, matcher) -> fmap (Token name) . matcher) $
     map (\keyword -> (keyword, makeLiteral keyword)) (words "class public static void main String extends return int boolean if else while true false this new System.out.println { } ( ) [ ] ; = && || < <= == != > >= + - * / % ! . ,")
     ++
     [ ("identifier", identifier)
@@ -47,5 +47,5 @@ commentLine string = toMaybe (isPrefixOf "//" string) $ takeWhile (/= '\n') stri
 commentBlock :: LexemeMatcher
 commentBlock string = do
     rest <- stripPrefix "/*" string
-    (c, _) <- find (isPrefixOf "*/" . snd) $ zip (inits rest) (tails rest)
-    return ("/*" ++ c ++ "*/")
+    (content, _) <- find (isPrefixOf "*/" . snd) $ zip (inits rest) (tails rest)
+    return ("/*" ++ content ++ "*/")
