@@ -113,6 +113,13 @@ pType =
     <|> (reserved "int" >> return IntType)
     <|> (identifier >>= return . ObjectType)
 
+pVarDeclaration :: Parser VarDeclaration
+pVarDeclaration = do
+    t <- pType
+    name <- identifier
+    semi
+    return $ VarDeclaration t name
+
 data Program = Program MainClass [Class] deriving (Show)
 
 data MainClass = MainClass Statement deriving (Show)
@@ -138,6 +145,8 @@ data Type =
     | IntArrayType
     | ObjectType String
     deriving (Show)
+
+data VarDeclaration = VarDeclaration Type String deriving (Show)
 
 languageDef = emptyDef
     { Token.commentStart    = "/*"
