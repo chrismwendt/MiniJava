@@ -34,7 +34,7 @@ pProgram = do
 pMainClass :: Parser MainClass
 pMainClass = do
     reserved "class"
-    name <- identifier
+    _ <- identifier
     braces $ do
         reserved "public"
         reserved "static"
@@ -43,7 +43,7 @@ pMainClass = do
         parens $ reserved "String" >> brackets (return ()) >> identifier
         braces $ do
             s <- pStatement
-            return $ MainClass name
+            return $ MainClass s
 
 pClass :: Parser Class
 pClass = do
@@ -53,22 +53,24 @@ pClass = do
 pStatement :: Parser Statement
 pStatement = do
     reserved "System.out.println"
-    parens pExpression
+    e <- parens pExpression
     semi
-    return Print
+    return $ Print e
 
 pExpression :: Parser Expression
-pExpression = integer >> return IntLiteral
+pExpression = do
+    i <- integer
+    return $ IntLiteral (fromIntegral i)
 
 data Program = Program MainClass [Class] deriving (Show)
 
-data MainClass = MainClass String deriving (Show)
+data MainClass = MainClass Statement deriving (Show)
 
 data Class = Class deriving (Show)
 
-data Statement = Print deriving (Show)
+data Statement = Print Expression deriving (Show)
 
-data Expression = IntLiteral deriving (Show)
+data Expression = IntLiteral Int deriving (Show)
 
 languageDef = emptyDef
     { Token.commentStart    = "/*"
