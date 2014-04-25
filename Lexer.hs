@@ -5,6 +5,7 @@ import Data.Maybe
 import Data.Ord
 import Data.Char
 import Data.Maybe.HT
+import Control.Monad
 
 data Token = Token { name :: String, lexeme :: String }
 
@@ -21,7 +22,7 @@ matchAgainst acceptors string = case mapMaybe ($ string) acceptors of
               in Just (token, string \\ lexeme token)
 
 patterns :: [TokenMatcher]
-patterns = map (\(name, matcher) -> fmap (Token name) . matcher) $
+patterns = map (\(name, matcher) -> matcher >=> return . Token name) $
     map (\keyword -> (keyword, makeLiteral keyword)) (words "class public static void main String extends return int boolean if else while true false this new System.out.println { } ( ) [ ] ; = && || < <= == != > >= + - * / % ! . ,")
     ++
     [ ("identifier", identifier)
