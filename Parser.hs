@@ -48,7 +48,13 @@ pMainClass = do
 pClass :: Parser Class
 pClass = do
     reserved "class"
-    return Class
+    name <- identifier
+    reserved "extends"
+    extends <- identifier
+    braces $ do
+        fields <- many pVarDeclaration
+        methods <- many pMethodDeclaration
+        return $ Class name extends fields methods
 
 pStatement :: Parser Statement
 pStatement =
@@ -147,7 +153,7 @@ data Program = Program MainClass [Class] deriving (Show)
 
 data MainClass = MainClass Statement deriving (Show)
 
-data Class = Class deriving (Show)
+data Class = Class String String [VarDeclaration] [MethodDeclaration] deriving (Show)
 
 data Statement =
       BlockStatement [Statement]
