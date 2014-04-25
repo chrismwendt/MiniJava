@@ -13,6 +13,11 @@ type TokenMatcher = String -> Maybe Token
 
 type LexemeMatcher = String -> Maybe String
 
+doLex :: String -> [Token]
+doLex input = [token |
+    token <- unfoldr (matchAgainst patterns) input,
+    name token `notElem` ["whitespace", "comment line", "comment block"]]
+
 matchAgainst :: [TokenMatcher] -> String -> Maybe (Token, String)
 matchAgainst [] _ = Nothing
 matchAgainst _ [] = Nothing
