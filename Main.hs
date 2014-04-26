@@ -9,7 +9,7 @@ data Options = Options { stopAt :: String, file :: String }
 
 options :: Parser Options
 options = Options
-    <$> strOption (long "stopAt" <> metavar "[parse|SSA|type|reg]")
+    <$> strOption (long "stopAt" <> metavar "[parse|SSA|type|reg|code]" <> value "code")
     <*> argument str (metavar "file")
 
 compile :: Options -> String -> String
