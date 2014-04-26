@@ -5,12 +5,12 @@ import System.Exit
 import Control.Monad
 
 main = allM test examples >> return ()
--- main = allM test ["examples/Spill.java"] >> return ()
+-- main = allM test ["examples/Extends.java"] >> return ()
 
 test file = do
     putStrLn $ "Testing " ++ file
-    system $ "canonical/bin/mjlex " ++ file ++ " > canonical.out"
-    system $ "runhaskell Main.hs --stopAt lex " ++ file ++ " > mine.out"
+    system $ "canonical/bin/mjparse-ast " ++ file ++ " | runhaskell PrettySExp.hs > canonical.out"
+    system $ "runhaskell Main.hs --stopAt parse " ++ file ++ " | runhaskell PrettySExp.hs > mine.out"
     (exit, stdout, stderr) <- readProcessWithExitCode "diff" ["-y", "canonical.out", "mine.out"] ""
     case exit of
         ExitFailure _ -> putStr stdout >> return False
