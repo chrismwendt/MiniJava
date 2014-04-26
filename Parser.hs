@@ -9,200 +9,138 @@ import Text.ParserCombinators.Parsec.Language
 import qualified Text.Parsec.Prim as P
 import qualified Text.ParserCombinators.Parsec.Token as Token
 import AST
+import Data.Functor
+import Control.Applicative
 
 parseString :: String -> Program
-parseString str =
-  case parse pProgram "" str of
+parseString str = case parse pProgram "" str of
     Left e  -> error $ show e
     Right r -> r
 
 parseFile :: String -> IO Program
-parseFile file =
-  do program  <- readFile file
-     case parse pProgram "" program of
-       Left e  -> print e >> fail "parse error"
-       Right r -> return r
+parseFile file = do
+    program <- readFile file
+    case parse pProgram "" program of
+        Left e  -> print e >> fail "parse error"
+        Right r -> return r
 
 pProgram :: Parser Program
-pProgram = do
-    whiteSpace
-    m <- pMainClass
-    cs <- many pClass
-    return $ Program m cs
+pProgram = Program <$> (whiteSpace *> pMainClass) <*> P.many pClass
 
 pMainClass :: Parser Statement
-pMainClass = do
-    reserved "class"
-    _ <- identifier
-    braces $ do
-        reserved "public"
-        reserved "static"
-        reserved "void"
-        reserved "main"
-        parens $ symbol "String" >> brackets empty >> identifier
-        braces $ do
-            pStatement
+pMainClass = reserved "class" >> identifier >> braces (do
+    reserved "public" >> reserved "static" >> reserved "void" >> reserved "main"
+    parens $ symbol "String" >> brackets pEmpty >> identifier
+    braces pStatement)
 
 pClass :: Parser ClassDecl
 pClass = do
     reserved "class"
     name <- identifier
     extends <- optionMaybe (reserved "extends" >> identifier)
-    braces $ do
-        fields <- many pVarDecl
-        methods <- many pMethodDecl
-        return $ ClassDecl name extends fields methods
+    braces $ ClassDecl name extends <$> P.many pVarDecl <*> P.many pMethodDecl
 
 pStatement :: Parser Statement
 pStatement =
-        pBlockStatement
-    <|> pIfStatement
-    <|> pWhileStatement
-    <|> pPrintStatement
-    <|> pExpressionStatement
+          pBlockStatement
+    P.<|> pIfStatement
+    P.<|> pWhileStatement
+    P.<|> pPrintStatement
+    P.<|> pExpressionStatement
 
 pBlockStatement :: Parser Statement
-pBlockStatement = braces $ do
-    ss <- many pStatement
-    return $ BlockStatement ss
+pBlockStatement = BlockStatement <$> braces (P.many pStatement)
 
 pIfStatement :: Parser Statement
-pIfStatement = do
-    reserved "if"
-    condition <- parens pExp
-    ifTrue <- pStatement
-    ifFalse <- optionMaybe (reserved "else" >> pStatement)
-    return $ IfStatement condition ifTrue ifFalse
+pIfStatement = IfStatement <$> (reserved "if" *> parens pExp) <*> pStatement <*> optionMaybe (reserved "else" >> pStatement)
 
 pWhileStatement :: Parser Statement
-pWhileStatement = do
-    reserved "while"
-    condition <- parens pExp
-    s <- pStatement
-    return $ WhileStatement condition s
+pWhileStatement = WhileStatement <$> (reserved "while" *> parens pExp) <*> pStatement
 
 pPrintStatement :: Parser Statement
-pPrintStatement = do
-    reserved "System.out.println"
-    e <- parens pExp
-    semi
-    return $ PrintStatement e
+pPrintStatement = PrintStatement <$> (reserved "System.out.println" *> parens pExp <* semi)
 
 pExpressionStatement :: Parser Statement
-pExpressionStatement = do
-    e <- pExp
-    semi
-    return $ ExpressionStatement e
+pExpressionStatement = ExpressionStatement <$> pExp <* semi
 
 pExp :: Parser Exp
 pExp = pAssignExpression
 
--- TODO try cleaning this up with chainl1 and <|>
+-- TODO try cleaning this up with chainl1 and P.<|>
 pAssignExpression :: Parser Exp
 pAssignExpression = do
     target <- pLogicOp
     o <- optionMaybe (symbol "=" >> pAssignExpression)
-    case o of
-        Just value -> return $ AssignExpression target value
-        Nothing -> return target
+    return $ case o of
+        Just value -> AssignExpression target value
+        Nothing -> target
 
 pLogicOp :: Parser Exp
-pLogicOp = chainl1 pCmpOp ((symbol "&&" <|> symbol "||") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
+pLogicOp = chainl1 pCmpOp ((symbol "&&" P.<|> symbol "||") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
 
 pCmpOp :: Parser Exp
-pCmpOp = chainl1 pAddOp (foldr1 (<|>) (map (P.try . symbol) $ words "<= < == != >= >") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
+pCmpOp = chainl1 pAddOp (foldr1 (P.<|>) (map (P.try . symbol) $ words "<= < == != >= >") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
 
 pAddOp :: Parser Exp
-pAddOp = chainl1 pMulOp ((symbol "+" <|> symbol "-") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
+pAddOp = chainl1 pMulOp ((symbol "+" P.<|> symbol "-") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
 
 pMulOp :: Parser Exp
-pMulOp = chainl1 pUnaryOp ((symbol "*" <|> symbol "/" <|> symbol "%") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
+pMulOp = chainl1 pUnaryOp ((symbol "*" P.<|> symbol "/" P.<|> symbol "%") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
 
 pUnaryOp :: Parser Exp
-pUnaryOp = (do
-    symbol "!"
-    e <- pUnaryOp
-    return $ NotExp e)
-    <|>
-    pPostfixOp
+pUnaryOp = pNotExp P.<|> pPostfixOp
+
+pNotExp :: Parser Exp
+pNotExp = NotExp <$ symbol "!" <*> pUnaryOp
 
 pPostfixOp :: Parser Exp
-pPostfixOp = do
-    e <- pPrimaryExp
-    ops <- many (pIndexPostfixOp <|> pCallPostfixOp <|> pMemberPostfixOp)
-    return $ foldl (.) id ops $ e
+pPostfixOp = foldl (flip ($)) <$> pPrimaryExp <*> P.many (pIndexPostfixOp P.<|> pCallPostfixOp P.<|> pMemberPostfixOp)
 
 pIndexPostfixOp :: Parser (Exp -> Exp)
-pIndexPostfixOp = brackets $ do
-    index <- pExp
-    return $ \array -> IndexExp array index
+pIndexPostfixOp = flip IndexExp <$> brackets pExp
 
 pCallPostfixOp :: Parser (Exp -> Exp)
-pCallPostfixOp = P.try $ do
-    symbol "."
-    method <- identifier
-    args <- parens pArgs
-    return $ \object -> CallExp object method args
+pCallPostfixOp = P.try $ (\m as o -> CallExp o m as) <$ symbol "." <*> identifier <*> parens pArgs
 
 pMemberPostfixOp :: Parser (Exp -> Exp)
-pMemberPostfixOp = do
-    symbol "."
-    field <- identifier
-    return $ \object -> MemberExp object field
+pMemberPostfixOp = flip MemberExp <$ symbol "." <*> identifier
 
 pArgs :: Parser [Exp]
-pArgs = chainr (pExp >>= \a -> return [a]) (comma >> return (++)) []
+pArgs = pExp `sepBy` comma
 
 pPrimaryExp :: Parser Exp
 pPrimaryExp =
-        pIntLiteral
-    <|> pBooleanLiteral
-    <|> (identifier >>= return . VarExp)
-    <|> (reserved "this" >> return ThisExp)
-    <|> (P.try $ do
-            reserved "new"
-            reserved "int"
-            size <- brackets pExp
-            return $ NewIntArrayExp size)
-    <|> (do
-            reserved "new"
-            name <- identifier
-            parens empty
-            return $ NewObjectExp name)
-    <|> parens pExp
+          pIntLiteral
+    P.<|> pBooleanLiteral
+    P.<|> VarExp <$> identifier
+    P.<|> ThisExp <$ reserved "this"
+    P.<|> P.try (NewIntArrayExp <$> (reserved "new" *> reserved "int" *> brackets pExp))
+    P.<|> NewObjectExp <$> (reserved "new" *> identifier <* parens pEmpty)
+    P.<|> parens pExp
 
 pIntLiteral :: Parser Exp
-pIntLiteral = do
-    i <- integer
-    return $ IntLiteral (fromIntegral i)
+pIntLiteral = IntLiteral <$> (fromIntegral <$> integer)
 
 pBooleanLiteral :: Parser Exp
 pBooleanLiteral =
-        (reserved "false" >> return (BooleanLiteral False))
-    <|> (reserved "true" >> return (BooleanLiteral True))
+          BooleanLiteral False <$ reserved "false"
+    P.<|> BooleanLiteral True <$ reserved "true"
 
 pType :: Parser Type
 pType =
-        (P.try $ reserved "int" >> brackets empty >> return IntArrayType)
-    <|> (reserved "boolean" >> return BooleanType)
-    <|> (reserved "int" >> return IntType)
-    <|> (identifier >>= return . ObjectType)
+          P.try (IntArrayType <$ reserved "int" <* brackets pEmpty)
+    P.<|> BooleanType <$ reserved "boolean"
+    P.<|> IntType <$ reserved "int"
+    P.<|> ObjectType <$> identifier
 
 pVarDecl :: Parser VarDecl
-pVarDecl = do
-    t <- pType
-    name <- identifier
-    semi
-    return $ VarDecl t name
+pVarDecl = VarDecl <$> pType <*> identifier <* semi
 
 pParameters :: Parser [Parameter]
-pParameters = chainr (pParameter >>= \p -> return [p]) (comma >> return (++)) []
+pParameters = pParameter `sepBy` comma
 
 pParameter :: Parser Parameter
-pParameter = do
-    t <- pType
-    name <- identifier
-    return $ Parameter t name
+pParameter = Parameter <$> pType <*> identifier
 
 pMethodDecl :: Parser MethodDecl
 pMethodDecl = do
@@ -210,20 +148,14 @@ pMethodDecl = do
     t <- pType
     name <- identifier
     params <- parens pParameters
-    braces $ do
-        fields <- many $ P.try pVarDecl
-        body <- many pStatement
-        reserved "return"
-        retExp <- pExp
-        semi
-        return $ MethodDecl t name params fields body retExp
+    braces $ MethodDecl t name params <$> P.many (P.try pVarDecl) <*> P.many pStatement <*> (reserved "return" *> pExp) <* semi
 
 languageDef = emptyDef
     { Token.commentStart    = "/*"
     , Token.commentEnd      = "*/"
     , Token.commentLine     = "//"
     , Token.identStart      = letter
-    , Token.identLetter     = alphaNum <|> char '_'
+    , Token.identLetter     = alphaNum P.<|> char '_'
     , Token.reservedNames   = words "class main public static void extends return int boolean if else while System.out.println true false this new"
     }
 
@@ -241,5 +173,5 @@ brackets   = Token.brackets   lexer
 comma      = Token.comma      lexer
 symbol     = Token.symbol     lexer
 
-empty :: Parser ()
-empty = return ()
+pEmpty :: Parser ()
+pEmpty = return ()
