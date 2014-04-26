@@ -49,8 +49,7 @@ pClass :: Parser Class
 pClass = do
     reserved "class"
     name <- identifier
-    reserved "extends"
-    extends <- identifier
+    extends <- optionMaybe (reserved "extends" >> identifier)
     braces $ do
         fields <- many pVarDeclaration
         methods <- many pMethodDeclaration
@@ -98,9 +97,81 @@ pExpressionStatement = do
     return $ ExpressionStatement e
 
 pExpression :: Parser Expression
-pExpression =
+pExpression = pAssignExpression
+
+-- TODO try cleaning this up with chainl1 and <|>
+pAssignExpression :: Parser Expression
+pAssignExpression = do
+    target <- pLogicOp
+    o <- optionMaybe (symbol "=" >> pAssignExpression)
+    case o of
+        Just value -> return $ AssignExpression target value
+        Nothing -> return target
+
+pLogicOp :: Parser Expression
+pLogicOp = chainl1 pCmpOp ((symbol "&&" <|> symbol "||") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
+
+pCmpOp :: Parser Expression
+pCmpOp = chainl1 pAddOp ((foldr1 (<|>) (map symbol $ words "< <= == != > >=")) >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
+
+pAddOp :: Parser Expression
+pAddOp = chainl1 pMulOp ((symbol "+" <|> symbol "-") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
+
+pMulOp :: Parser Expression
+pMulOp = chainl1 pUnaryOp ((symbol "*" <|> symbol "/" <|> symbol "%") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
+
+pUnaryOp :: Parser Expression
+pUnaryOp = (do
+    symbol "!"
+    e <- pUnaryOp
+    return $ NotExp e)
+    <|>
+    pPostfixOp
+
+pPostfixOp :: Parser Expression
+pPostfixOp = do
+    e <- pPrimaryExp
+    ops <- many (pIndexPostfixOp <|> pCallPostfixOp <|> pMemberPostfixOp)
+    return $ foldl (.) id ops $ e
+
+pIndexPostfixOp :: Parser (Expression -> Expression)
+pIndexPostfixOp = brackets $ do
+    index <- pExpression
+    return $ \array -> IndexExp array index
+
+pCallPostfixOp :: Parser (Expression -> Expression)
+pCallPostfixOp = Text.Parsec.Prim.try $ do
+    symbol "."
+    method <- identifier
+    args <- parens pArgs
+    return $ \object -> CallExp object method args
+
+pMemberPostfixOp :: Parser (Expression -> Expression)
+pMemberPostfixOp = do
+    symbol "."
+    field <- identifier
+    return $ \object -> MemberExp object field
+
+pArgs :: Parser [Expression]
+pArgs = chainr (pExpression >>= \a -> return [a]) (comma >> return (++)) []
+
+pPrimaryExp :: Parser Expression
+pPrimaryExp =
         pIntLiteral
     <|> pBooleanLiteral
+    <|> (identifier >>= return . VarExp)
+    <|> (reserved "this" >> return ThisExp)
+    <|> (Text.Parsec.Prim.try $ do
+            reserved "new"
+            reserved "int"
+            size <- brackets pExpression
+            return $ NewIntArrayExp size)
+    <|> (do
+            reserved "new"
+            name <- identifier
+            parens empty
+            return $ NewObjectExp name)
+    <|> parens pExpression
 
 pIntLiteral :: Parser Expression
 pIntLiteral = do
@@ -153,7 +224,7 @@ data Program = Program MainClass [Class] deriving (Show)
 
 data MainClass = MainClass Statement deriving (Show)
 
-data Class = Class String String [VarDeclaration] [MethodDeclaration] deriving (Show)
+data Class = Class String (Maybe String) [VarDeclaration] [MethodDeclaration] deriving (Show)
 
 data Statement =
       BlockStatement [Statement]
@@ -166,6 +237,16 @@ data Statement =
 data Expression =
       IntLiteral Int
     | BooleanLiteral Bool
+    | AssignExpression Expression Expression
+    | BinaryExpression Expression String Expression
+    | NotExp Expression
+    | IndexExp Expression Expression
+    | CallExp Expression String [Expression]
+    | MemberExp Expression String
+    | VarExp String
+    | ThisExp
+    | NewIntArrayExp Expression
+    | NewObjectExp String
     deriving (Show)
 
 data Type =
