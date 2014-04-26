@@ -195,11 +195,11 @@ pVarDecl = do
     semi
     return $ VarDecl t name
 
-pParams :: Parser [Parameter]
-pParams = chainr (pParam >>= \p -> return [p]) (comma >> return (++)) []
+pParameters :: Parser [Parameter]
+pParameters = chainr (pParameter >>= \p -> return [p]) (comma >> return (++)) []
 
-pParam :: Parser Parameter
-pParam = do
+pParameter :: Parser Parameter
+pParameter = do
     t <- pType
     name <- identifier
     return $ Parameter t name
@@ -209,7 +209,7 @@ pMethodDecl = do
     reserved "public"
     t <- pType
     name <- identifier
-    params <- parens pParams
+    params <- parens pParameters
     braces $ do
         fields <- many $ P.try pVarDecl
         body <- many pStatement
