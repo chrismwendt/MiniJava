@@ -44,15 +44,15 @@ pMainClass = do
             s <- pStatement
             return $ MainClass s
 
-pClass :: Parser Class
+pClass :: Parser ClassDecl
 pClass = do
     reserved "class"
     name <- identifier
     extends <- optionMaybe (reserved "extends" >> identifier)
     braces $ do
-        fields <- many pVarDeclaration
-        methods <- many pMethodDeclaration
-        return $ Class name extends fields methods
+        fields <- many pVarDecl
+        methods <- many pMethodDecl
+        return $ ClassDecl name extends fields methods
 
 pStatement :: Parser Statement
 pStatement =
@@ -70,7 +70,7 @@ pBlockStatement = braces $ do
 pIfStatement :: Parser Statement
 pIfStatement = do
     reserved "if"
-    condition <- parens pExpression
+    condition <- parens pExp
     ifTrue <- pStatement
     ifFalse <- optionMaybe (reserved "else" >> pStatement)
     return $ IfStatement condition ifTrue ifFalse
@@ -78,28 +78,28 @@ pIfStatement = do
 pWhileStatement :: Parser Statement
 pWhileStatement = do
     reserved "while"
-    condition <- parens pExpression
+    condition <- parens pExp
     s <- pStatement
     return $ WhileStatement condition s
 
 pPrintStatement :: Parser Statement
 pPrintStatement = do
     reserved "System.out.println"
-    e <- parens pExpression
+    e <- parens pExp
     semi
     return $ PrintStatement e
 
 pExpressionStatement :: Parser Statement
 pExpressionStatement = do
-    e <- pExpression
+    e <- pExp
     semi
     return $ ExpressionStatement e
 
-pExpression :: Parser Expression
-pExpression = pAssignExpression
+pExp :: Parser Exp
+pExp = pAssignExpression
 
 -- TODO try cleaning this up with chainl1 and <|>
-pAssignExpression :: Parser Expression
+pAssignExpression :: Parser Exp
 pAssignExpression = do
     target <- pLogicOp
     o <- optionMaybe (symbol "=" >> pAssignExpression)
@@ -107,19 +107,19 @@ pAssignExpression = do
         Just value -> return $ AssignExpression target value
         Nothing -> return target
 
-pLogicOp :: Parser Expression
+pLogicOp :: Parser Exp
 pLogicOp = chainl1 pCmpOp ((symbol "&&" <|> symbol "||") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
 
-pCmpOp :: Parser Expression
+pCmpOp :: Parser Exp
 pCmpOp = chainl1 pAddOp (foldr1 (<|>) (map (P.try . symbol) $ words "<= < == != >= >") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
 
-pAddOp :: Parser Expression
+pAddOp :: Parser Exp
 pAddOp = chainl1 pMulOp ((symbol "+" <|> symbol "-") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
 
-pMulOp :: Parser Expression
+pMulOp :: Parser Exp
 pMulOp = chainl1 pUnaryOp ((symbol "*" <|> symbol "/" <|> symbol "%") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
 
-pUnaryOp :: Parser Expression
+pUnaryOp :: Parser Exp
 pUnaryOp = (do
     symbol "!"
     e <- pUnaryOp
@@ -127,34 +127,34 @@ pUnaryOp = (do
     <|>
     pPostfixOp
 
-pPostfixOp :: Parser Expression
+pPostfixOp :: Parser Exp
 pPostfixOp = do
     e <- pPrimaryExp
     ops <- many (pIndexPostfixOp <|> pCallPostfixOp <|> pMemberPostfixOp)
     return $ foldl (.) id ops $ e
 
-pIndexPostfixOp :: Parser (Expression -> Expression)
+pIndexPostfixOp :: Parser (Exp -> Exp)
 pIndexPostfixOp = brackets $ do
-    index <- pExpression
+    index <- pExp
     return $ \array -> IndexExp array index
 
-pCallPostfixOp :: Parser (Expression -> Expression)
+pCallPostfixOp :: Parser (Exp -> Exp)
 pCallPostfixOp = P.try $ do
     symbol "."
     method <- identifier
     args <- parens pArgs
     return $ \object -> CallExp object method args
 
-pMemberPostfixOp :: Parser (Expression -> Expression)
+pMemberPostfixOp :: Parser (Exp -> Exp)
 pMemberPostfixOp = do
     symbol "."
     field <- identifier
     return $ \object -> MemberExp object field
 
-pArgs :: Parser [Expression]
-pArgs = chainr (pExpression >>= \a -> return [a]) (comma >> return (++)) []
+pArgs :: Parser [Exp]
+pArgs = chainr (pExp >>= \a -> return [a]) (comma >> return (++)) []
 
-pPrimaryExp :: Parser Expression
+pPrimaryExp :: Parser Exp
 pPrimaryExp =
         pIntLiteral
     <|> pBooleanLiteral
@@ -163,21 +163,21 @@ pPrimaryExp =
     <|> (P.try $ do
             reserved "new"
             reserved "int"
-            size <- brackets pExpression
+            size <- brackets pExp
             return $ NewIntArrayExp size)
     <|> (do
             reserved "new"
             name <- identifier
             parens empty
             return $ NewObjectExp name)
-    <|> parens pExpression
+    <|> parens pExp
 
-pIntLiteral :: Parser Expression
+pIntLiteral :: Parser Exp
 pIntLiteral = do
     i <- integer
     return $ IntLiteral (fromIntegral i)
 
-pBooleanLiteral :: Parser Expression
+pBooleanLiteral :: Parser Exp
 pBooleanLiteral =
         (reserved "false" >> return (BooleanLiteral False))
     <|> (reserved "true" >> return (BooleanLiteral True))
@@ -189,12 +189,12 @@ pType =
     <|> (reserved "int" >> return IntType)
     <|> (identifier >>= return . ObjectType)
 
-pVarDeclaration :: Parser VarDeclaration
-pVarDeclaration = do
+pVarDecl :: Parser VarDecl
+pVarDecl = do
     t <- pType
     name <- identifier
     semi
-    return $ VarDeclaration t name
+    return $ VarDecl t name
 
 pParams :: Parser [Parameter]
 pParams = chainr (pParam >>= \p -> return [p]) (comma >> return (++)) []
@@ -205,19 +205,19 @@ pParam = do
     name <- identifier
     return $ Parameter t name
 
-pMethodDeclaration :: Parser MethodDeclaration
-pMethodDeclaration = do
+pMethodDecl :: Parser MethodDecl
+pMethodDecl = do
     reserved "public"
     t <- pType
     name <- identifier
     params <- parens pParams
     braces $ do
-        fields <- many $ P.try pVarDeclaration
+        fields <- many $ P.try pVarDecl
         body <- many pStatement
         reserved "return"
-        retExp <- pExpression
+        retExp <- pExp
         semi
-        return $ MethodDeclaration t name params fields body retExp
+        return $ MethodDecl t name params fields body retExp
 
 languageDef = emptyDef
     { Token.commentStart    = "/*"

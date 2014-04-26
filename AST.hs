@@ -3,32 +3,32 @@ module AST where
 import Text.Printf
 import Data.List
 
-data Program = Program MainClass [Class] deriving (Show)
+data Program = Program MainClass [ClassDecl] deriving (Show)
 
 data MainClass = MainClass Statement deriving (Show)
 
-data Class = Class String (Maybe String) [VarDeclaration] [MethodDeclaration] deriving (Show)
+data ClassDecl = ClassDecl String (Maybe String) [VarDecl] [MethodDecl] deriving (Show)
 
 data Statement =
       BlockStatement [Statement]
-    | IfStatement Expression Statement (Maybe Statement)
-    | WhileStatement Expression Statement
-    | PrintStatement Expression
-    | ExpressionStatement Expression
+    | IfStatement Exp Statement (Maybe Statement)
+    | WhileStatement Exp Statement
+    | PrintStatement Exp
+    | ExpressionStatement Exp
     deriving (Show)
 
-data Expression =
+data Exp =
       IntLiteral Int
     | BooleanLiteral Bool
-    | AssignExpression Expression Expression
-    | BinaryExpression Expression String Expression
-    | NotExp Expression
-    | IndexExp Expression Expression
-    | CallExp Expression String [Expression]
-    | MemberExp Expression String
+    | AssignExpression Exp Exp
+    | BinaryExpression Exp String Exp
+    | NotExp Exp
+    | IndexExp Exp Exp
+    | CallExp Exp String [Exp]
+    | MemberExp Exp String
     | VarExp String
     | ThisExp
-    | NewIntArrayExp Expression
+    | NewIntArrayExp Exp
     | NewObjectExp String
     deriving (Show)
 
@@ -41,17 +41,17 @@ data Type =
 
 data Parameter = Parameter Type String deriving (Show)
 
-data VarDeclaration = VarDeclaration Type String deriving (Show)
+data VarDecl = VarDecl Type String deriving (Show)
 
-data MethodDeclaration = MethodDeclaration Type String [Parameter] [VarDeclaration] [Statement] Expression deriving (Show)
+data MethodDecl = MethodDecl Type String [Parameter] [VarDecl] [Statement] Exp deriving (Show)
 
 soMany f as = concatMap (" " ++) $ map f as
 sExpProgram (Program m cs) = printf "(%s %s%s)" "Program" (sExpMainClass m) (soMany sExpClass cs) :: String
 sExpMainClass (MainClass s) = printf "(%s %s)" "Main" (sExpStatement s) :: String
-sExpClass (Class name (Just extends) vs ms) = printf "(%s %s %s%s%s)" "ClassDecl" (show name) (show extends) (soMany sExpVarDeclaration vs) (soMany sExpMethodDeclaration ms) :: String
-sExpClass (Class name Nothing vs ms) = printf "(%s %s %s%s%s)" "ClassDecl" (show name) "null" (soMany sExpVarDeclaration vs) (soMany sExpMethodDeclaration ms) :: String
-sExpVarDeclaration (VarDeclaration t name) = printf "(%s %s %s)" "VarDecl" (sExpType t) (show name) :: String
-sExpMethodDeclaration (MethodDeclaration t name ps vs ss ret) = printf "(%s %s %s (Parameters%s) (VarDecls%s) (Statements%s) (Return %s))" "MethodDecl" (sExpType t) (show name) (soMany sExpParameter ps) (soMany sExpVarDeclaration vs) (soMany sExpStatement ss) (sExpExpression ret) :: String
+sExpClass (ClassDecl name (Just extends) vs ms) = printf "(%s %s %s%s%s)" "ClassDecl" (show name) (show extends) (soMany sExpVarDeclaration vs) (soMany sExpMethodDeclaration ms) :: String
+sExpClass (ClassDecl name Nothing vs ms) = printf "(%s %s %s%s%s)" "ClassDecl" (show name) "null" (soMany sExpVarDeclaration vs) (soMany sExpMethodDeclaration ms) :: String
+sExpVarDeclaration (VarDecl t name) = printf "(%s %s %s)" "VarDecl" (sExpType t) (show name) :: String
+sExpMethodDeclaration (MethodDecl t name ps vs ss ret) = printf "(%s %s %s (Parameters%s) (VarDecls%s) (Statements%s) (Return %s))" "MethodDecl" (sExpType t) (show name) (soMany sExpParameter ps) (soMany sExpVarDeclaration vs) (soMany sExpStatement ss) (sExpExpression ret) :: String
 sExpParameter (Parameter t name) = printf "(%s %s %s)" "Parameter" (sExpType t) (show name) :: String
 sExpType BooleanType = printf "(%s)" "TypeBoolean" :: String
 sExpType IntType = printf "(%s)" "TypeInt" :: String
