@@ -14,7 +14,7 @@ data SSAField = SSAField AST.VarDecl String Int StaticType
 
 data SSACall = SSACall String [SSAStatement]
 
-data SSAStatement = SSAStatement { ssaIndex :: Int, ssaReg :: Maybe Int, ssaPinned :: Bool, ssaOp :: Op, ssaType :: Maybe StaticType }
+data SSAStatement = SSAStatement { ssaID :: Int, ssaReg :: Maybe Int, ssaPinned :: Bool, ssaOp :: Op, ssaType :: Maybe StaticType }
 
 data Op =
       Unify SSAStatement SSAStatement
@@ -85,43 +85,43 @@ instance Show SSAStatement where
     show (SSAStatement index Nothing pin s Nothing) = printf "      %d: %s\n" index (show s)
 
 instance Show Op where
-    show (Unify (SSAStatement { ssaIndex = i1 }) (SSAStatement { ssaIndex = i2 })) = printf "Unify %d %d" i1 i2
-    show (Alias (SSAStatement { ssaIndex = i1 })) = printf "Alias %d" i1
+    show (Unify (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Unify %d %d" i1 i2
+    show (Alias (SSAStatement { ssaID = i1 })) = printf "Alias %d" i1
     show This = printf "This"
     show (Parameter i) = printf "Parameter *%d" i
-    show (Arg (SSAStatement { ssaIndex = i1 }) i2) = printf "Arg %d *%d" i1 i2
+    show (Arg (SSAStatement { ssaID = i1 }) i2) = printf "Arg %d *%d" i1 i2
     show (Null t) = printf "Null *Type(%s)" (show t)
     show (SInt v) = printf "Int *%d" v
     show (SBoolean v) = printf "Boolean *%s" (if v then "true" else "false")
     show (NewObj name) = printf "NewObj *%s" name
-    show (NewIntArray (SSAStatement { ssaIndex = i })) = printf "NewIntArray *%d" i
+    show (NewIntArray (SSAStatement { ssaID = i })) = printf "NewIntArray *%d" i
     show (Label label) = printf "Label *%s" label
-    show (Branch (SSAStatement { ssaIndex = i }) label) = printf "Branch %d *%s" i label
-    show (NBranch (SSAStatement { ssaIndex = i }) label) = printf "NBranch %d *%s" i label
-    show (Call (SSAStatement { ssaIndex = i }) (SSACall name args)) = printf "Call %d *%s(%s)" i name (intercalate ", " $ map (show . ssaIndex) args)
-    show (Print (SSAStatement { ssaIndex = i })) = printf "Print %d" i
-    show (Return (SSAStatement { ssaIndex = i })) = printf "Return %d" i
-    show (Member (SSAStatement { ssaIndex = i }) name) = printf "Member %d *%s" i name
-    show (Index (SSAStatement { ssaIndex = i1 }) (SSAStatement { ssaIndex = i2 })) = printf "Index %d %s" i1 i2
-    show (Store (SSAStatement { ssaIndex = i }) index) = printf "Store %d *%d" i index
+    show (Branch (SSAStatement { ssaID = i }) label) = printf "Branch %d *%s" i label
+    show (NBranch (SSAStatement { ssaID = i }) label) = printf "NBranch %d *%s" i label
+    show (Call (SSAStatement { ssaID = i }) (SSACall name args)) = printf "Call %d *%s(%s)" i name (intercalate ", " $ map (show . ssaID) args)
+    show (Print (SSAStatement { ssaID = i })) = printf "Print %d" i
+    show (Return (SSAStatement { ssaID = i })) = printf "Return %d" i
+    show (Member (SSAStatement { ssaID = i }) name) = printf "Member %d *%s" i name
+    show (Index (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Index %d %s" i1 i2
+    show (Store (SSAStatement { ssaID = i }) index) = printf "Store %d *%d" i index
     show (Load index) = printf "Load *%d" index
-    show (VarAssg (SSAStatement { ssaIndex = i }) name) = printf "VarAssg %d *%s" i name
-    show (MemberAssg (SSAStatement { ssaIndex = i1 }) (SSAStatement { ssaIndex = i2 }) name) = printf "MemberAssg %d %d *%s" i1 i2 name
-    show (IndexAssg (SSAStatement { ssaIndex = i1 }) (SSAStatement { ssaIndex = i2 }) s) = printf "IndexAssg %d %d *%s" i1 i2 (show s)
-    show (Not (SSAStatement { ssaIndex = i1 })) = printf "Not %d" i1
-    show (Lt (SSAStatement { ssaIndex = i1 }) (SSAStatement { ssaIndex = i2 })) = printf "Lt %d %d" i1 i2
-    show (Le (SSAStatement { ssaIndex = i1 }) (SSAStatement { ssaIndex = i2 })) = printf "Le %d %d" i1 i2
-    show (Eq (SSAStatement { ssaIndex = i1 }) (SSAStatement { ssaIndex = i2 })) = printf "Eq %d %d" i1 i2
-    show (Ne (SSAStatement { ssaIndex = i1 }) (SSAStatement { ssaIndex = i2 })) = printf "Ne %d %d" i1 i2
-    show (Gt (SSAStatement { ssaIndex = i1 }) (SSAStatement { ssaIndex = i2 })) = printf "Gt %d %d" i1 i2
-    show (Ge (SSAStatement { ssaIndex = i1 }) (SSAStatement { ssaIndex = i2 })) = printf "Ge %d %d" i1 i2
-    show (And (SSAStatement { ssaIndex = i1 }) (SSAStatement { ssaIndex = i2 })) = printf "And %d %d" i1 i2
-    show (Or (SSAStatement { ssaIndex = i1 }) (SSAStatement { ssaIndex = i2 })) = printf "Or %d %d" i1 i2
-    show (Plus (SSAStatement { ssaIndex = i1 }) (SSAStatement { ssaIndex = i2 })) = printf "Plus %d %d" i1 i2
-    show (Minus (SSAStatement { ssaIndex = i1 }) (SSAStatement { ssaIndex = i2 })) = printf "Minus %d %d" i1 i2
-    show (Mul (SSAStatement { ssaIndex = i1 }) (SSAStatement { ssaIndex = i2 })) = printf "Mul %d %d" i1 i2
-    show (Div (SSAStatement { ssaIndex = i1 }) (SSAStatement { ssaIndex = i2 })) = printf "Div %d %d" i1 i2
-    show (Mod (SSAStatement { ssaIndex = i1 }) (SSAStatement { ssaIndex = i2 })) = printf "Mod %d %d" i1 i2
+    show (VarAssg (SSAStatement { ssaID = i }) name) = printf "VarAssg %d *%s" i name
+    show (MemberAssg (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 }) name) = printf "MemberAssg %d %d *%s" i1 i2 name
+    show (IndexAssg (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 }) s) = printf "IndexAssg %d %d *%s" i1 i2 (show s)
+    show (Not (SSAStatement { ssaID = i1 })) = printf "Not %d" i1
+    show (Lt (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Lt %d %d" i1 i2
+    show (Le (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Le %d %d" i1 i2
+    show (Eq (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Eq %d %d" i1 i2
+    show (Ne (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Ne %d %d" i1 i2
+    show (Gt (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Gt %d %d" i1 i2
+    show (Ge (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Ge %d %d" i1 i2
+    show (And (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "And %d %d" i1 i2
+    show (Or (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Or %d %d" i1 i2
+    show (Plus (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Plus %d %d" i1 i2
+    show (Minus (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Minus %d %d" i1 i2
+    show (Mul (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Mul %d %d" i1 i2
+    show (Div (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Div %d %d" i1 i2
+    show (Mod (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Mod %d %d" i1 i2
 
 instance Show StaticType where
     show TypeInt = "Type(int)"
