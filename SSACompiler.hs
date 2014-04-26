@@ -134,6 +134,3 @@ instance Show StaticObjectType where
     show (StaticObjectType name _) = printf "Type(%s)" name
 
 ssaCompile (AST.Program m cs) = undefined --SSAProgram (SSAMethod MainClass
-
-ssaString :: SSAProgram -> String
-ssaString = show
