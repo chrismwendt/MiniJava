@@ -66,7 +66,6 @@ pExpressionStatement = ExpressionStatement <$> pExp <* semi
 pExp :: Parser Exp
 pExp = pAssignExpression
 
--- TODO try cleaning this up with chainl1 and P.<|>
 pAssignExpression :: Parser Exp
 pAssignExpression = do
     target <- pLogicOp
