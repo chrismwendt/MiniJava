@@ -14,7 +14,7 @@ data SSAField = SSAField AST.VarDecl String Int StaticType
 
 data SSACall = SSACall String [SSAStatement]
 
-data SSAStatement = SSAStatement { ssaIndex :: Int, ssaReg :: Int, ssaPinned :: Bool, ssaOp :: Op }
+data SSAStatement = SSAStatement { ssaIndex :: Int, ssaReg :: Int, ssaPinned :: Bool, ssaOp :: Op, ssaType :: Maybe StaticType }
 
 data Op =
       Unify SSAStatement SSAStatement
@@ -79,7 +79,8 @@ instance Show SSACall where
     show (SSACall name ss) = printf "    method %s:\n%s" name (concatMap show ss)
 
 instance Show SSAStatement where
-    show (SSAStatement index reg pin s) = printf "      %d: %s\n" index (show s)
+    show (SSAStatement index reg pin s (Just t)) = printf "      %d: %s :%s\n" index (show s) (show t)
+    show (SSAStatement index reg pin s Nothing) = printf "      %d: %s\n" index (show s)
 
 instance Show Op where
     show (Unify (SSAStatement { ssaIndex = i1 }) (SSAStatement { ssaIndex = i2 })) = printf "Unify %d %d" i1 i2
