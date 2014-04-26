@@ -3,6 +3,7 @@ import Data.List
 import Options.Applicative
 import Parser
 import AST
+import SSACompiler
 
 data Options = Options { stopAt :: String, file :: String }
 
@@ -13,6 +14,7 @@ options = Options
 
 compile :: Options -> String -> String
 compile (Options "parse" _) source = sExpProgram $ parseString source
+compile (Options "SSA" _) source = ssaString $ ssaCompile $ parseString source
 compile (Options target _) _ = error $ "unknown target: " ++ target
 
 main :: IO ()
