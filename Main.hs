@@ -2,6 +2,7 @@ import System.Environment
 import Data.List
 import Options.Applicative
 import Parser
+import AST
 
 data Options = Options { stopAt :: String, file :: String }
 
