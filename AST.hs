@@ -3,9 +3,7 @@ module AST where
 import Text.Printf
 import Data.List
 
-data Program = Program MainClass [ClassDecl] deriving (Show)
-
-data MainClass = MainClass Statement deriving (Show)
+data Program = Program Statement [ClassDecl] deriving (Show)
 
 data ClassDecl = ClassDecl String (Maybe String) [VarDecl] [MethodDecl] deriving (Show)
 
@@ -46,8 +44,7 @@ data VarDecl = VarDecl Type String deriving (Show)
 data MethodDecl = MethodDecl Type String [Parameter] [VarDecl] [Statement] Exp deriving (Show)
 
 soMany f as = concatMap (" " ++) $ map f as
-sExpProgram (Program m cs) = printf "(%s %s%s)" "Program" (sExpMainClass m) (soMany sExpClass cs) :: String
-sExpMainClass (MainClass s) = printf "(%s %s)" "Main" (sExpStatement s) :: String
+sExpProgram (Program m cs) = printf "(%s (Main %s)%s)" "Program" (sExpStatement m) (soMany sExpClass cs) :: String
 sExpClass (ClassDecl name (Just extends) vs ms) = printf "(%s %s %s%s%s)" "ClassDecl" (show name) (show extends) (soMany sExpVarDeclaration vs) (soMany sExpMethodDeclaration ms) :: String
 sExpClass (ClassDecl name Nothing vs ms) = printf "(%s %s %s%s%s)" "ClassDecl" (show name) "null" (soMany sExpVarDeclaration vs) (soMany sExpMethodDeclaration ms) :: String
 sExpVarDeclaration (VarDecl t name) = printf "(%s %s %s)" "VarDecl" (sExpType t) (show name) :: String

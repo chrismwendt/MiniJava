@@ -4,9 +4,7 @@ import qualified AST
 import Text.Printf
 import Data.List
 
-data SSAProgram = SSAProgram SSAMainMethod [SSAClass]
-
-data SSAMainMethod = SSAMainMethod AST.MainClass SSAStatement
+data SSAProgram = SSAProgram SSAStatement [SSAClass]
 
 data SSAMethod = SSAMethod AST.MethodDecl [SSAStatement]
 
@@ -67,9 +65,6 @@ data StaticObjectType = StaticObjectType String (Maybe StaticObjectType)
 
 instance Show SSAProgram where
     show (SSAProgram m cs) = printf "program:\n%s%s" (show m) (concatMap show cs)
-
-instance Show SSAMainMethod where
-    show (SSAMainMethod m s) = printf "  main:\n    method main:\n%s" (show s)
 
 instance Show SSAMethod where
     show (SSAMethod (AST.MethodDecl _ name _ _ _ _) ss) = printf "    method %s:\n%s" name (concatMap show ss)

@@ -30,7 +30,7 @@ pProgram = do
     cs <- many pClass
     return $ Program m cs
 
-pMainClass :: Parser MainClass
+pMainClass :: Parser Statement
 pMainClass = do
     reserved "class"
     _ <- identifier
@@ -41,8 +41,7 @@ pMainClass = do
         reserved "main"
         parens $ symbol "String" >> brackets empty >> identifier
         braces $ do
-            s <- pStatement
-            return $ MainClass s
+            pStatement
 
 pClass :: Parser ClassDecl
 pClass = do
