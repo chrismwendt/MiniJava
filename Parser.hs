@@ -11,11 +11,6 @@ import qualified Text.ParserCombinators.Parsec.Token as Token
 import Text.Printf
 import Data.List
 
-main :: IO ()
-main = do
-    [file] <- getArgs
-    parseFile file >>= putStrLn . sExpProgram
-
 soMany f as = concatMap (" " ++) $ map f as
 sExpProgram (Program m cs) = printf "(%s %s%s)" "Program" (sExpMainClass m) (soMany sExpClass cs) :: String
 sExpMainClass (MainClass s) = printf "(%s %s)" "Main" (sExpStatement s) :: String
