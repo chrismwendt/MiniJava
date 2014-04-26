@@ -15,6 +15,9 @@ options = Options
 compile :: Options -> String -> String
 compile (Options "parse" _) source = sExpProgram $ parseString source
 compile (Options "SSA" _) source = show $ ssaCompileProgram $ parseString source
+compile (Options "type" _) source = error "unimplemented target: type"
+compile (Options "reg" _) source = error "unimplemented target: reg"
+compile (Options "code" _) source = error "unimplemented target: code"
 compile (Options target _) _ = error $ "unknown target: " ++ target
 
 main :: IO ()
