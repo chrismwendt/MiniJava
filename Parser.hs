@@ -5,7 +5,7 @@ import Control.Monad
 import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Expr
 import Text.ParserCombinators.Parsec.Language
-import Text.Parsec.Prim
+import qualified Text.Parsec.Prim as P
 import qualified Text.ParserCombinators.Parsec.Token as Token
 
 main :: IO ()
@@ -112,7 +112,7 @@ pLogicOp :: Parser Expression
 pLogicOp = chainl1 pCmpOp ((symbol "&&" <|> symbol "||") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
 
 pCmpOp :: Parser Expression
-pCmpOp = chainl1 pAddOp ((foldr1 (<|>) (map symbol $ words "< <= == != > >=")) >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
+pCmpOp = chainl1 pAddOp (foldr1 (<|>) (map (P.try . symbol) $ words "<= < == != >= >") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
 
 pAddOp :: Parser Expression
 pAddOp = chainl1 pMulOp ((symbol "+" <|> symbol "-") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
@@ -140,7 +140,7 @@ pIndexPostfixOp = brackets $ do
     return $ \array -> IndexExp array index
 
 pCallPostfixOp :: Parser (Expression -> Expression)
-pCallPostfixOp = Text.Parsec.Prim.try $ do
+pCallPostfixOp = P.try $ do
     symbol "."
     method <- identifier
     args <- parens pArgs
@@ -161,7 +161,7 @@ pPrimaryExp =
     <|> pBooleanLiteral
     <|> (identifier >>= return . VarExp)
     <|> (reserved "this" >> return ThisExp)
-    <|> (Text.Parsec.Prim.try $ do
+    <|> (P.try $ do
             reserved "new"
             reserved "int"
             size <- brackets pExpression
@@ -185,7 +185,7 @@ pBooleanLiteral =
 
 pType :: Parser Type
 pType =
-        (Text.Parsec.Prim.try $ reserved "int" >> brackets empty >> return IntArrayType)
+        (P.try $ reserved "int" >> brackets empty >> return IntArrayType)
     <|> (reserved "boolean" >> return BooleanType)
     <|> (reserved "int" >> return IntType)
     <|> (identifier >>= return . ObjectType)
@@ -213,7 +213,7 @@ pMethodDeclaration = do
     name <- identifier
     params <- parens pParams
     braces $ do
-        fields <- many $ Text.Parsec.Prim.try pVarDeclaration
+        fields <- many $ P.try pVarDeclaration
         body <- many pStatement
         reserved "return"
         retExp <- pExpression
