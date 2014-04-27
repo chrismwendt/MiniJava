@@ -161,58 +161,58 @@ nextID = do
     return id
 
 ssaCompile :: AST.Program -> SSAProgram Int
-ssaCompile program = evalState ssaCompileProgram (SSAState { getProg = program, getID = 0, getBindings = M.empty })
+ssaCompile program = evalState scProgram (SSAState { getProg = program, getID = 0, getBindings = M.empty })
 
-ssaCompileProgram :: State (SSAState Int) (SSAProgram Int)
-ssaCompileProgram = do
+scProgram :: State (SSAState Int) (SSAProgram Int)
+scProgram = do
     SSAState { getProg = ast@(AST.Program s cs) } <- get
-    SSAProgram ast <$> ssaCompileStatement s <*> (mapM ssaCompileClassDecl cs)
+    SSAProgram ast <$> scStatement s <*> (mapM scClassDecl cs)
 
-ssaCompileStatement :: AST.Statement -> State (SSAState Int) [SSAStatement Int]
-ssaCompileStatement (AST.BlockStatement ss) = concat <$> mapM ssaCompileStatement ss
--- ssaCompileStatement (AST.IfStatement cond true) = ssaCompileExp e
--- ssaCompileStatement (AST.WhileStatement e) = ssaCompileExp e
-ssaCompileStatement (AST.PrintStatement e) = do
-    (ss, r) <- ssaCompileExp e
+scStatement :: AST.Statement -> State (SSAState Int) [SSAStatement Int]
+scStatement (AST.BlockStatement ss) = concat <$> mapM scStatement ss
+-- scStatement (AST.IfStatement cond true) = scExp e
+-- scStatement (AST.WhileStatement e) = scExp e
+scStatement (AST.PrintStatement e) = do
+    (ss, r) <- scExp e
     id <- nextID
     return (ss ++ [Print r id])
-ssaCompileStatement (AST.ExpressionStatement e) = fst <$> ssaCompileExp e
+scStatement (AST.ExpressionStatement e) = fst <$> scExp e
 
-ssaCompileExp :: AST.Exp -> State (SSAState Int) ([SSAStatement Int], SSAStatement Int)
-ssaCompileExp (AST.IntLiteral v) = SInt v <$> nextID >>= \r -> return ([r], r)
-ssaCompileExp (AST.BooleanLiteral v) = SBoolean v <$> nextID >>= \r -> return ([r], r)
-ssaCompileExp (AST.BinaryExpression l op r) = do
-    (ssl, sl) <- ssaCompileExp l
-    (ssr, sr) <- ssaCompileExp r
+scExp :: AST.Exp -> State (SSAState Int) ([SSAStatement Int], SSAStatement Int)
+scExp (AST.IntLiteral v) = SInt v <$> nextID >>= \r -> return ([r], r)
+scExp (AST.BooleanLiteral v) = SBoolean v <$> nextID >>= \r -> return ([r], r)
+scExp (AST.BinaryExpression l op r) = do
+    (ssl, sl) <- scExp l
+    (ssr, sr) <- scExp r
     id <- nextID
     return (case lookup op opConstructors of
         Just opConstructor -> let final = opConstructor sl sr id in (ssl ++ ssr ++ [final], final)
         Nothing -> error $ "Op " ++ op ++ " not found in list: " ++ show (map fst opConstructors))
-ssaCompileExp (AST.NotExp e) = do
-    (ss, r) <- ssaCompileExp e
+scExp (AST.NotExp e) = do
+    (ss, r) <- scExp e
     id <- nextID
     let final = Not r id
     return $ (ss ++ [final], final)
 
-ssaCompileClassDecl :: AST.ClassDecl -> State (SSAState Int) (SSAClass Int)
-ssaCompileClassDecl ast@(AST.ClassDecl name extends vs ms) = SSAClass ast <$> mapM ssaCompileVarDeclAsField (zip vs [0 .. ]) <*> mapM ssaCompileMethodDecl ms
+scClassDecl :: AST.ClassDecl -> State (SSAState Int) (SSAClass Int)
+scClassDecl ast@(AST.ClassDecl name extends vs ms) = SSAClass ast <$> mapM scVarDeclAsField (zip vs [0 .. ]) <*> mapM scMethodDecl ms
 
-ssaCompileVarDeclAsField :: (AST.VarDecl, Int) -> State (SSAState Int) (SSAField Int)
-ssaCompileVarDeclAsField (v, i) = return $ SSAField v i 0
+scVarDeclAsField :: (AST.VarDecl, Int) -> State (SSAState Int) (SSAField Int)
+scVarDeclAsField (v, i) = return $ SSAField v i 0
 
-ssaCompileMethodDecl :: AST.MethodDecl -> State (SSAState Int) (SSAMethod Int)
-ssaCompileMethodDecl ast@(AST.MethodDecl t name ps vs ss ret) = do
-    ps' <- mapM ssaCompileParameter (zip ps [0 .. ])
-    vs' <- mapM ssaCompileVarDecl vs
-    ss' <- concat <$> mapM ssaCompileStatement ss
-    (rs, ret') <- ssaCompileExp ret
+scMethodDecl :: AST.MethodDecl -> State (SSAState Int) (SSAMethod Int)
+scMethodDecl ast@(AST.MethodDecl t name ps vs ss ret) = do
+    ps' <- mapM scParameter (zip ps [0 .. ])
+    vs' <- mapM scVarDecl vs
+    ss' <- concat <$> mapM scStatement ss
+    (rs, ret') <- scExp ret
     return $ SSAMethod ast ps' (vs' ++ ss' ++ rs) (SSAReturn ret')
 
-ssaCompileParameter :: (AST.Parameter, Int) -> State (SSAState Int) (SSAParameter Int)
-ssaCompileParameter (ast, i) = SSAParameter ast <$> nextID <*> pure i
+scParameter :: (AST.Parameter, Int) -> State (SSAState Int) (SSAParameter Int)
+scParameter (ast, i) = SSAParameter ast <$> nextID <*> pure i
 
-ssaCompileVarDecl :: AST.VarDecl -> State (SSAState Int) (SSAStatement Int)
-ssaCompileVarDecl (AST.VarDecl t name) = do
+scVarDecl :: AST.VarDecl -> State (SSAState Int) (SSAStatement Int)
+scVarDecl (AST.VarDecl t name) = do
     id <- nextID
     let r = Null id
     s@(SSAState { getBindings = bs }) <- get
