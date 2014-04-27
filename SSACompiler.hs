@@ -3,9 +3,10 @@ module SSACompiler where
 import qualified AST
 import Text.Printf
 import Data.List
-import Control.Monad.Reader
 import Data.Functor
 import Control.Applicative
+import Control.Monad.State
+import qualified Data.Map as M
 
 data SSAProgram info = SSAProgram AST.Program [SSAStatement info] [SSAClass info] deriving (Show)
 
@@ -136,13 +137,84 @@ data SSAStatement info =
 -- instance Show StaticTypeObject where
 --     show (StaticTypeObject name _) = printf "Type(%s)" name
 
-ssaCompileProgram :: Reader AST.Program (SSAProgram ())
+data SSAState info = SSAState { getProg :: AST.Program, getID :: Int, getBindings :: M.Map String (SSAStatement info) }
+
+opConstructors =
+    [ ("<", Lt)
+    , ("<=", Le)
+    , ("==", Eq)
+    , ("!=", Ne)
+    , (">", Gt)
+    , (">=", Ge)
+    , ("&&", And)
+    , ("||", Or)
+    , ("+", Plus)
+    , ("-", Minus)
+    , ("*", Mul)
+    , ("/", Div)
+    , ("%", Mod)
+    ]
+
+nextID = do
+    s@(SSAState { getID = id }) <- get
+    put (s { getID = succ id })
+    return id
+
+ssaCompile :: AST.Program -> SSAProgram Int
+ssaCompile program = evalState ssaCompileProgram (SSAState { getProg = program, getID = 0, getBindings = M.empty })
+
+ssaCompileProgram :: State (SSAState Int) (SSAProgram Int)
 ssaCompileProgram = do
-    ast@(AST.Program s cs) <- ask
+    SSAState { getProg = ast@(AST.Program s cs) } <- get
     SSAProgram ast <$> ssaCompileStatement s <*> (mapM ssaCompileClassDecl cs)
 
-ssaCompileStatement :: AST.Statement -> Reader AST.Program [SSAStatement ()]
-ssaCompileStatement s = return [] --concatMap (ssaCompileStatement ast) ss
+ssaCompileStatement :: AST.Statement -> State (SSAState Int) [SSAStatement Int]
+ssaCompileStatement (AST.BlockStatement ss) = concat <$> mapM ssaCompileStatement ss
+-- ssaCompileStatement (AST.IfStatement e) = ssaCompileExp e
+-- ssaCompileStatement (AST.WhileStatement e) = ssaCompileExp e
+ssaCompileStatement (AST.PrintStatement e) = do
+    (ss, r) <- ssaCompileExp e
+    id <- nextID
+    return (ss ++ [Print r id])
+ssaCompileStatement (AST.ExpressionStatement e) = fst <$> ssaCompileExp e
 
-ssaCompileClassDecl :: AST.ClassDecl -> Reader AST.Program (SSAClass ())
-ssaCompileClassDecl c = return $ SSAClass c [] []
+ssaCompileExp :: AST.Exp -> State (SSAState Int) ([SSAStatement Int], SSAStatement Int)
+ssaCompileExp (AST.IntLiteral v) = SInt v <$> nextID >>= \r -> return ([r], r)
+ssaCompileExp (AST.BooleanLiteral v) = SBoolean v <$> nextID >>= \r -> return ([r], r)
+ssaCompileExp (AST.BinaryExpression l op r) = do
+    (ssl, sl) <- ssaCompileExp l
+    (ssr, sr) <- ssaCompileExp r
+    id <- nextID
+    return (case lookup op opConstructors of
+        Just opConstructor -> let final = opConstructor sl sr id in (ssl ++ ssr ++ [final], final)
+        Nothing -> error $ "Op " ++ op ++ " not found in list: " ++ show (map fst opConstructors))
+ssaCompileExp (AST.NotExp e) = do
+    (ss, r) <- ssaCompileExp e
+    id <- nextID
+    let final = Not r id
+    return $ (ss ++ [final], final)
+
+ssaCompileClassDecl :: AST.ClassDecl -> State (SSAState Int) (SSAClass Int)
+ssaCompileClassDecl ast@(AST.ClassDecl name extends vs ms) = SSAClass ast <$> mapM ssaCompileVarDeclAsField (zip vs [0 .. ]) <*> mapM ssaCompileMethodDecl ms
+
+ssaCompileVarDeclAsField :: (AST.VarDecl, Int) -> State (SSAState Int) (SSAField Int)
+ssaCompileVarDeclAsField (v, i) = return $ SSAField v i 0
+
+ssaCompileMethodDecl :: AST.MethodDecl -> State (SSAState Int) (SSAMethod Int)
+ssaCompileMethodDecl ast@(AST.MethodDecl t name ps vs ss ret) = do
+    ps' <- mapM ssaCompileParameter (zip ps [0 .. ])
+    vs' <- mapM ssaCompileVarDecl vs
+    ss' <- concat <$> mapM ssaCompileStatement ss
+    (rs, ret') <- ssaCompileExp ret
+    return $ SSAMethod ast ps' (vs' ++ ss' ++ rs) (SSAReturn ret')
+
+ssaCompileParameter :: (AST.Parameter, Int) -> State (SSAState Int) (SSAParameter Int)
+ssaCompileParameter (ast, i) = SSAParameter ast <$> nextID <*> pure i
+
+ssaCompileVarDecl :: AST.VarDecl -> State (SSAState Int) (SSAStatement Int)
+ssaCompileVarDecl (AST.VarDecl t name) = do
+    id <- nextID
+    let r = Null id
+    s@(SSAState { getBindings = bs }) <- get
+    put (s { getBindings = M.insert name r bs })
+    return r
