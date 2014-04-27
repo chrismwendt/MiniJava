@@ -6,6 +6,7 @@ import Data.List
 import Data.Functor
 import Control.Applicative
 import Control.Monad.State
+import Control.Monad
 import qualified Data.Map as M
 
 data SSAProgram info = SSAProgram AST.Program [SSAStatement info] [SSAClass info]
@@ -235,7 +236,7 @@ scStatement axe@(AST.IfStatement condExp branchTrue branchFalse) = do
     let bindings = M.assocs $ M.intersectionWith (,) postTrueBindings postFalseBindings
     let mismatches = filter (uncurry (/=) . snd) bindings
     unifies <- mapM (make . (\(_, (a, b)) -> Unify a b)) mismatches
-    mapM (uncurry insertBinding) $ zip (map fst mismatches) unifies
+    zipWithM_ insertBinding (map fst mismatches) unifies
 
     return ()
 scStatement (AST.WhileStatement condExp body) = do
@@ -262,7 +263,7 @@ scStatement (AST.WhileStatement condExp body) = do
     let bindings = M.assocs $ M.intersectionWith (,) preBranchBindings postBranchBindings
     let mismatches = filter (uncurry (/=) . snd) bindings
     unifies <- mapM (make . (\(_, (a, b)) -> Unify a b)) mismatches
-    mapM (uncurry insertBinding) $ zip (map fst mismatches) unifies
+    zipWithM_ insertBinding (map fst mismatches) unifies
 
     return ()
 scStatement (AST.PrintStatement e) = do
@@ -333,10 +334,11 @@ scExp (AST.NewObjectExp name) = do
 scExp (AST.ThisExp) = make This
 
 scClassDecl :: AST.ClassDecl -> State (SSAState Int) (SSAClass Int)
-scClassDecl ast@(AST.ClassDecl name extends vs ms) = SSAClass ast <$> mapM scVarDeclAsField (zip vs [0 .. ]) <*> mapM scMethodDecl ms
+scClassDecl ast@(AST.ClassDecl name extends vs ms) =
+    SSAClass ast <$> zipWithM scVarDeclAsField vs [0 .. ] <*> mapM scMethodDecl ms
 
-scVarDeclAsField :: (AST.VarDecl, Int) -> State (SSAState Int) (SSAField Int)
-scVarDeclAsField (v, i) = return $ SSAField v i 0
+scVarDeclAsField :: AST.VarDecl -> Int -> State (SSAState Int) (SSAField Int)
+scVarDeclAsField v i = return $ SSAField v i 0
 
 scMethodDecl :: AST.MethodDecl -> State (SSAState Int) (SSAMethod Int)
 scMethodDecl ast@(AST.MethodDecl t name ps vs ss ret) = do
@@ -353,8 +355,8 @@ scMethodDecl ast@(AST.MethodDecl t name ps vs ss ret) = do
     SSAState { getSSAList = allStatements } <- get
     return $ SSAMethod ast (map SSAParameter ssaParams) allStatements (SSAReturn ret')
 
-scParameter :: (AST.Parameter, Int) -> State (SSAState Int) (SSAParameter Int)
-scParameter (ast, i) = do
+scParameter :: AST.Parameter -> Int -> State (SSAState Int) (SSAParameter Int)
+scParameter ast i = do
     r <- make (Parameter ast i)
     return $ SSAParameter r
 
