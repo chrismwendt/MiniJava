@@ -93,6 +93,7 @@ instance Show info => Show (SSAOp info) where
     show This = printf "This"
     show (Parameter _ index) = printf "Parameter *%s" (show index)
     show (Arg arg index) = printf "Arg %s *%s" (sInfo arg) (show index)
+    show (Null AST.BooleanType) = printf "Null *Type(boolean)"
     show (Null AST.IntType) = printf "Null *Type(int)"
     show (Null AST.IntArrayType) = printf "Null *Type(int[])"
     show (Null (AST.ObjectType name)) = printf "Null *Type(%s)" name
@@ -169,6 +170,7 @@ opConstructors =
     , ("%", Mod)
     ]
 
+nextID :: State (SSAState Int) Int
 nextID = do
     s@(SSAState { getID = id }) <- get
     put (s { getID = succ id })
@@ -189,17 +191,17 @@ ssaCompile program = evalState scProgram (SSAState { getProg = program, getID = 
 scProgram :: State (SSAState Int) (SSAProgram Int)
 scProgram = do
     SSAState { getProg = ast@(AST.Program s cs) } <- get
-    SSAProgram ast <$> scStatement s <*> (mapM scClassDecl cs)
+    SSAProgram ast <$> (scStatement s >> get >>= return . getSSAList) <*> (mapM scClassDecl cs)
 
-scStatement :: AST.Statement -> State (SSAState Int) [SSAStatement Int]
-scStatement (AST.BlockStatement ss) = concat <$> mapM scStatement ss
+scStatement :: AST.Statement -> State (SSAState Int) ()
+scStatement (AST.BlockStatement ss) = mapM scStatement ss >> return ()
 -- scStatement (AST.IfStatement cond true) = scExp e
 -- scStatement (AST.WhileStatement e) = scExp e
 scStatement (AST.PrintStatement e) = do
     value <- scExp e
     s <- make (Print value)
-    return [s]
-scStatement (AST.ExpressionStatement e) = singleton <$> scExp e
+    return ()
+scStatement (AST.ExpressionStatement e) = singleton <$> scExp e >> return ()
 
 scExp :: AST.Exp -> State (SSAState Int) (SSAStatement Int)
 scExp (AST.IntLiteral v) = make (SInt v)
@@ -234,11 +236,25 @@ scExp (AST.BinaryExpression l op r) = do
 scExp (AST.NotExp e) = do
     r <- scExp e
     make (Not r)
+scExp (AST.IndexExp arrayExp indexExp) = do
+    array <- scExp arrayExp
+    index <- scExp indexExp
+    make (Index array index)
 scExp (AST.CallExp objectExp methodName argExps) = do
     object <- scExp objectExp
     argTargets <- mapM scExp argExps
     args <- sequence $ zipWith (\a i -> make (Arg a i)) argTargets [0 .. ]
     make (Call methodName object (map SSAArgument args))
+scExp (AST.MemberExp objectExp fieldName) = do
+    object <- scExp objectExp
+    make (Member object fieldName)
+scExp (AST.VarExp name) = do
+    bs <- get >>= return . getBindings
+    case M.lookup name bs of
+        Just s -> return s
+        Nothing -> do
+            this <- make This
+            make (Member this name)
 scExp (AST.NewIntArrayExp index) = do
     r <- scExp index
     make (NewIntArray r)
@@ -254,22 +270,26 @@ scVarDeclAsField (v, i) = return $ SSAField v i 0
 
 scMethodDecl :: AST.MethodDecl -> State (SSAState Int) (SSAMethod Int)
 scMethodDecl ast@(AST.MethodDecl t name ps vs ss ret) = do
+    -- TODO bind parameters in getBindings
+    s <- get
+    put (s { getSSAList = [] })
     ssaParams <- mapM make (zipWith Parameter ps [0 .. ])
-    ssaVars <- mapM scVarDecl vs
-    ssaStatements <- concat <$> mapM scStatement ss
+    mapM make $ map (\((AST.Parameter _ name), p) -> VarAssg p name) $ zip ps ssaParams
+    mapM scVarDecl vs
+    mapM scStatement ss
     ret' <- scExp ret
+    make (Return ret')
     SSAState { getSSAList = allStatements } <- get
     return $ SSAMethod ast (map SSAParameter ssaParams) allStatements (SSAReturn ret')
 
 scParameter :: (AST.Parameter, Int) -> State (SSAState Int) (SSAParameter Int)
 scParameter (ast, i) = do
-    id <- nextID
-    return $ SSAParameter (SSAStatement (Parameter ast i) id)
+    r <- make (Parameter ast i)
+    return $ SSAParameter r
 
 scVarDecl :: AST.VarDecl -> State (SSAState Int) (SSAStatement Int)
 scVarDecl (AST.VarDecl t name) = do
-    id <- nextID
-    let r = SSAStatement (Null t) id
+    r <- make (Null t)
     s@(SSAState { getBindings = bs }) <- get
     put (s { getBindings = M.insert name r bs })
     return r
