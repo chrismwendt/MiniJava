@@ -46,7 +46,7 @@ data SSAOp info =
     | Goto String
     | Branch (SSAStatement info) String
     | NBranch (SSAStatement info) String
-    | Call AST.MethodDecl (SSAStatement info) [SSAArgument info]
+    | Call String (SSAStatement info) [SSAArgument info]
     | Print (SSAStatement info)
     | Return (SSAStatement info)
     | Member (SSAStatement info) String
@@ -101,7 +101,7 @@ instance Show info => Show (SSAOp info) where
     show (Goto label) = printf "Goto *%s" label
     show (Branch s label) = printf "Branch %s *%s" (sInfo s) label
     show (NBranch s label) = printf "NBranch %s *%s" (sInfo s) label
-    show (Call (AST.MethodDecl _ name _ _ _ _) s args) = printf "Call %s *%s(%s)" (sInfo s) name (intercalate ", " $ map sArgInfo args)
+    show (Call name s args) = printf "Call %s *%s(%s)" (sInfo s) name (intercalate ", " $ map sArgInfo args)
     show (Print s) = printf "Print %s" (sInfo s)
     show (Return s) = printf "Return %s" (sInfo s)
     show (Member s name) = printf "Member %s *%s" (sInfo s) name
