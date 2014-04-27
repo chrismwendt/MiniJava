@@ -238,7 +238,33 @@ scStatement axe@(AST.IfStatement condExp branchTrue branchFalse) = do
     mapM (uncurry insertBinding) $ zip (map fst mismatches) unifies
 
     return ()
--- scStatement (AST.WhileStatement e) = scExp e
+scStatement (AST.WhileStatement condExp body) = do
+    startN <- nextLabel
+    endN <- nextLabel
+    let labelStart = printf "l_%d" startN :: String
+    let labelEnd = printf "l_%d" endN :: String
+
+    make (Label labelStart)
+
+    preBranchState@(SSAState { getBindings = preBranchBindings }) <- get
+
+    condSSA <- scExp condExp
+
+    make (NBranch condSSA labelEnd)
+
+    scStatement body
+
+    make (Goto labelStart)
+    make (Label labelEnd)
+
+    postBranchState@(SSAState { getBindings = postBranchBindings }) <- get
+
+    let bindings = M.assocs $ M.intersectionWith (,) preBranchBindings postBranchBindings
+    let mismatches = filter (uncurry (/=) . snd) bindings
+    unifies <- mapM (make . (\(_, (a, b)) -> Unify a b)) mismatches
+    mapM (uncurry insertBinding) $ zip (map fst mismatches) unifies
+
+    return ()
 scStatement (AST.PrintStatement e) = do
     value <- scExp e
     make (Print value)
