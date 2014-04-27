@@ -3,6 +3,9 @@ module SSACompiler where
 import qualified AST
 import Text.Printf
 import Data.List
+import Control.Monad.Reader
+import Data.Functor
+import Control.Applicative
 
 data SSAProgram info = SSAProgram AST.Program [SSAStatement info] [SSAClass info] deriving (Show)
 
@@ -132,7 +135,14 @@ data SSAStatement info =
 --
 -- instance Show StaticTypeObject where
 --     show (StaticTypeObject name _) = printf "Type(%s)" name
---
--- ssaCompileProgram ast@(AST.Program s cs) = SSAProgram (ssaCompileStatement ast s) (map (ssaCompileClassDecl ast) cs)
--- ssaCompileStatement ast (AST.BlockStatement ss) = undefined --concatMap (ssaCompileStatement ast) ss
--- ssaCompileClassDecl ast (AST.ClassDecl name _ _ ms) = undefined --SSAClass
+
+ssaCompileProgram :: Reader AST.Program (SSAProgram ())
+ssaCompileProgram = do
+    ast@(AST.Program s cs) <- ask
+    SSAProgram ast <$> ssaCompileStatement s <*> (mapM ssaCompileClassDecl cs)
+
+ssaCompileStatement :: AST.Statement -> Reader AST.Program [SSAStatement ()]
+ssaCompileStatement s = return [] --concatMap (ssaCompileStatement ast) ss
+
+ssaCompileClassDecl :: AST.ClassDecl -> Reader AST.Program (SSAClass ())
+ssaCompileClassDecl c = return $ SSAClass c [] []
