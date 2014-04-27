@@ -17,13 +17,6 @@ parseString str = case parse pProgram "" str of
     Left e  -> error $ show e
     Right r -> r
 
-parseFile :: String -> IO Program
-parseFile file = do
-    program <- readFile file
-    case parse pProgram "" program of
-        Left e  -> print e >> fail "parse error"
-        Right r -> return r
-
 pProgram :: Parser Program
 pProgram = Program <$> (whiteSpace *> pMainClass) <*> P.many pClass
 
