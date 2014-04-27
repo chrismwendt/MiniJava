@@ -146,6 +146,7 @@ data SSAState info = SSAState
     , getID       :: Int
     , getBindings :: M.Map String (SSAStatement info)
     , getSSAList  :: [SSAStatement info]
+    , getLabel    :: Int
     }
 
 sArgInfo :: Show info => SSAArgument info -> String
@@ -176,6 +177,12 @@ nextID = do
     put (s { getID = succ id })
     return id
 
+nextLabel :: State (SSAState Int) Int
+nextLabel = do
+    s@(SSAState { getLabel = l }) <- get
+    put (s { getID = succ l })
+    return l
+
 make :: SSAOp Int -> State (SSAState Int) (SSAStatement Int)
 make op = do
     s@(SSAState { getID = id, getSSAList = ss }) <- get
@@ -191,7 +198,7 @@ insertBinding name value = do
 singleton a = [a]
 
 ssaCompile :: AST.Program -> SSAProgram Int
-ssaCompile program = evalState scProgram (SSAState { getProg = program, getID = 0, getBindings = M.empty, getSSAList = [] })
+ssaCompile program = evalState scProgram (SSAState { getProg = program, getID = 0, getBindings = M.empty, getSSAList = [], getLabel = 0 })
 
 scProgram :: State (SSAState Int) (SSAProgram Int)
 scProgram = do
@@ -200,7 +207,8 @@ scProgram = do
 
 scStatement :: AST.Statement -> State (SSAState Int) ()
 scStatement (AST.BlockStatement ss) = mapM scStatement ss >> return ()
--- scStatement (AST.IfStatement cond true) = scExp e
+-- scStatement (AST.IfStatement condExp branchTrue branchFalse) = do
+--     condSSA <- sExp condExp
 -- scStatement (AST.WhileStatement e) = scExp e
 scStatement (AST.PrintStatement e) = do
     value <- scExp e
