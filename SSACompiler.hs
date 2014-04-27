@@ -183,6 +183,11 @@ make op = do
     put (s { getID = succ id, getSSAList = ss ++ [newStatement] })
     return newStatement
 
+insertBinding :: String -> (SSAStatement info) -> State (SSAState info) ()
+insertBinding name value = do
+    s@(SSAState { getBindings = bs }) <- get
+    put (s { getBindings = M.insert name value bs })
+
 singleton a = [a]
 
 ssaCompile :: AST.Program -> SSAProgram Int
@@ -212,7 +217,9 @@ scExp (AST.AssignExpression var val) = case var of
         case M.lookup name bs of
             Just s -> do
                 r <- scExp val
-                make (VarAssg r name)
+                v <- make (VarAssg r name)
+                insertBinding name v
+                return v
             Nothing -> do
                 this <- make This
                 r <- scExp val
@@ -274,7 +281,8 @@ scMethodDecl ast@(AST.MethodDecl t name ps vs ss ret) = do
     s <- get
     put (s { getSSAList = [] })
     ssaParams <- mapM make (zipWith Parameter ps [0 .. ])
-    mapM make $ map (\((AST.Parameter _ name), p) -> VarAssg p name) $ zip ps ssaParams
+    ssaVarAssgs <- mapM make $ map (\((AST.Parameter _ name), p) -> VarAssg p name) $ zip ps ssaParams
+    sequence $ zipWith insertBinding (map (\(AST.Parameter _ name) -> name) ps) (ssaVarAssgs)
     mapM scVarDecl vs
     mapM scStatement ss
     ret' <- scExp ret
