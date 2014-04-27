@@ -217,7 +217,7 @@ scMethodDecl ast@(AST.MethodDecl t name ps vs ss ret) = do
     return $ SSAMethod ast ps' (vs' ++ ss' ++ rs) (SSAReturn ret')
 
 scParameter :: (AST.Parameter, Int) -> State (SSAState Int) (SSAParameter Int)
-scParameter (ast, i) = SSAParameter ast <$> nextID <*> pure i
+scParameter (ast, i) = SSAParameter ast <$> pure i <*> nextID
 
 scVarDecl :: AST.VarDecl -> State (SSAState Int) (SSAStatement Int)
 scVarDecl (AST.VarDecl t name) = do
