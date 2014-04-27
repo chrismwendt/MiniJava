@@ -232,9 +232,10 @@ scStatement axe@(AST.IfStatement condExp branchTrue branchFalse) = do
 
     make (Label labelDone)
 
-    let pairs = M.elems $ M.intersectionWith (,) postTrueBindings postFalseBindings :: [(SSAStatement Int, SSAStatement Int)]
-    let mismatches = filter (uncurry (/=)) pairs
-    mapM (make . (\(a, b) -> Unify a b)) mismatches
+    let bindings = M.assocs $ M.intersectionWith (,) postTrueBindings postFalseBindings
+    let mismatches = filter (uncurry (/=) . snd) bindings
+    unifies <- mapM (make . (\(_, (a, b)) -> Unify a b)) mismatches
+    mapM (uncurry insertBinding) $ zip (map fst mismatches) unifies
 
     return ()
 -- scStatement (AST.WhileStatement e) = scExp e
