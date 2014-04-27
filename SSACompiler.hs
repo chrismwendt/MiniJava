@@ -199,7 +199,7 @@ scStatement (AST.BlockStatement ss) = mapM scStatement ss >> return ()
 -- scStatement (AST.WhileStatement e) = scExp e
 scStatement (AST.PrintStatement e) = do
     value <- scExp e
-    s <- make (Print value)
+    make (Print value)
     return ()
 scStatement (AST.ExpressionStatement e) = singleton <$> scExp e >> return ()
 
