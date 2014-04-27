@@ -209,6 +209,20 @@ scExp (AST.AssignExpression var val) = case var of
             Just s -> do
                 r <- scExp val
                 make (VarAssg r name)
+            Nothing -> do
+                this <- make This
+                r <- scExp val
+                make (MemberAssg this r name)
+    AST.MemberExp objectExp fieldName -> do
+        object <- scExp objectExp
+        r <- scExp val
+        make (MemberAssg object r fieldName)
+    AST.IndexExp arrayExp indexExp -> do
+        array <- scExp arrayExp
+        index <- scExp indexExp
+        r <- scExp val
+        make (IndexAssg array index r)
+    l -> error $ "Invalid LHS: " ++ show l
 scExp (AST.BinaryExpression l op r) = do
     sl <- scExp l
     sr <- scExp r
