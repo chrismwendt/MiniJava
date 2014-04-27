@@ -76,7 +76,7 @@ instance Show info => Show (SSAProgram info) where
     show (SSAProgram _ ss cs) = printf "program:\n  main:\n    method main:\n%s%s" (concatMap show ss) (concatMap show cs)
 
 instance Show info => Show (SSAMethod info) where
-    show (SSAMethod (AST.MethodDecl _ name _ _ _ _) ps ss _) = printf "    method %s:\n%s%s" name (concatMap show ps) (concatMap show ss)
+    show (SSAMethod (AST.MethodDecl _ name _ _ _ _) ps ss _) = printf "    method %s:\n%s" name (concatMap show ss)
 
 instance Show info => Show (SSAClass info) where
     show (SSAClass (AST.ClassDecl name _ _ _) _ ms) = printf "  class %s:\n%s" name (concatMap show ms)
