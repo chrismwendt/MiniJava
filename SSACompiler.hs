@@ -8,13 +8,13 @@ import Control.Applicative
 import Control.Monad.State
 import qualified Data.Map as M
 
-data SSAProgram info = SSAProgram AST.Program [SSAStatement info] [SSAClass info] deriving (Show)
+data SSAProgram info = SSAProgram AST.Program [SSAStatement info] [SSAClass info]
 
 data SSAClass info = SSAClass AST.ClassDecl [SSAField info] [SSAMethod info] deriving (Show)
 
 data SSAField info = SSAField AST.VarDecl Int info deriving (Show)
 
-data SSAMethod info = SSAMethod AST.MethodDecl [SSAParameter info] [SSAStatement info] (SSAReturn info) deriving (Show)
+data SSAMethod info = SSAMethod AST.MethodDecl [SSAParameter info] [SSAStatement info] (SSAReturn info)
 
 data SSAParameter info = SSAParameter AST.Parameter Int info deriving (Show)
 
@@ -69,12 +69,12 @@ data SSAStatement info =
     | Div (SSAStatement info) (SSAStatement info) info
     | Mod (SSAStatement info) (SSAStatement info) info deriving (Show)
 
--- instance Show SSAProgram where
---     show (SSAProgram m cs) = printf "program:\n%s%s" (show m) (concatMap show cs)
---
--- instance Show SSAMethod where
---     show (SSAMethod (AST.MethodDecl _ name _ _ _ _) ss) = printf "    method %s:\n%s" name (concatMap show ss)
---
+instance Show info => Show (SSAProgram info) where
+    show (SSAProgram _ ss cs) = printf "program:\n  main:\n    method main:\n%s%s" (concatMap show ss) (concatMap show cs)
+
+instance Show info => Show (SSAMethod info) where
+    show (SSAMethod (AST.MethodDecl _ name _ _ _ _) ps ss _) = printf "    method %s:\n%s%s" name (concatMap show ps) (concatMap show ss)
+
 -- instance Show SSAClass where
 --     show (SSAClass (AST.ClassDecl name _ _ _) fs ms) = printf "  class %s:\n%s" name (concatMap show ms)
 --
@@ -170,7 +170,7 @@ ssaCompileProgram = do
 
 ssaCompileStatement :: AST.Statement -> State (SSAState Int) [SSAStatement Int]
 ssaCompileStatement (AST.BlockStatement ss) = concat <$> mapM ssaCompileStatement ss
--- ssaCompileStatement (AST.IfStatement e) = ssaCompileExp e
+-- ssaCompileStatement (AST.IfStatement cond true) = ssaCompileExp e
 -- ssaCompileStatement (AST.WhileStatement e) = ssaCompileExp e
 ssaCompileStatement (AST.PrintStatement e) = do
     (ss, r) <- ssaCompileExp e
