@@ -232,16 +232,16 @@ scExp (AST.BinaryExpression l op r) = do
 scExp (AST.NotExp e) = do
     r <- scExp e
     make (Not r)
-scExp (AST.NewObjectExp name) = do
-    make (NewObj name)
-scExp (AST.NewIntArrayExp index) = do
-    r <- scExp index
-    make (NewIntArray r)
 scExp (AST.CallExp objectExp methodName argExps) = do
     object <- scExp objectExp
     argTargets <- mapM scExp argExps
     args <- sequence $ zipWith (\a i -> make (Arg a i)) argTargets [0 .. ]
     make (Call methodName object (map SSAArgument args))
+scExp (AST.NewIntArrayExp index) = do
+    r <- scExp index
+    make (NewIntArray r)
+scExp (AST.NewObjectExp name) = do
+    make (NewObj name)
 scExp a = error $ "Not implemented: " ++ (show a)
 
 scClassDecl :: AST.ClassDecl -> State (SSAState Int) (SSAClass Int)
