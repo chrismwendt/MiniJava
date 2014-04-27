@@ -16,11 +16,11 @@ data SSAField info = SSAField AST.VarDecl Int info
 
 data SSAMethod info = SSAMethod AST.MethodDecl [SSAParameter info] [SSAStatement info] (SSAReturn info)
 
-data SSAParameter info = SSAParameter (SSAStatement info)
+data SSAParameter info = SSAParameter (SSAStatement info) deriving (Eq)
 
-data SSAArgument info = SSAArgument (SSAStatement info) deriving (Show)
+data SSAArgument info = SSAArgument (SSAStatement info) deriving (Show, Eq)
 
-data SSAReturn info = SSAReturn (SSAStatement info) deriving (Show)
+data SSAReturn info = SSAReturn (SSAStatement info) deriving (Show, Eq)
 
 data StaticType =
       TypeInt
@@ -29,7 +29,7 @@ data StaticType =
 
 data StaticTypeObject = StaticTypeObject String (Maybe StaticTypeObject) deriving (Show)
 
-data SSAStatement info = SSAStatement { getOp :: SSAOp info, getInfo :: info }
+data SSAStatement info = SSAStatement { getOp :: SSAOp info, getInfo :: info } deriving (Eq)
 
 -- TODO remove SSAParameter, SSAReturn, SSAArgument
 data SSAOp info =
@@ -70,7 +70,7 @@ data SSAOp info =
     | Minus (SSAStatement info) (SSAStatement info)
     | Mul (SSAStatement info) (SSAStatement info)
     | Div (SSAStatement info) (SSAStatement info)
-    | Mod (SSAStatement info) (SSAStatement info)
+    | Mod (SSAStatement info) (SSAStatement info) deriving (Eq)
 
 instance Show info => Show (SSAProgram info) where
     show (SSAProgram _ ss cs) = printf "program:\n  main:\n    method main:\n%s%s" (concatMap show ss) (concatMap show cs)
@@ -207,8 +207,36 @@ scProgram = do
 
 scStatement :: AST.Statement -> State (SSAState Int) ()
 scStatement (AST.BlockStatement ss) = mapM scStatement ss >> return ()
--- scStatement (AST.IfStatement condExp branchTrue branchFalse) = do
---     condSSA <- sExp condExp
+scStatement axe@(AST.IfStatement condExp branchTrue branchFalse) = do
+    condSSA <- scExp condExp
+
+    elseN <- nextLabel
+    doneN <- nextLabel
+    let labelElse = printf "l_%d_else" elseN :: String
+    let labelDone = printf "l_%d_done" doneN :: String
+
+    make (NBranch condSSA labelElse)
+
+    preBranchState@(SSAState { getBindings = preBranchBindings }) <- get
+
+    scStatement branchTrue
+    make (Goto labelDone)
+    make (Label labelElse)
+    postTrueState@(SSAState { getBindings = postTrueBindings }) <- get
+
+    put (postTrueState { getBindings = preBranchBindings })
+    case branchFalse of
+        Just b -> scStatement b
+        Nothing -> return ()
+    postFalseState@(SSAState { getBindings = postFalseBindings }) <- get
+
+    make (Label labelDone)
+
+    let pairs = M.elems $ M.intersectionWith (,) postTrueBindings postFalseBindings :: [(SSAStatement Int, SSAStatement Int)]
+    let mismatches = filter (uncurry (/=)) pairs
+    mapM (make . (\(a, b) -> Unify a b)) mismatches
+
+    return ()
 -- scStatement (AST.WhileStatement e) = scExp e
 scStatement (AST.PrintStatement e) = do
     value <- scExp e
