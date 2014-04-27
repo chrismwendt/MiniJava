@@ -37,7 +37,7 @@ data SSAOp info =
     | This
     | Parameter (SSAParameter info)
     | Arg (SSAArgument info)
-    | Null
+    | Null AST.Type
     | SInt Int
     | SBoolean Bool
     | NewObj String
@@ -222,7 +222,7 @@ scParameter (ast, i) = SSAParameter ast <$> nextID <*> pure i
 scVarDecl :: AST.VarDecl -> State (SSAState Int) (SSAStatement Int)
 scVarDecl (AST.VarDecl t name) = do
     id <- nextID
-    let r = SSAStatement Null id
+    let r = SSAStatement (Null t) id
     s@(SSAState { getBindings = bs }) <- get
     put (s { getBindings = M.insert name r bs })
     return r
