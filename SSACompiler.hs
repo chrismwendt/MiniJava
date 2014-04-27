@@ -10,13 +10,13 @@ import qualified Data.Map as M
 
 data SSAProgram info = SSAProgram AST.Program [SSAStatement info] [SSAClass info]
 
-data SSAClass info = SSAClass AST.ClassDecl [SSAField info] [SSAMethod info] deriving (Show)
+data SSAClass info = SSAClass AST.ClassDecl [SSAField info] [SSAMethod info]
 
-data SSAField info = SSAField AST.VarDecl Int info deriving (Show)
+data SSAField info = SSAField AST.VarDecl Int info
 
 data SSAMethod info = SSAMethod AST.MethodDecl [SSAParameter info] [SSAStatement info] (SSAReturn info)
 
-data SSAParameter info = SSAParameter AST.Parameter Int info deriving (Show)
+data SSAParameter info = SSAParameter AST.Parameter Int info
 
 data SSAArgument info = SSAArgument (SSAStatement info) Int info deriving (Show)
 
@@ -29,7 +29,7 @@ data StaticType =
 
 data StaticTypeObject = StaticTypeObject String (Maybe StaticTypeObject) deriving (Show)
 
-data SSAStatement info = SSAStatement { getOp :: SSAOp info, getInfo :: info } deriving (Show)
+data SSAStatement info = SSAStatement { getOp :: SSAOp info, getInfo :: info }
 
 data SSAOp info =
       Unify (SSAStatement info) (SSAStatement info)
@@ -69,7 +69,7 @@ data SSAOp info =
     | Minus (SSAStatement info) (SSAStatement info)
     | Mul (SSAStatement info) (SSAStatement info)
     | Div (SSAStatement info) (SSAStatement info)
-    | Mod (SSAStatement info) (SSAStatement info) deriving (Show)
+    | Mod (SSAStatement info) (SSAStatement info)
 
 instance Show info => Show (SSAProgram info) where
     show (SSAProgram _ ss cs) = printf "program:\n  main:\n    method main:\n%s%s" (concatMap show ss) (concatMap show cs)
@@ -77,60 +77,58 @@ instance Show info => Show (SSAProgram info) where
 instance Show info => Show (SSAMethod info) where
     show (SSAMethod (AST.MethodDecl _ name _ _ _ _) ps ss _) = printf "    method %s:\n%s%s" name (concatMap show ps) (concatMap show ss)
 
--- instance Show SSAClass where
---     show (SSAClass (AST.ClassDecl name _ _ _) fs ms) = printf "  class %s:\n%s" name (concatMap show ms)
---
--- instance Show SSAField where
---     show (SSAField vd name index t) = name
---
--- instance Show SSACall where
---     show (SSACall name ss) = printf "    method %s:\n%s" name (concatMap show ss)
---
--- instance Show SSAStatement where
---     show (SSAStatement index (Just reg) pin s (Just t)) = printf "      %d(%d): %s :%s\n" index reg (show s) (show t)
---     show (SSAStatement index Nothing pin s (Just t)) = printf "      %d: %s :%s\n" index (show s) (show t)
---     show (SSAStatement index (Just reg) pin s Nothing) = printf "      %d(%d): %s\n" index reg (show s)
---     show (SSAStatement index Nothing pin s Nothing) = printf "      %d: %s\n" index (show s)
---
--- instance Show Op where
---     show (Unify (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Unify %d %d" i1 i2
---     show (Alias (SSAStatement { ssaID = i1 })) = printf "Alias %d" i1
---     show This = printf "This"
---     show (Parameter i) = printf "Parameter *%d" i
---     show (Arg (SSAStatement { ssaID = i1 }) i2) = printf "Arg %d *%d" i1 i2
---     show (Null t) = printf "Null *Type(%s)" (show t)
---     show (SInt v) = printf "Int *%d" v
---     show (SBoolean v) = printf "Boolean *%s" (if v then "true" else "false")
---     show (NewObj name) = printf "NewObj *%s" name
---     show (NewIntArray (SSAStatement { ssaID = i })) = printf "NewIntArray *%d" i
---     show (Label label) = printf "Label *%s" label
---     show (Branch (SSAStatement { ssaID = i }) label) = printf "Branch %d *%s" i label
---     show (NBranch (SSAStatement { ssaID = i }) label) = printf "NBranch %d *%s" i label
---     show (Call (SSAStatement { ssaID = i }) (SSACall name args)) = printf "Call %d *%s(%s)" i name (intercalate ", " $ map (show . ssaID) args)
---     show (Print (SSAStatement { ssaID = i })) = printf "Print %d" i
---     show (Return (SSAStatement { ssaID = i })) = printf "Return %d" i
---     show (Member (SSAStatement { ssaID = i }) name) = printf "Member %d *%s" i name
---     show (Index (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Index %d %s" i1 i2
---     show (Store (SSAStatement { ssaID = i }) index) = printf "Store %d *%d" i index
---     show (Load index) = printf "Load *%d" index
---     show (VarAssg (SSAStatement { ssaID = i }) name) = printf "VarAssg %d *%s" i name
---     show (MemberAssg (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 }) name) = printf "MemberAssg %d %d *%s" i1 i2 name
---     show (IndexAssg (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 }) s) = printf "IndexAssg %d %d *%s" i1 i2 (show s)
---     show (Not (SSAStatement { ssaID = i1 })) = printf "Not %d" i1
---     show (Lt (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Lt %d %d" i1 i2
---     show (Le (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Le %d %d" i1 i2
---     show (Eq (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Eq %d %d" i1 i2
---     show (Ne (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Ne %d %d" i1 i2
---     show (Gt (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Gt %d %d" i1 i2
---     show (Ge (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Ge %d %d" i1 i2
---     show (And (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "And %d %d" i1 i2
---     show (Or (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Or %d %d" i1 i2
---     show (Plus (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Plus %d %d" i1 i2
---     show (Minus (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Minus %d %d" i1 i2
---     show (Mul (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Mul %d %d" i1 i2
---     show (Div (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Div %d %d" i1 i2
---     show (Mod (SSAStatement { ssaID = i1 }) (SSAStatement { ssaID = i2 })) = printf "Mod %d %d" i1 i2
---
+instance Show info => Show (SSAClass info) where
+    show (SSAClass (AST.ClassDecl name _ _ _) _ ms) = printf "  class %s:\n%s" name (concatMap show ms)
+
+instance Show info => Show (SSAField info) where
+    show (SSAField (AST.VarDecl _ name) _ _) = name
+
+instance Show info => Show (SSAStatement info) where
+    show (SSAStatement op info) = printf "      %s: %s\n" (show info) (show op)
+
+instance Show info => Show (SSAOp info) where
+    show (Unify l r) = printf "Unify %s %s" (sInfo l) (sInfo r)
+    show (Alias s) = printf "Alias %s" (sInfo s)
+    show This = printf "This"
+    show (Parameter (SSAParameter _ index _)) = printf "Parameter *%s" (show index)
+    show (Arg (SSAArgument _ index info)) = printf "Arg %s *%s" (show info) (show index)
+    show (Null t) = printf "Null *Type(%s)" (show t)
+    show (SInt v) = printf "Int *%s" (show v)
+    show (SBoolean v) = printf "Boolean *%s" (if v then "true" else "false")
+    show (NewObj name) = printf "NewObj *%s" name
+    show (NewIntArray s) = printf "NewIntArray *%s" (sInfo s)
+    show (Label label) = printf "Label *%s" label
+    show (Goto label) = printf "Goto *%s" label
+    show (Branch s label) = printf "Branch %s *%s" (sInfo s) label
+    show (NBranch s label) = printf "NBranch %s *%s" (sInfo s) label
+    show (Call (AST.MethodDecl _ name _ _ _ _) s args) = printf "Call %s *%s(%s)" (sInfo s) name (intercalate ", " $ map sArgInfo args)
+    show (Print s) = printf "Print %s" (sInfo s)
+    show (Return s) = printf "Return %s" (sInfo s)
+    show (Member s name) = printf "Member %s *%s" (sInfo s) name
+    show (Index a i) = printf "Index %s %s" (sInfo a) (sInfo i)
+    show (Store s i) = printf "Store %s *%s" (sInfo s) (show i)
+    show (Load i) = printf "Load *%s" (show i)
+    show (VarAssg s name) = printf "VarAssg %s *%s" (sInfo s) name
+    show (MemberAssg object value name) = printf "MemberAssg %s %s *%s" (sInfo object) (sInfo value) name
+    show (IndexAssg array value index) = printf "IndexAssg %s %s *%s" (sInfo array) (sInfo value) (sInfo index)
+    show (Not s) = printf "Not %s" (sInfo s)
+    show (Lt sl sr) = printf "Lt %s %s" (sInfo sl) (sInfo sr)
+    show (Le sl sr) = printf "Le %s %s" (sInfo sl) (sInfo sr)
+    show (Eq sl sr) = printf "Eq %s %s" (sInfo sl) (sInfo sr)
+    show (Ne sl sr) = printf "Ne %s %s" (sInfo sl) (sInfo sr)
+    show (Gt sl sr) = printf "Gt %s %s" (sInfo sl) (sInfo sr)
+    show (Ge sl sr) = printf "Ge %s %s" (sInfo sl) (sInfo sr)
+    show (And sl sr) = printf "And %s %s" (sInfo sl) (sInfo sr)
+    show (Or sl sr) = printf "Or %s %s" (sInfo sl) (sInfo sr)
+    show (Plus sl sr) = printf "Plus %s %s" (sInfo sl) (sInfo sr)
+    show (Minus sl sr) = printf "Minus %s %s" (sInfo sl) (sInfo sr)
+    show (Mul sl sr) = printf "Mul %s %s" (sInfo sl) (sInfo sr)
+    show (Div sl sr) = printf "Div %s %s" (sInfo sl) (sInfo sr)
+    show (Mod sl sr) = printf "Mod %s %s" (sInfo sl) (sInfo sr)
+
+instance Show info => Show (SSAParameter info) where
+    show p@(SSAParameter _ _ info) = show (SSAStatement (Parameter p) info)
+
 -- instance Show StaticType where
 --     show TypeInt = "Type(int)"
 --     show TypeBoolean = "Type(boolean)"
@@ -140,6 +138,12 @@ instance Show info => Show (SSAMethod info) where
 --     show (StaticTypeObject name _) = printf "Type(%s)" name
 
 data SSAState info = SSAState { getProg :: AST.Program, getID :: Int, getBindings :: M.Map String (SSAStatement info) }
+
+sArgInfo :: Show info => SSAArgument info -> String
+sArgInfo (SSAArgument _ _ info) = show info
+
+sInfo :: Show info => SSAStatement info -> String
+sInfo (SSAStatement { getInfo = info }) = show info
 
 opConstructors =
     [ ("<", Lt)
