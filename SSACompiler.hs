@@ -205,6 +205,27 @@ scExp (AST.NotExp e) = do
     id <- nextID
     let final = SSAStatement (Not r) id
     return $ (ss ++ [final], final)
+scExp (AST.NewObjectExp name) = do
+    id <- nextID
+    let r = SSAStatement (NewObj name) id
+    return $ ([r], r)
+scExp (AST.NewIntArrayExp index) = do
+    (idxs, idx) <- scExp index
+    id <- nextID
+    let r = SSAStatement (NewIntArray idx) id
+    return $ (idxs ++ [r], r)
+scExp (AST.CallExp objectExp methodName argExps) = do
+    (prevObjects, object) <- scExp objectExp
+    argPairs <- mapM scExp argExps
+    let prevArgs = concatMap fst argPairs
+    nids <- mapM (const nextID) argPairs
+    let f a i id = SSAArgument $ SSAStatement (Arg a i) id
+    let args = zipWith3 f (map snd argPairs) [0 .. ] nids
+    let ssaArgs = map (\(SSAArgument a) -> a) args
+    id <- nextID
+    let r = SSAStatement (Call methodName object args) id
+    return $ (prevObjects ++ prevArgs ++ ssaArgs ++ [r], r)
+scExp a = error $ "Not implemented: " ++ (show a)
 
 scClassDecl :: AST.ClassDecl -> State (SSAState Int) (SSAClass Int)
 scClassDecl ast@(AST.ClassDecl name extends vs ms) = SSAClass ast <$> mapM scVarDeclAsField (zip vs [0 .. ]) <*> mapM scMethodDecl ms
