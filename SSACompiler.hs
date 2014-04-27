@@ -31,6 +31,7 @@ data StaticTypeObject = StaticTypeObject String (Maybe StaticTypeObject) derivin
 
 data SSAStatement info = SSAStatement { getOp :: SSAOp info, getInfo :: info }
 
+-- TODO remove SSAParameter, SSAReturn, SSAArgument
 data SSAOp info =
       Unify (SSAStatement info) (SSAStatement info)
     | Alias (SSAStatement info)
@@ -137,7 +138,12 @@ instance Show info => Show (SSAParameter info) where
 -- instance Show StaticTypeObject where
 --     show (StaticTypeObject name _) = printf "Type(%s)" name
 
-data SSAState info = SSAState { getProg :: AST.Program, getID :: Int, getBindings :: M.Map String (SSAStatement info) }
+data SSAState info = SSAState
+    { getProg     :: AST.Program
+    , getID       :: Int
+    , getBindings :: M.Map String (SSAStatement info)
+    , getSSAList  :: [SSAStatement info]
+    }
 
 sArgInfo :: Show info => SSAArgument info -> String
 sArgInfo (SSAArgument s) = sInfo s
@@ -166,8 +172,17 @@ nextID = do
     put (s { getID = succ id })
     return id
 
+make :: SSAOp Int -> State (SSAState Int) (SSAStatement Int)
+make op = do
+    s@(SSAState { getID = id, getSSAList = ss }) <- get
+    let newStatement = SSAStatement op id
+    put (s { getID = succ id, getSSAList = ss ++ [newStatement] })
+    return newStatement
+
+singleton a = [a]
+
 ssaCompile :: AST.Program -> SSAProgram Int
-ssaCompile program = evalState scProgram (SSAState { getProg = program, getID = 0, getBindings = M.empty })
+ssaCompile program = evalState scProgram (SSAState { getProg = program, getID = 0, getBindings = M.empty, getSSAList = [] })
 
 scProgram :: State (SSAState Int) (SSAProgram Int)
 scProgram = do
@@ -179,52 +194,40 @@ scStatement (AST.BlockStatement ss) = concat <$> mapM scStatement ss
 -- scStatement (AST.IfStatement cond true) = scExp e
 -- scStatement (AST.WhileStatement e) = scExp e
 scStatement (AST.PrintStatement e) = do
-    (ss, r) <- scExp e
-    id <- nextID
-    return (ss ++ [SSAStatement (Print r) id])
-scStatement (AST.ExpressionStatement e) = fst <$> scExp e
+    value <- scExp e
+    s <- make (Print value)
+    return [s]
+scStatement (AST.ExpressionStatement e) = singleton <$> scExp e
 
-scExp :: AST.Exp -> State (SSAState Int) ([SSAStatement Int], SSAStatement Int)
-scExp (AST.IntLiteral v) = do
-    id <- nextID
-    let r = SSAStatement (SInt v) id
-    return ([r], r)
-scExp (AST.BooleanLiteral v) = do
-    id <- nextID
-    let r = SSAStatement (SBoolean v) id
-    return ([r], r)
+scExp :: AST.Exp -> State (SSAState Int) (SSAStatement Int)
+scExp (AST.IntLiteral v) = make (SInt v)
+scExp (AST.BooleanLiteral v) = make (SBoolean v)
+scExp (AST.AssignExpression var val) = case var of
+    AST.VarExp name -> do
+        bs <- get >>= return . getBindings
+        case M.lookup name bs of
+            Just s -> do
+                r <- scExp val
+                make (VarAssg r name)
 scExp (AST.BinaryExpression l op r) = do
-    (ssl, sl) <- scExp l
-    (ssr, sr) <- scExp r
-    id <- nextID
-    return (case lookup op opConstructors of
-        Just opConstructor -> let final = SSAStatement (opConstructor sl sr) id in (ssl ++ ssr ++ [final], final)
-        Nothing -> error $ "Op " ++ op ++ " not found in list: " ++ show (map fst opConstructors))
+    sl <- scExp l
+    sr <- scExp r
+    case lookup op opConstructors of
+        Just opConstructor -> make (opConstructor sl sr)
+        Nothing -> error $ "Op " ++ op ++ " not found in list: " ++ show (map fst opConstructors)
 scExp (AST.NotExp e) = do
-    (ss, r) <- scExp e
-    id <- nextID
-    let final = SSAStatement (Not r) id
-    return $ (ss ++ [final], final)
+    r <- scExp e
+    make (Not r)
 scExp (AST.NewObjectExp name) = do
-    id <- nextID
-    let r = SSAStatement (NewObj name) id
-    return $ ([r], r)
+    make (NewObj name)
 scExp (AST.NewIntArrayExp index) = do
-    (idxs, idx) <- scExp index
-    id <- nextID
-    let r = SSAStatement (NewIntArray idx) id
-    return $ (idxs ++ [r], r)
+    r <- scExp index
+    make (NewIntArray r)
 scExp (AST.CallExp objectExp methodName argExps) = do
-    (prevObjects, object) <- scExp objectExp
-    argPairs <- mapM scExp argExps
-    let prevArgs = concatMap fst argPairs
-    nids <- mapM (const nextID) argPairs
-    let f a i id = SSAArgument $ SSAStatement (Arg a i) id
-    let args = zipWith3 f (map snd argPairs) [0 .. ] nids
-    let ssaArgs = map (\(SSAArgument a) -> a) args
-    id <- nextID
-    let r = SSAStatement (Call methodName object args) id
-    return $ (prevObjects ++ prevArgs ++ ssaArgs ++ [r], r)
+    object <- scExp objectExp
+    argTargets <- mapM scExp argExps
+    args <- sequence $ zipWith (\a i -> make (Arg a i)) argTargets [0 .. ]
+    make (Call methodName object (map SSAArgument args))
 scExp a = error $ "Not implemented: " ++ (show a)
 
 scClassDecl :: AST.ClassDecl -> State (SSAState Int) (SSAClass Int)
@@ -235,11 +238,12 @@ scVarDeclAsField (v, i) = return $ SSAField v i 0
 
 scMethodDecl :: AST.MethodDecl -> State (SSAState Int) (SSAMethod Int)
 scMethodDecl ast@(AST.MethodDecl t name ps vs ss ret) = do
-    ps' <- mapM scParameter (zip ps [0 .. ])
-    vs' <- mapM scVarDecl vs
-    ss' <- concat <$> mapM scStatement ss
-    (rs, ret') <- scExp ret
-    return $ SSAMethod ast ps' (vs' ++ ss' ++ rs) (SSAReturn ret')
+    ssaParams <- mapM make (zipWith Parameter ps [0 .. ])
+    ssaVars <- mapM scVarDecl vs
+    ssaStatements <- concat <$> mapM scStatement ss
+    ret' <- scExp ret
+    SSAState { getSSAList = allStatements } <- get
+    return $ SSAMethod ast (map SSAParameter ssaParams) allStatements (SSAReturn ret')
 
 scParameter :: (AST.Parameter, Int) -> State (SSAState Int) (SSAParameter Int)
 scParameter (ast, i) = do
