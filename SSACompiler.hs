@@ -4,26 +4,26 @@ import qualified AST
 import Text.Printf
 import Data.List
 
-data SSAProgram info = SSAProgram AST.Program [SSAStatement info] [SSAClass info]
+data SSAProgram info = SSAProgram AST.Program [SSAStatement info] [SSAClass info] deriving (Show)
 
-data SSAClass info = SSAClass AST.ClassDecl [SSAField info] [SSAMethod info]
+data SSAClass info = SSAClass AST.ClassDecl [SSAField info] [SSAMethod info] deriving (Show)
 
-data SSAField info = SSAField AST.VarDecl Int info
+data SSAField info = SSAField AST.VarDecl Int info deriving (Show)
 
-data SSAMethod info = SSAMethod AST.MethodDecl [SSAParameter info] [SSAStatement info] (SSAReturn info)
+data SSAMethod info = SSAMethod AST.MethodDecl [SSAParameter info] [SSAStatement info] (SSAReturn info) deriving (Show)
 
-data SSAParameter info = SSAParameter AST.Parameter Int info
+data SSAParameter info = SSAParameter AST.Parameter Int info deriving (Show)
 
-data SSAArgument info = SSAArgument (SSAStatement info) Int info
+data SSAArgument info = SSAArgument (SSAStatement info) Int info deriving (Show)
 
-data SSAReturn info = SSAReturn (SSAStatement info)
+data SSAReturn info = SSAReturn (SSAStatement info) deriving (Show)
 
 data StaticType =
       TypeInt
     | TypeBoolean
-    | TypeObject StaticTypeObject
+    | TypeObject StaticTypeObject deriving (Show)
 
-data StaticTypeObject = StaticTypeObject String (Maybe StaticTypeObject)
+data StaticTypeObject = StaticTypeObject String (Maybe StaticTypeObject) deriving (Show)
 
 data SSAStatement info =
       Unify (SSAStatement info) (SSAStatement info) info
@@ -63,7 +63,7 @@ data SSAStatement info =
     | Minus (SSAStatement info) (SSAStatement info) info
     | Mul (SSAStatement info) (SSAStatement info) info
     | Div (SSAStatement info) (SSAStatement info) info
-    | Mod (SSAStatement info) (SSAStatement info) info
+    | Mod (SSAStatement info) (SSAStatement info) info deriving (Show)
 
 -- instance Show SSAProgram where
 --     show (SSAProgram m cs) = printf "program:\n%s%s" (show m) (concatMap show cs)
