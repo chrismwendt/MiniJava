@@ -18,47 +18,45 @@ data SSAArgument info = SSAArgument (SSAStatement info) Int info
 
 data SSAReturn info = SSAReturn (SSAStatement info)
 
-data SSALabel info = SSALabel String info
-
 data SSAStatement info =
-      Unify (SSAStatement info) (SSAStatement info)
-    | Alias (SSAStatement info)
-    | This
-    | Parameter (SSAParameter info)
-    | Arg (SSAArgument info)
-    | Null StaticType
-    | SInt Int
-    | SBoolean Bool
-    | NewObj String
-    | NewIntArray (SSAStatement info)
-    | Label (SSALabel info)
-    | Goto (SSALabel info)
-    | Branch (SSAStatement info) (SSALabel info)
-    | NBranch (SSAStatement info) (SSALabel info)
-    | Call AST.MethodDecl (SSAStatement info) [SSAArgument info]
-    | Print (SSAStatement info)
-    | Return (SSAStatement info)
-    | Member (SSAStatement info) String
-    | Index (SSAStatement info) (SSAStatement info)
-    | Store (SSAStatement info) Int
-    | Load Int
-    | VarAssg (SSAStatement info) String
-    | MemberAssg (SSAStatement info) (SSAStatement info) String
-    | IndexAssg (SSAStatement info) (SSAStatement info) (SSAStatement info)
-    | Not (SSAStatement info)
-    | Lt (SSAStatement info) (SSAStatement info)
-    | Le (SSAStatement info) (SSAStatement info)
-    | Eq (SSAStatement info) (SSAStatement info)
-    | Ne (SSAStatement info) (SSAStatement info)
-    | Gt (SSAStatement info) (SSAStatement info)
-    | Ge (SSAStatement info) (SSAStatement info)
-    | And (SSAStatement info) (SSAStatement info)
-    | Or (SSAStatement info) (SSAStatement info)
-    | Plus (SSAStatement info) (SSAStatement info)
-    | Minus (SSAStatement info) (SSAStatement info)
-    | Mul (SSAStatement info) (SSAStatement info)
-    | Div (SSAStatement info) (SSAStatement info)
-    | Mod (SSAStatement info) (SSAStatement info)
+      Unify (SSAStatement info) (SSAStatement info) info
+    | Alias (SSAStatement info) info
+    | This info
+    | Parameter (SSAParameter info) info
+    | Arg (SSAArgument info) info
+    | Null info
+    | SInt Int info
+    | SBoolean Bool info
+    | NewObj String info
+    | NewIntArray (SSAStatement info) info
+    | Label String info
+    | Goto String info
+    | Branch (SSAStatement info) String info
+    | NBranch (SSAStatement info) String info
+    | Call AST.MethodDecl (SSAStatement info) [SSAArgument info] info
+    | Print (SSAStatement info) info
+    | Return (SSAStatement info) info
+    | Member (SSAStatement info) String info
+    | Index (SSAStatement info) (SSAStatement info) info
+    | Store (SSAStatement info) Int info
+    | Load Int info
+    | VarAssg (SSAStatement info) String info
+    | MemberAssg (SSAStatement info) (SSAStatement info) String info
+    | IndexAssg (SSAStatement info) (SSAStatement info) (SSAStatement info) info
+    | Not (SSAStatement info) info
+    | Lt (SSAStatement info) (SSAStatement info) info
+    | Le (SSAStatement info) (SSAStatement info) info
+    | Eq (SSAStatement info) (SSAStatement info) info
+    | Ne (SSAStatement info) (SSAStatement info) info
+    | Gt (SSAStatement info) (SSAStatement info) info
+    | Ge (SSAStatement info) (SSAStatement info) info
+    | And (SSAStatement info) (SSAStatement info) info
+    | Or (SSAStatement info) (SSAStatement info) info
+    | Plus (SSAStatement info) (SSAStatement info) info
+    | Minus (SSAStatement info) (SSAStatement info) info
+    | Mul (SSAStatement info) (SSAStatement info) info
+    | Div (SSAStatement info) (SSAStatement info) info
+    | Mod (SSAStatement info) (SSAStatement info) info
 
 data StaticType =
       TypeInt
