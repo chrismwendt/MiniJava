@@ -16,9 +16,9 @@ data SSAField info = SSAField AST.VarDecl Int info
 
 data SSAMethod info = SSAMethod AST.MethodDecl [SSAParameter info] [SSAStatement info] (SSAReturn info)
 
-data SSAParameter info = SSAParameter AST.Parameter Int info
+data SSAParameter info = SSAParameter (SSAStatement info)
 
-data SSAArgument info = SSAArgument (SSAStatement info) Int info deriving (Show)
+data SSAArgument info = SSAArgument (SSAStatement info) deriving (Show)
 
 data SSAReturn info = SSAReturn (SSAStatement info) deriving (Show)
 
@@ -35,8 +35,8 @@ data SSAOp info =
       Unify (SSAStatement info) (SSAStatement info)
     | Alias (SSAStatement info)
     | This
-    | Parameter (SSAParameter info)
-    | Arg (SSAArgument info)
+    | Parameter AST.Parameter Int
+    | Arg (SSAStatement info) Int
     | Null AST.Type
     | SInt Int
     | SBoolean Bool
@@ -90,8 +90,8 @@ instance Show info => Show (SSAOp info) where
     show (Unify l r) = printf "Unify %s %s" (sInfo l) (sInfo r)
     show (Alias s) = printf "Alias %s" (sInfo s)
     show This = printf "This"
-    show (Parameter (SSAParameter _ index _)) = printf "Parameter *%s" (show index)
-    show (Arg (SSAArgument _ index info)) = printf "Arg %s *%s" (show info) (show index)
+    show (Parameter _ index) = printf "Parameter *%s" (show index)
+    show (Arg arg index) = printf "Arg %s *%s" (sInfo arg) (show index)
     show (Null t) = printf "Null *Type(%s)" (show t)
     show (SInt v) = printf "Int *%s" (show v)
     show (SBoolean v) = printf "Boolean *%s" (if v then "true" else "false")
@@ -127,7 +127,7 @@ instance Show info => Show (SSAOp info) where
     show (Mod sl sr) = printf "Mod %s %s" (sInfo sl) (sInfo sr)
 
 instance Show info => Show (SSAParameter info) where
-    show p@(SSAParameter _ _ info) = show (SSAStatement (Parameter p) info)
+    show (SSAParameter p) = show p
 
 -- instance Show StaticType where
 --     show TypeInt = "Type(int)"
@@ -140,7 +140,7 @@ instance Show info => Show (SSAParameter info) where
 data SSAState info = SSAState { getProg :: AST.Program, getID :: Int, getBindings :: M.Map String (SSAStatement info) }
 
 sArgInfo :: Show info => SSAArgument info -> String
-sArgInfo (SSAArgument _ _ info) = show info
+sArgInfo (SSAArgument s) = sInfo s
 
 sInfo :: Show info => SSAStatement info -> String
 sInfo (SSAStatement { getInfo = info }) = show info
@@ -221,7 +221,9 @@ scMethodDecl ast@(AST.MethodDecl t name ps vs ss ret) = do
     return $ SSAMethod ast ps' (vs' ++ ss' ++ rs) (SSAReturn ret')
 
 scParameter :: (AST.Parameter, Int) -> State (SSAState Int) (SSAParameter Int)
-scParameter (ast, i) = SSAParameter ast <$> pure i <*> nextID
+scParameter (ast, i) = do
+    id <- nextID
+    return $ SSAParameter (SSAStatement (Parameter ast i) id)
 
 scVarDecl :: AST.VarDecl -> State (SSAState Int) (SSAStatement Int)
 scVarDecl (AST.VarDecl t name) = do
