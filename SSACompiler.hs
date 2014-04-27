@@ -6,7 +6,7 @@ import Data.List
 
 data SSAProgram info = SSAProgram AST.Program [SSAStatement info] [SSAClass info]
 
-data SSAClass info = SSAClass AST.ClassDecl [SSAField] [SSAMethod info]
+data SSAClass info = SSAClass AST.ClassDecl [SSAField info] [SSAMethod info]
 
 data SSAMethod info = SSAMethod AST.MethodDecl [SSAParameter info] [SSAStatement info] (SSAReturn info)
 
