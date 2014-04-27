@@ -43,6 +43,8 @@ data VarDecl = VarDecl Type String deriving (Show)
 
 data MethodDecl = MethodDecl Type String [Parameter] [VarDecl] [Statement] Exp deriving (Show)
 
+-- TODO use Show instances instead of explicit string functions
+
 soMany f as = concatMap (" " ++) $ map f as
 sExpProgram (Program m cs) = printf "(%s (Main %s)%s)" "Program" (sExpStatement m) (soMany sExpClass cs) :: String
 sExpClass (ClassDecl name (Just extends) vs ms) = printf "(%s %s %s%s%s)" "ClassDecl" (show name) (show extends) (soMany sExpVarDeclaration vs) (soMany sExpMethodDeclaration ms) :: String
