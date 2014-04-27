@@ -275,7 +275,7 @@ scExp (AST.NewIntArrayExp index) = do
     make (NewIntArray r)
 scExp (AST.NewObjectExp name) = do
     make (NewObj name)
-scExp a = error $ "Not implemented: " ++ (show a)
+scExp (AST.ThisExp) = make This
 
 scClassDecl :: AST.ClassDecl -> State (SSAState Int) (SSAClass Int)
 scClassDecl ast@(AST.ClassDecl name extends vs ms) = SSAClass ast <$> mapM scVarDeclAsField (zip vs [0 .. ]) <*> mapM scMethodDecl ms
