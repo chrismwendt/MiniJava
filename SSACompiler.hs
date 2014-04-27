@@ -4,7 +4,7 @@ import qualified AST
 import Text.Printf
 import Data.List
 
-data SSAProgram = SSAProgram SSAStatement [SSAClass]
+data SSAProgram = SSAProgram [SSAStatement] [SSAClass]
 
 data SSAMethod = SSAMethod AST.MethodDecl [SSAStatement]
 
@@ -131,4 +131,4 @@ instance Show StaticType where
 instance Show StaticObjectType where
     show (StaticObjectType name _) = printf "Type(%s)" name
 
-ssaCompileProgram _ = SSAProgram undefined undefined
+ssaCompileProgram ast@(AST.Program s cs) = SSAProgram (ssaCompileStatement ast s) undefined
