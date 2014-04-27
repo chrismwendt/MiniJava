@@ -8,15 +8,22 @@ data SSAProgram info = SSAProgram AST.Program [SSAStatement info] [SSAClass info
 
 data SSAClass info = SSAClass AST.ClassDecl [SSAField info] [SSAMethod info]
 
-data SSAMethod info = SSAMethod AST.MethodDecl [SSAParameter info] [SSAStatement info] (SSAReturn info)
-
 data SSAField info = SSAField AST.VarDecl Int info
+
+data SSAMethod info = SSAMethod AST.MethodDecl [SSAParameter info] [SSAStatement info] (SSAReturn info)
 
 data SSAParameter info = SSAParameter AST.Parameter Int info
 
 data SSAArgument info = SSAArgument (SSAStatement info) Int info
 
 data SSAReturn info = SSAReturn (SSAStatement info)
+
+data StaticType =
+      TypeInt
+    | TypeBoolean
+    | TypeObject StaticTypeObject
+
+data StaticTypeObject = StaticTypeObject String (Maybe StaticTypeObject)
 
 data SSAStatement info =
       Unify (SSAStatement info) (SSAStatement info) info
@@ -57,13 +64,6 @@ data SSAStatement info =
     | Mul (SSAStatement info) (SSAStatement info) info
     | Div (SSAStatement info) (SSAStatement info) info
     | Mod (SSAStatement info) (SSAStatement info) info
-
-data StaticType =
-      TypeInt
-    | TypeBoolean
-    | TypeObject StaticTypeObject
-
-data StaticTypeObject = StaticTypeObject String (Maybe StaticTypeObject)
 
 -- instance Show SSAProgram where
 --     show (SSAProgram m cs) = printf "program:\n%s%s" (show m) (concatMap show cs)
