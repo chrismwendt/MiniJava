@@ -180,7 +180,7 @@ nextID = do
 nextLabel :: State (SSAState Int) Int
 nextLabel = do
     s@(SSAState { getLabel = l }) <- get
-    put (s { getID = succ l })
+    put (s { getLabel = succ l })
     return l
 
 make :: SSAOp Int -> State (SSAState Int) (SSAStatement Int)
