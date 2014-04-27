@@ -29,45 +29,47 @@ data StaticType =
 
 data StaticTypeObject = StaticTypeObject String (Maybe StaticTypeObject) deriving (Show)
 
-data SSAStatement info =
-      Unify (SSAStatement info) (SSAStatement info) info
-    | Alias (SSAStatement info) info
-    | This info
-    | Parameter (SSAParameter info) info
-    | Arg (SSAArgument info) info
-    | Null info
-    | SInt Int info
-    | SBoolean Bool info
-    | NewObj String info
-    | NewIntArray (SSAStatement info) info
-    | Label String info
-    | Goto String info
-    | Branch (SSAStatement info) String info
-    | NBranch (SSAStatement info) String info
-    | Call AST.MethodDecl (SSAStatement info) [SSAArgument info] info
-    | Print (SSAStatement info) info
-    | Return (SSAStatement info) info
-    | Member (SSAStatement info) String info
-    | Index (SSAStatement info) (SSAStatement info) info
-    | Store (SSAStatement info) Int info
-    | Load Int info
-    | VarAssg (SSAStatement info) String info
-    | MemberAssg (SSAStatement info) (SSAStatement info) String info
-    | IndexAssg (SSAStatement info) (SSAStatement info) (SSAStatement info) info
-    | Not (SSAStatement info) info
-    | Lt (SSAStatement info) (SSAStatement info) info
-    | Le (SSAStatement info) (SSAStatement info) info
-    | Eq (SSAStatement info) (SSAStatement info) info
-    | Ne (SSAStatement info) (SSAStatement info) info
-    | Gt (SSAStatement info) (SSAStatement info) info
-    | Ge (SSAStatement info) (SSAStatement info) info
-    | And (SSAStatement info) (SSAStatement info) info
-    | Or (SSAStatement info) (SSAStatement info) info
-    | Plus (SSAStatement info) (SSAStatement info) info
-    | Minus (SSAStatement info) (SSAStatement info) info
-    | Mul (SSAStatement info) (SSAStatement info) info
-    | Div (SSAStatement info) (SSAStatement info) info
-    | Mod (SSAStatement info) (SSAStatement info) info deriving (Show)
+data SSAStatement info = SSAStatement { getOp :: SSAOp info, getInfo :: info } deriving (Show)
+
+data SSAOp info =
+      Unify (SSAStatement info) (SSAStatement info)
+    | Alias (SSAStatement info)
+    | This
+    | Parameter (SSAParameter info)
+    | Arg (SSAArgument info)
+    | Null
+    | SInt Int
+    | SBoolean Bool
+    | NewObj String
+    | NewIntArray (SSAStatement info)
+    | Label String
+    | Goto String
+    | Branch (SSAStatement info) String
+    | NBranch (SSAStatement info) String
+    | Call AST.MethodDecl (SSAStatement info) [SSAArgument info]
+    | Print (SSAStatement info)
+    | Return (SSAStatement info)
+    | Member (SSAStatement info) String
+    | Index (SSAStatement info) (SSAStatement info)
+    | Store (SSAStatement info) Int
+    | Load Int
+    | VarAssg (SSAStatement info) String
+    | MemberAssg (SSAStatement info) (SSAStatement info) String
+    | IndexAssg (SSAStatement info) (SSAStatement info) (SSAStatement info)
+    | Not (SSAStatement info)
+    | Lt (SSAStatement info) (SSAStatement info)
+    | Le (SSAStatement info) (SSAStatement info)
+    | Eq (SSAStatement info) (SSAStatement info)
+    | Ne (SSAStatement info) (SSAStatement info)
+    | Gt (SSAStatement info) (SSAStatement info)
+    | Ge (SSAStatement info) (SSAStatement info)
+    | And (SSAStatement info) (SSAStatement info)
+    | Or (SSAStatement info) (SSAStatement info)
+    | Plus (SSAStatement info) (SSAStatement info)
+    | Minus (SSAStatement info) (SSAStatement info)
+    | Mul (SSAStatement info) (SSAStatement info)
+    | Div (SSAStatement info) (SSAStatement info)
+    | Mod (SSAStatement info) (SSAStatement info) deriving (Show)
 
 instance Show info => Show (SSAProgram info) where
     show (SSAProgram _ ss cs) = printf "program:\n  main:\n    method main:\n%s%s" (concatMap show ss) (concatMap show cs)
@@ -175,23 +177,29 @@ scStatement (AST.BlockStatement ss) = concat <$> mapM scStatement ss
 scStatement (AST.PrintStatement e) = do
     (ss, r) <- scExp e
     id <- nextID
-    return (ss ++ [Print r id])
+    return (ss ++ [SSAStatement (Print r) id])
 scStatement (AST.ExpressionStatement e) = fst <$> scExp e
 
 scExp :: AST.Exp -> State (SSAState Int) ([SSAStatement Int], SSAStatement Int)
-scExp (AST.IntLiteral v) = SInt v <$> nextID >>= \r -> return ([r], r)
-scExp (AST.BooleanLiteral v) = SBoolean v <$> nextID >>= \r -> return ([r], r)
+scExp (AST.IntLiteral v) = do
+    id <- nextID
+    let r = SSAStatement (SInt v) id
+    return ([r], r)
+scExp (AST.BooleanLiteral v) = do
+    id <- nextID
+    let r = SSAStatement (SBoolean v) id
+    return ([r], r)
 scExp (AST.BinaryExpression l op r) = do
     (ssl, sl) <- scExp l
     (ssr, sr) <- scExp r
     id <- nextID
     return (case lookup op opConstructors of
-        Just opConstructor -> let final = opConstructor sl sr id in (ssl ++ ssr ++ [final], final)
+        Just opConstructor -> let final = SSAStatement (opConstructor sl sr) id in (ssl ++ ssr ++ [final], final)
         Nothing -> error $ "Op " ++ op ++ " not found in list: " ++ show (map fst opConstructors))
 scExp (AST.NotExp e) = do
     (ss, r) <- scExp e
     id <- nextID
-    let final = Not r id
+    let final = SSAStatement (Not r) id
     return $ (ss ++ [final], final)
 
 scClassDecl :: AST.ClassDecl -> State (SSAState Int) (SSAClass Int)
@@ -214,7 +222,7 @@ scParameter (ast, i) = SSAParameter ast <$> nextID <*> pure i
 scVarDecl :: AST.VarDecl -> State (SSAState Int) (SSAStatement Int)
 scVarDecl (AST.VarDecl t name) = do
     id <- nextID
-    let r = Null id
+    let r = SSAStatement Null id
     s@(SSAState { getBindings = bs }) <- get
     put (s { getBindings = M.insert name r bs })
     return r
