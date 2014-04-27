@@ -212,8 +212,8 @@ scStatement axe@(AST.IfStatement condExp branchTrue branchFalse) = do
 
     elseN <- nextLabel
     doneN <- nextLabel
-    let labelElse = printf "l_%d_else" elseN :: String
-    let labelDone = printf "l_%d_done" doneN :: String
+    let labelElse = printf "l_%d" elseN :: String
+    let labelDone = printf "l_%d" doneN :: String
 
     make (NBranch condSSA labelElse)
 
