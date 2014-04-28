@@ -342,7 +342,6 @@ scVarDeclAsField v i = return $ SSAField v i 0
 
 scMethodDecl :: AST.MethodDecl -> State (SSAState Int) (SSAMethod Int)
 scMethodDecl ast@(AST.MethodDecl t name ps vs ss ret) = do
-    -- TODO bind parameters in getBindings
     s <- get
     put (s { getSSAList = [] })
     ssaParams <- mapM make (zipWith Parameter ps [0 .. ])
