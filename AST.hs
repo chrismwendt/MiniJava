@@ -3,9 +3,9 @@ module AST where
 import Text.Printf
 import Data.List
 
-data Program = Program Statement [ClassDecl] deriving (Show)
+data Program = Program Statement [ClassDecl] deriving (Show, Eq)
 
-data ClassDecl = ClassDecl String (Maybe String) [VarDecl] [MethodDecl] deriving (Show)
+data ClassDecl = ClassDecl String (Maybe String) [VarDecl] [MethodDecl] deriving (Show, Eq)
 
 data Statement =
       BlockStatement [Statement]
@@ -13,7 +13,7 @@ data Statement =
     | WhileStatement Exp Statement
     | PrintStatement Exp
     | ExpressionStatement Exp
-    deriving (Show)
+    deriving (Show, Eq)
 
 data Exp =
       IntLiteral Int
@@ -28,20 +28,20 @@ data Exp =
     | ThisExp
     | NewIntArrayExp Exp
     | NewObjectExp String
-    deriving (Show)
+    deriving (Show, Eq)
 
 data Type =
       BooleanType
     | IntType
     | IntArrayType
     | ObjectType String
-    deriving (Show)
+    deriving (Show, Eq)
 
-data Parameter = Parameter Type String deriving (Show)
+data Parameter = Parameter Type String deriving (Show, Eq)
 
-data VarDecl = VarDecl Type String deriving (Show)
+data VarDecl = VarDecl Type String deriving (Show, Eq)
 
-data MethodDecl = MethodDecl Type String [Parameter] [VarDecl] [Statement] Exp deriving (Show)
+data MethodDecl = MethodDecl Type String [Parameter] [VarDecl] [Statement] Exp deriving (Show, Eq)
 
 -- TODO use Show instances instead of explicit string functions
 
