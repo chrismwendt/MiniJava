@@ -3,7 +3,7 @@ module Parser where
 import System.Environment
 import System.IO
 import Control.Monad
-import Text.ParserCombinators.Parsec
+import Text.ParserCombinators.Parsec hiding ((<|>))
 import Text.ParserCombinators.Parsec.Expr
 import Text.ParserCombinators.Parsec.Language
 import qualified Text.Parsec.Prim as P
@@ -37,10 +37,10 @@ pClass = do
 pStatement :: Parser Statement
 pStatement =
           pBlockStatement
-    P.<|> pIfStatement
-    P.<|> pWhileStatement
-    P.<|> pPrintStatement
-    P.<|> pExpressionStatement
+    <|> pIfStatement
+    <|> pWhileStatement
+    <|> pPrintStatement
+    <|> pExpressionStatement
 
 pBlockStatement :: Parser Statement
 pBlockStatement = BlockStatement <$> braces (P.many pStatement)
@@ -69,25 +69,25 @@ pAssignExpression = do
         Nothing -> target
 
 pLogicOp :: Parser Exp
-pLogicOp = chainl1 pCmpOp ((symbol "&&" P.<|> symbol "||") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
+pLogicOp = chainl1 pCmpOp ((symbol "&&" <|> symbol "||") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
 
 pCmpOp :: Parser Exp
-pCmpOp = chainl1 pAddOp (foldr1 (P.<|>) (map (P.try . symbol) $ words "<= < == != >= >") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
+pCmpOp = chainl1 pAddOp (foldr1 (<|>) (map (P.try . symbol) $ words "<= < == != >= >") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
 
 pAddOp :: Parser Exp
-pAddOp = chainl1 pMulOp ((symbol "+" P.<|> symbol "-") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
+pAddOp = chainl1 pMulOp ((symbol "+" <|> symbol "-") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
 
 pMulOp :: Parser Exp
-pMulOp = chainl1 pUnaryOp ((symbol "*" P.<|> symbol "/" P.<|> symbol "%") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
+pMulOp = chainl1 pUnaryOp ((symbol "*" <|> symbol "/" <|> symbol "%") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
 
 pUnaryOp :: Parser Exp
-pUnaryOp = pNotExp P.<|> pPostfixOp
+pUnaryOp = pNotExp <|> pPostfixOp
 
 pNotExp :: Parser Exp
 pNotExp = NotExp <$ symbol "!" <*> pUnaryOp
 
 pPostfixOp :: Parser Exp
-pPostfixOp = foldl (flip ($)) <$> pPrimaryExp <*> P.many (pIndexPostfixOp P.<|> pCallPostfixOp P.<|> pMemberPostfixOp)
+pPostfixOp = foldl (flip ($)) <$> pPrimaryExp <*> P.many (pIndexPostfixOp <|> pCallPostfixOp <|> pMemberPostfixOp)
 
 pIndexPostfixOp :: Parser (Exp -> Exp)
 pIndexPostfixOp = flip IndexExp <$> brackets pExp
@@ -104,12 +104,12 @@ pArgs = pExp `sepBy` comma
 pPrimaryExp :: Parser Exp
 pPrimaryExp =
           pIntLiteral
-    P.<|> pBooleanLiteral
-    P.<|> VarExp <$> identifier
-    P.<|> ThisExp <$ reserved "this"
-    P.<|> P.try (NewIntArrayExp <$> (reserved "new" *> reserved "int" *> brackets pExp))
-    P.<|> NewObjectExp <$> (reserved "new" *> identifier <* parens pEmpty)
-    P.<|> parens pExp
+    <|> pBooleanLiteral
+    <|> VarExp <$> identifier
+    <|> ThisExp <$ reserved "this"
+    <|> P.try (NewIntArrayExp <$> (reserved "new" *> reserved "int" *> brackets pExp))
+    <|> NewObjectExp <$> (reserved "new" *> identifier <* parens pEmpty)
+    <|> parens pExp
 
 pIntLiteral :: Parser Exp
 pIntLiteral = IntLiteral <$> (fromIntegral <$> integer)
@@ -117,14 +117,14 @@ pIntLiteral = IntLiteral <$> (fromIntegral <$> integer)
 pBooleanLiteral :: Parser Exp
 pBooleanLiteral =
           BooleanLiteral False <$ reserved "false"
-    P.<|> BooleanLiteral True <$ reserved "true"
+    <|> BooleanLiteral True <$ reserved "true"
 
 pType :: Parser Type
 pType =
           P.try (IntArrayType <$ reserved "int" <* brackets pEmpty)
-    P.<|> BooleanType <$ reserved "boolean"
-    P.<|> IntType <$ reserved "int"
-    P.<|> ObjectType <$> identifier
+    <|> BooleanType <$ reserved "boolean"
+    <|> IntType <$ reserved "int"
+    <|> ObjectType <$> identifier
 
 pVarDecl :: Parser VarDecl
 pVarDecl = VarDecl <$> pType <*> identifier <* semi
