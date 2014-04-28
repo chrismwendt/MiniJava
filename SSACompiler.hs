@@ -24,7 +24,7 @@ data StaticType =
 
 data StaticTypeObject = StaticTypeObject
     { typeName :: String
-    , typeSuper :: (Maybe StaticType)
+    , typeSuper :: (Maybe StaticTypeObject)
     } deriving (Show)
 
 data SSAStatement info = SSAStatement { getOp :: SSAOp info, getInfo :: info } deriving (Eq)
