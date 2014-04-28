@@ -313,8 +313,10 @@ scExp (AST.IndexExp arrayExp indexExp) = do
     make (Index array index)
 scExp (AST.CallExp objectExp methodName argExps) = do
     object <- scExp objectExp
-    argTargets <- mapM scExp argExps
-    args <- sequence $ zipWith (\a i -> make (Arg a i)) argTargets [0 .. ]
+    let makeArg argExp i = do
+        target <- scExp argExp
+        make (Arg target i)
+    args <- zipWithM makeArg argExps [0 .. ]
     make (Call methodName object (map SSAArgument args))
 scExp (AST.MemberExp objectExp fieldName) = do
     object <- scExp objectExp
