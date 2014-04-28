@@ -3,14 +3,14 @@ module TypeChecker where
 import AST
 import SSACompiler
 import qualified Data.Map as M
-import Control.Monad.State
+import Control.Monad.Reader
 import Safe
 import Data.Maybe
 import Data.Graph.Inductive (mapFst, mapSnd)
 
 type TypeInfo = (Int, StaticType)
 
-data TypeState = TypeState
+data TypeView = TypeView
     { getAST      :: AST.Program
     , getClassMap :: M.Map String StaticType
     , getScope    :: M.Map String StaticType
@@ -49,11 +49,11 @@ augment types (AST.Program _ classDecls) = moreTypes
     moreTypes = snd $ until (null . fst) insertOrphan (orphans, types)
 
 typeCheck :: SSAProgram Int -> SSAProgram TypeInfo
-typeCheck program@(SSAProgram ast _ _) = evalState (tcProgram program) TypeState
+typeCheck program@(SSAProgram ast _ _) = runReader (tcProgram program) TypeView
     { getAST = ast
     , getClassMap = augment builtInTypes ast
     , getScope = M.empty
     }
 
-tcProgram :: SSAProgram Int -> State TypeState (SSAProgram TypeInfo)
+tcProgram :: SSAProgram Int -> Reader TypeView (SSAProgram TypeInfo)
 tcProgram = undefined
