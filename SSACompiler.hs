@@ -22,7 +22,10 @@ data StaticType =
     | TypeBoolean
     | TypeObject StaticTypeObject deriving (Show)
 
-data StaticTypeObject = StaticTypeObject String (Maybe StaticTypeObject) deriving (Show)
+data StaticTypeObject = StaticTypeObject
+    { typeName :: String
+    , typeSuper :: (Maybe StaticType)
+    } deriving (Show)
 
 data SSAStatement info = SSAStatement { getOp :: SSAOp info, getInfo :: info } deriving (Eq)
 
