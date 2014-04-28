@@ -20,6 +20,7 @@ data SSAMethod info = SSAMethod AST.MethodDecl [SSAStatement info] [SSAStatement
 data StaticType =
       TypeInt
     | TypeBoolean
+    | TypeVoid
     | TypeObject StaticTypeObject deriving (Show)
 
 data StaticTypeObject = StaticTypeObject
