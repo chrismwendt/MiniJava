@@ -16,7 +16,6 @@ lexer = Token.makeTokenParser emptyDef
 
 identifier = Token.identifier lexer
 reserved   = Token.reserved   lexer
-reservedOp = Token.reservedOp lexer
 parens     = Token.parens     lexer
 integer    = Token.integer    lexer
 semi       = Token.semi       lexer
