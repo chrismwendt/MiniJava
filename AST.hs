@@ -7,6 +7,12 @@ data Program = Program Statement [ClassDecl] deriving (Show, Eq)
 
 data ClassDecl = ClassDecl String (Maybe String) [VarDecl] [MethodDecl] deriving (Show, Eq)
 
+data VarDecl = VarDecl Type String deriving (Show, Eq)
+
+data MethodDecl = MethodDecl Type String [Parameter] [VarDecl] [Statement] Exp deriving (Show, Eq)
+
+data Parameter = Parameter Type String deriving (Show, Eq)
+
 data Statement =
       BlockStatement [Statement]
     | IfStatement Exp Statement (Maybe Statement)
@@ -36,12 +42,6 @@ data Type =
     | IntArrayType
     | ObjectType String
     deriving (Show, Eq)
-
-data Parameter = Parameter Type String deriving (Show, Eq)
-
-data VarDecl = VarDecl Type String deriving (Show, Eq)
-
-data MethodDecl = MethodDecl Type String [Parameter] [VarDecl] [Statement] Exp deriving (Show, Eq)
 
 -- TODO use Show instances instead of explicit string functions
 
