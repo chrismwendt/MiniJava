@@ -26,7 +26,11 @@ data StaticType =
 data StaticTypeObject = StaticTypeObject
     { typeName :: String
     , typeSuper :: (Maybe StaticTypeObject)
-    } deriving (Show)
+    }
+
+instance Show StaticTypeObject where
+    show (StaticTypeObject name Nothing) = name
+    show (StaticTypeObject name (Just super)) = name ++ " <" ++ show super
 
 data SSAStatement info = SSAStatement { getOp :: SSAOp info, getInfo :: info } deriving (Eq)
 
