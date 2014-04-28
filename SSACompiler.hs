@@ -15,13 +15,7 @@ data SSAClass info = SSAClass AST.ClassDecl [SSAField info] [SSAMethod info]
 
 data SSAField info = SSAField AST.VarDecl Int info
 
-data SSAMethod info = SSAMethod AST.MethodDecl [SSAParameter info] [SSAStatement info] (SSAReturn info)
-
-data SSAParameter info = SSAParameter (SSAStatement info) deriving (Eq)
-
-data SSAArgument info = SSAArgument (SSAStatement info) deriving (Show, Eq)
-
-data SSAReturn info = SSAReturn (SSAStatement info) deriving (Show, Eq)
+data SSAMethod info = SSAMethod AST.MethodDecl [SSAStatement info] [SSAStatement info] (SSAStatement info)
 
 data StaticType =
       TypeInt
@@ -48,7 +42,7 @@ data SSAOp info =
     | Goto String
     | Branch (SSAStatement info) String
     | NBranch (SSAStatement info) String
-    | Call String (SSAStatement info) [SSAArgument info]
+    | Call String (SSAStatement info) [SSAStatement info]
     | Print (SSAStatement info)
     | Return (SSAStatement info)
     | Member (SSAStatement info) String
@@ -106,7 +100,7 @@ instance Show info => Show (SSAOp info) where
     show (Goto label) = printf "Goto *%s" label
     show (Branch s label) = printf "Branch %s *%s" (sInfo s) label
     show (NBranch s label) = printf "NBranch %s *%s" (sInfo s) label
-    show (Call name s args) = printf "Call %s *%s(%s)" (sInfo s) name (intercalate ", " $ map sArgInfo args)
+    show (Call name s args) = printf "Call %s *%s(%s)" (sInfo s) name (intercalate ", " $ map sInfo args)
     show (Print s) = printf "Print %s" (sInfo s)
     show (Return s) = printf "Return %s" (sInfo s)
     show (Member s name) = printf "Member %s *%s" (sInfo s) name
@@ -131,9 +125,6 @@ instance Show info => Show (SSAOp info) where
     show (Div sl sr) = printf "Div %s %s" (sInfo sl) (sInfo sr)
     show (Mod sl sr) = printf "Mod %s %s" (sInfo sl) (sInfo sr)
 
-instance Show info => Show (SSAParameter info) where
-    show (SSAParameter p) = show p
-
 -- instance Show StaticType where
 --     show TypeInt = "Type(int)"
 --     show TypeBoolean = "Type(boolean)"
@@ -149,9 +140,6 @@ data SSAState info = SSAState
     , getSSAList  :: [SSAStatement info]
     , getLabel    :: Int
     }
-
-sArgInfo :: Show info => SSAArgument info -> String
-sArgInfo (SSAArgument s) = sInfo s
 
 sInfo :: Show info => SSAStatement info -> String
 sInfo (SSAStatement { getInfo = info }) = show info
@@ -317,7 +305,7 @@ scExp (AST.CallExp objectExp methodName argExps) = do
         target <- scExp argExp
         make (Arg target i)
     args <- zipWithM makeArg argExps [0 .. ]
-    make (Call methodName object (map SSAArgument args))
+    make (Call methodName object args)
 scExp (AST.MemberExp objectExp fieldName) = do
     object <- scExp objectExp
     make (Member object fieldName)
@@ -354,12 +342,7 @@ scMethodDecl ast@(AST.MethodDecl t name ps vs ss ret) = do
     ret' <- scExp ret
     make (Return ret')
     SSAState { getSSAList = allStatements } <- get
-    return $ SSAMethod ast (map SSAParameter ssaParams) allStatements (SSAReturn ret')
-
-scParameter :: AST.Parameter -> Int -> State (SSAState Int) (SSAParameter Int)
-scParameter ast i = do
-    r <- make (Parameter ast i)
-    return $ SSAParameter r
+    return $ SSAMethod ast ssaParams allStatements ret'
 
 scVarDecl :: AST.VarDecl -> State (SSAState Int) (SSAStatement Int)
 scVarDecl (AST.VarDecl t name) = do
