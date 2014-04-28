@@ -34,7 +34,6 @@ instance Show StaticTypeObject where
 
 data SSAStatement info = SSAStatement { getOp :: SSAOp info, getInfo :: info } deriving (Eq)
 
--- TODO remove SSAParameter, SSAReturn, SSAArgument
 data SSAOp info =
       Unify (SSAStatement info) (SSAStatement info)
     | Alias (SSAStatement info)
