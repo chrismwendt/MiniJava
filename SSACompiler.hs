@@ -32,47 +32,49 @@ instance Show StaticTypeObject where
     show (StaticTypeObject name Nothing) = name
     show (StaticTypeObject name (Just super)) = name ++ " <" ++ show super
 
-data SSAStatement info = SSAStatement { getOp :: SSAOp info, getInfo :: info } deriving (Eq)
+data SSAStatement info = SSAStatement { getIDSSA :: ID, getOp :: SSAOp, getInfo :: info } deriving (Eq)
 
-data SSAOp info =
-      Unify (SSAStatement info) (SSAStatement info)
-    | Alias (SSAStatement info)
+type ID = Int
+
+data SSAOp =
+      Unify ID ID
+    | Alias ID
     | This
     | Parameter AST.Parameter Int
-    | Arg (SSAStatement info) Int
+    | Arg ID Int
     | Null AST.Type
     | SInt Int
     | SBoolean Bool
     | NewObj String
-    | NewIntArray (SSAStatement info)
+    | NewIntArray ID
     | Label String
     | Goto String
-    | Branch (SSAStatement info) String
-    | NBranch (SSAStatement info) String
-    | Call String (SSAStatement info) [SSAStatement info]
-    | Print (SSAStatement info)
-    | Return (SSAStatement info)
-    | Member (SSAStatement info) String
-    | Index (SSAStatement info) (SSAStatement info)
-    | Store (SSAStatement info) Int
+    | Branch ID String
+    | NBranch ID String
+    | Call String ID [ID]
+    | Print ID
+    | Return ID
+    | Member ID String
+    | Index ID ID
+    | Store ID Int
     | Load Int
-    | VarAssg (SSAStatement info) String
-    | MemberAssg (SSAStatement info) (SSAStatement info) String
-    | IndexAssg (SSAStatement info) (SSAStatement info) (SSAStatement info)
-    | Not (SSAStatement info)
-    | Lt (SSAStatement info) (SSAStatement info)
-    | Le (SSAStatement info) (SSAStatement info)
-    | Eq (SSAStatement info) (SSAStatement info)
-    | Ne (SSAStatement info) (SSAStatement info)
-    | Gt (SSAStatement info) (SSAStatement info)
-    | Ge (SSAStatement info) (SSAStatement info)
-    | And (SSAStatement info) (SSAStatement info)
-    | Or (SSAStatement info) (SSAStatement info)
-    | Plus (SSAStatement info) (SSAStatement info)
-    | Minus (SSAStatement info) (SSAStatement info)
-    | Mul (SSAStatement info) (SSAStatement info)
-    | Div (SSAStatement info) (SSAStatement info)
-    | Mod (SSAStatement info) (SSAStatement info) deriving (Eq)
+    | VarAssg ID String
+    | MemberAssg ID ID String
+    | IndexAssg ID ID ID
+    | Not ID
+    | Lt ID ID
+    | Le ID ID
+    | Eq ID ID
+    | Ne ID ID
+    | Gt ID ID
+    | Ge ID ID
+    | And ID ID
+    | Or ID ID
+    | Plus ID ID
+    | Minus ID ID
+    | Mul ID ID
+    | Div ID ID
+    | Mod ID ID deriving (Eq)
 
 instance Show info => Show (SSAProgram info) where
     show (SSAProgram _ ss cs) = printf "program:\n  main:\n    method main:\n%s%s" (concatMap show ss) (concatMap show cs)
@@ -87,14 +89,15 @@ instance Show info => Show (SSAField info) where
     show (SSAField (AST.VarDecl _ name) _ _) = name
 
 instance Show info => Show (SSAStatement info) where
-    show (SSAStatement op info) = printf "      %s: %s\n" (show info) (show op)
+    -- show (SSAStatement id op info) = printf "      %s: %s :%s\n" (show id) (show op) (show info)
+    show (SSAStatement id op info) = printf "      %s: %s\n" (show id) (show op)
 
-instance Show info => Show (SSAOp info) where
-    show (Unify l r) = printf "Unify %s %s" (sInfo l) (sInfo r)
-    show (Alias s) = printf "Alias %s" (sInfo s)
+instance Show SSAOp where
+    show (Unify l r) = printf "Unify %s %s" (show l) (show r)
+    show (Alias s) = printf "Alias %s" (show s)
     show This = printf "This"
     show (Parameter _ index) = printf "Parameter *%s" (show index)
-    show (Arg arg index) = printf "Arg %s *%s" (sInfo arg) (show index)
+    show (Arg arg index) = printf "Arg %s *%s" (show arg) (show index)
     show (Null AST.BooleanType) = printf "Null *Type(boolean)"
     show (Null AST.IntType) = printf "Null *Type(int)"
     show (Null AST.IntArrayType) = printf "Null *Type(int[])"
@@ -102,35 +105,35 @@ instance Show info => Show (SSAOp info) where
     show (SInt v) = printf "Int *%s" (show v)
     show (SBoolean v) = printf "Boolean *%s" (if v then "true" else "false")
     show (NewObj name) = printf "NewObj *%s" name
-    show (NewIntArray s) = printf "NewIntArray *%s" (sInfo s)
+    show (NewIntArray s) = printf "NewIntArray *%s" (show s)
     show (Label label) = printf "Label *%s" label
     show (Goto label) = printf "Goto *%s" label
-    show (Branch s label) = printf "Branch %s *%s" (sInfo s) label
-    show (NBranch s label) = printf "NBranch %s *%s" (sInfo s) label
-    show (Call name s args) = printf "Call %s *%s(%s)" (sInfo s) name (intercalate ", " $ map sInfo args)
-    show (Print s) = printf "Print %s" (sInfo s)
-    show (Return s) = printf "Return %s" (sInfo s)
-    show (Member s name) = printf "Member %s *%s" (sInfo s) name
-    show (Index a i) = printf "Index %s %s" (sInfo a) (sInfo i)
-    show (Store s i) = printf "Store %s *%s" (sInfo s) (show i)
+    show (Branch s label) = printf "Branch %s *%s" (show s) label
+    show (NBranch s label) = printf "NBranch %s *%s" (show s) label
+    show (Call name s args) = printf "Call %s *%s(%s)" (show s) name (intercalate ", " $ map show args)
+    show (Print s) = printf "Print %s" (show s)
+    show (Return s) = printf "Return %s" (show s)
+    show (Member s name) = printf "Member %s *%s" (show s) name
+    show (Index a i) = printf "Index %s %s" (show a) (show i)
+    show (Store s i) = printf "Store %s *%s" (show s) (show i)
     show (Load i) = printf "Load *%s" (show i)
-    show (VarAssg s name) = printf "VarAssg %s *%s" (sInfo s) name
-    show (MemberAssg object value name) = printf "MemberAssg %s %s *%s" (sInfo object) (sInfo value) name
-    show (IndexAssg array value index) = printf "IndexAssg %s %s *%s" (sInfo array) (sInfo value) (sInfo index)
-    show (Not s) = printf "Not %s" (sInfo s)
-    show (Lt sl sr) = printf "Lt %s %s" (sInfo sl) (sInfo sr)
-    show (Le sl sr) = printf "Le %s %s" (sInfo sl) (sInfo sr)
-    show (Eq sl sr) = printf "Eq %s %s" (sInfo sl) (sInfo sr)
-    show (Ne sl sr) = printf "Ne %s %s" (sInfo sl) (sInfo sr)
-    show (Gt sl sr) = printf "Gt %s %s" (sInfo sl) (sInfo sr)
-    show (Ge sl sr) = printf "Ge %s %s" (sInfo sl) (sInfo sr)
-    show (And sl sr) = printf "And %s %s" (sInfo sl) (sInfo sr)
-    show (Or sl sr) = printf "Or %s %s" (sInfo sl) (sInfo sr)
-    show (Plus sl sr) = printf "Plus %s %s" (sInfo sl) (sInfo sr)
-    show (Minus sl sr) = printf "Minus %s %s" (sInfo sl) (sInfo sr)
-    show (Mul sl sr) = printf "Mul %s %s" (sInfo sl) (sInfo sr)
-    show (Div sl sr) = printf "Div %s %s" (sInfo sl) (sInfo sr)
-    show (Mod sl sr) = printf "Mod %s %s" (sInfo sl) (sInfo sr)
+    show (VarAssg s name) = printf "VarAssg %s *%s" (show s) name
+    show (MemberAssg object value name) = printf "MemberAssg %s %s *%s" (show object) (show value) name
+    show (IndexAssg array value index) = printf "IndexAssg %s %s *%s" (show array) (show value) (show index)
+    show (Not s) = printf "Not %s" (show s)
+    show (Lt sl sr) = printf "Lt %s %s" (show sl) (show sr)
+    show (Le sl sr) = printf "Le %s %s" (show sl) (show sr)
+    show (Eq sl sr) = printf "Eq %s %s" (show sl) (show sr)
+    show (Ne sl sr) = printf "Ne %s %s" (show sl) (show sr)
+    show (Gt sl sr) = printf "Gt %s %s" (show sl) (show sr)
+    show (Ge sl sr) = printf "Ge %s %s" (show sl) (show sr)
+    show (And sl sr) = printf "And %s %s" (show sl) (show sr)
+    show (Or sl sr) = printf "Or %s %s" (show sl) (show sr)
+    show (Plus sl sr) = printf "Plus %s %s" (show sl) (show sr)
+    show (Minus sl sr) = printf "Minus %s %s" (show sl) (show sr)
+    show (Mul sl sr) = printf "Mul %s %s" (show sl) (show sr)
+    show (Div sl sr) = printf "Div %s %s" (show sl) (show sr)
+    show (Mod sl sr) = printf "Mod %s %s" (show sl) (show sr)
 
 -- instance Show StaticType where
 --     show TypeInt = "Type(int)"
@@ -167,22 +170,22 @@ opConstructors =
     , ("%", Mod)
     ]
 
-nextID :: State (SSAState Int) Int
+nextID :: State (SSAState ()) Int
 nextID = do
     s@(SSAState { getID = id }) <- get
     put (s { getID = succ id })
     return id
 
-nextLabel :: State (SSAState Int) Int
+nextLabel :: State (SSAState ()) Int
 nextLabel = do
     s@(SSAState { getLabel = l }) <- get
     put (s { getLabel = succ l })
     return l
 
-make :: SSAOp Int -> State (SSAState Int) (SSAStatement Int)
+make :: SSAOp -> State (SSAState ()) (SSAStatement ())
 make op = do
     s@(SSAState { getID = id, getSSAList = ss }) <- get
-    let newStatement = SSAStatement op id
+    let newStatement = SSAStatement id op ()
     put (s { getID = succ id, getSSAList = ss ++ [newStatement] })
     return newStatement
 
@@ -193,15 +196,15 @@ insertBinding name value = do
 
 singleton a = [a]
 
-ssaCompile :: AST.Program -> SSAProgram Int
+ssaCompile :: AST.Program -> SSAProgram ()
 ssaCompile program = evalState scProgram (SSAState { getProg = program, getID = 0, getBindings = M.empty, getSSAList = [], getLabel = 0 })
 
-scProgram :: State (SSAState Int) (SSAProgram Int)
+scProgram :: State (SSAState ()) (SSAProgram ())
 scProgram = do
     SSAState { getProg = ast@(AST.Program s cs) } <- get
     SSAProgram ast <$> (scStatement s >> get >>= return . getSSAList) <*> (mapM scClassDecl cs)
 
-scStatement :: AST.Statement -> State (SSAState Int) ()
+scStatement :: AST.Statement -> State (SSAState ()) ()
 scStatement (AST.BlockStatement ss) = mapM scStatement ss >> return ()
 scStatement axe@(AST.IfStatement condExp branchTrue branchFalse) = do
     condSSA <- scExp condExp
@@ -211,7 +214,7 @@ scStatement axe@(AST.IfStatement condExp branchTrue branchFalse) = do
     let labelElse = printf "l_%d" elseN :: String
     let labelDone = printf "l_%d" doneN :: String
 
-    make (NBranch condSSA labelElse)
+    make (NBranch (getIDSSA condSSA) labelElse)
 
     preBranchState@(SSAState { getBindings = preBranchBindings }) <- get
 
@@ -230,7 +233,7 @@ scStatement axe@(AST.IfStatement condExp branchTrue branchFalse) = do
 
     let bindings = M.assocs $ M.intersectionWith (,) postTrueBindings postFalseBindings
     let mismatches = filter (uncurry (/=) . snd) bindings
-    unifies <- mapM (make . (\(_, (a, b)) -> Unify a b)) mismatches
+    unifies <- mapM (make . (\(_, (a, b)) -> Unify (getIDSSA a) (getIDSSA b))) mismatches
     zipWithM_ insertBinding (map fst mismatches) unifies
 
     return ()
@@ -246,7 +249,7 @@ scStatement (AST.WhileStatement condExp body) = do
 
     condSSA <- scExp condExp
 
-    make (NBranch condSSA labelEnd)
+    make (NBranch (getIDSSA condSSA) labelEnd)
 
     scStatement body
 
@@ -257,17 +260,17 @@ scStatement (AST.WhileStatement condExp body) = do
 
     let bindings = M.assocs $ M.intersectionWith (,) preBranchBindings postBranchBindings
     let mismatches = filter (uncurry (/=) . snd) bindings
-    unifies <- mapM (make . (\(_, (a, b)) -> Unify a b)) mismatches
+    unifies <- mapM (make . (\(_, (a, b)) -> Unify (getIDSSA a) (getIDSSA b))) mismatches
     zipWithM_ insertBinding (map fst mismatches) unifies
 
     return ()
 scStatement (AST.PrintStatement e) = do
     value <- scExp e
-    make (Print value)
+    make (Print (getIDSSA value))
     return ()
 scStatement (AST.ExpressionStatement e) = singleton <$> scExp e >> return ()
 
-scExp :: AST.Exp -> State (SSAState Int) (SSAStatement Int)
+scExp :: AST.Exp -> State (SSAState ()) (SSAStatement ())
 scExp (AST.IntLiteral v) = make (SInt v)
 scExp (AST.BooleanLiteral v) = make (SBoolean v)
 scExp (AST.AssignExpression var val) = case var of
@@ -276,82 +279,82 @@ scExp (AST.AssignExpression var val) = case var of
         case M.lookup name bs of
             Just s -> do
                 r <- scExp val
-                v <- make (VarAssg r name)
+                v <- make (VarAssg (getIDSSA r) name)
                 insertBinding name v
                 return v
             Nothing -> do
                 this <- make This
                 r <- scExp val
-                make (MemberAssg this r name)
+                make (MemberAssg (getIDSSA this) (getIDSSA r) name)
     AST.MemberExp objectExp fieldName -> do
         object <- scExp objectExp
         r <- scExp val
-        make (MemberAssg object r fieldName)
+        make (MemberAssg (getIDSSA object) (getIDSSA r) fieldName)
     AST.IndexExp arrayExp indexExp -> do
         array <- scExp arrayExp
         index <- scExp indexExp
         r <- scExp val
-        make (IndexAssg array index r)
+        make (IndexAssg (getIDSSA array) (getIDSSA index) (getIDSSA r))
     l -> error $ "Invalid LHS: " ++ show l
 scExp (AST.BinaryExpression l op r) = do
     sl <- scExp l
     sr <- scExp r
     case lookup op opConstructors of
-        Just opConstructor -> make (opConstructor sl sr)
+        Just opConstructor -> make (opConstructor (getIDSSA sl) (getIDSSA sr))
         Nothing -> error $ "Op " ++ op ++ " not found in list: " ++ show (map fst opConstructors)
 scExp (AST.NotExp e) = do
     r <- scExp e
-    make (Not r)
+    make (Not (getIDSSA r))
 scExp (AST.IndexExp arrayExp indexExp) = do
     array <- scExp arrayExp
     index <- scExp indexExp
-    make (Index array index)
+    make (Index (getIDSSA array) (getIDSSA index))
 scExp (AST.CallExp objectExp methodName argExps) = do
     object <- scExp objectExp
     let makeArg argExp i = do
         target <- scExp argExp
-        make (Arg target i)
+        make (Arg (getIDSSA target) i)
     args <- zipWithM makeArg argExps [0 .. ]
-    make (Call methodName object args)
+    make (Call methodName (getIDSSA object) (map getIDSSA args))
 scExp (AST.MemberExp objectExp fieldName) = do
     object <- scExp objectExp
-    make (Member object fieldName)
+    make (Member (getIDSSA object) fieldName)
 scExp (AST.VarExp name) = do
     bs <- get >>= return . getBindings
     case M.lookup name bs of
         Just s -> return s
         Nothing -> do
             this <- make This
-            make (Member this name)
+            make (Member (getIDSSA this) name)
 scExp (AST.NewIntArrayExp index) = do
     r <- scExp index
-    make (NewIntArray r)
+    make (NewIntArray (getIDSSA r))
 scExp (AST.NewObjectExp name) = do
     make (NewObj name)
 scExp (AST.ThisExp) = make This
 
-scClassDecl :: AST.ClassDecl -> State (SSAState Int) (SSAClass Int)
+scClassDecl :: AST.ClassDecl -> State (SSAState ()) (SSAClass ())
 scClassDecl ast@(AST.ClassDecl name extends vs ms) =
     SSAClass ast <$> zipWithM scVarDeclAsField vs [0 .. ] <*> mapM scMethodDecl ms
 
-scVarDeclAsField :: AST.VarDecl -> Int -> State (SSAState Int) (SSAField Int)
-scVarDeclAsField v i = return $ SSAField v i 0
+scVarDeclAsField :: AST.VarDecl -> Int -> State (SSAState ()) (SSAField ())
+scVarDeclAsField v i = return $ SSAField v i ()
 
-scMethodDecl :: AST.MethodDecl -> State (SSAState Int) (SSAMethod Int)
+scMethodDecl :: AST.MethodDecl -> State (SSAState ()) (SSAMethod ())
 scMethodDecl ast@(AST.MethodDecl t name ps vs ss ret) = do
     s <- get
     put (s { getSSAList = [] })
     ssaParams <- mapM make (zipWith Parameter ps [0 .. ])
-    ssaVarAssgs <- mapM make $ map (\((AST.Parameter _ name), p) -> VarAssg p name) $ zip ps ssaParams
+    ssaVarAssgs <- mapM make $ map (\((AST.Parameter _ name), p) -> VarAssg p name) $ zip ps (map getIDSSA ssaParams)
     sequence $ zipWith insertBinding (map (\(AST.Parameter _ name) -> name) ps) (ssaVarAssgs)
     mapM scVarDecl vs
     mapM scStatement ss
     ret' <- scExp ret
-    make (Return ret')
+    make (Return (getIDSSA ret'))
     SSAState { getSSAList = allStatements } <- get
     return $ SSAMethod ast ssaParams allStatements ret'
 
-scVarDecl :: AST.VarDecl -> State (SSAState Int) (SSAStatement Int)
+scVarDecl :: AST.VarDecl -> State (SSAState ()) (SSAStatement ())
 scVarDecl (AST.VarDecl t name) = do
     r <- make (Null t)
     s@(SSAState { getBindings = bs }) <- get
