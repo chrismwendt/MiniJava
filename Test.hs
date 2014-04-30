@@ -4,13 +4,17 @@ import Control.Monad.Loops
 import System.Exit
 import Control.Monad
 
-main = allM test examples >> return ()
--- main = allM test ["examples/Extends.java"] >> return ()
+-- main = allM test examples >> return ()
+main = allM test ["examples/Factorial.java"] >> return ()
 
 test file = do
     putStrLn $ "Testing " ++ file
-    system $ "canonical/bin/mjparse-ast " ++ file ++ " | runhaskell PrettySExp.hs > canonical.out"
-    system $ "runhaskell Main.hs --stopAt parse " ++ file ++ " | runhaskell PrettySExp.hs > mine.out"
+    -- system $ "canonical/bin/mjcompile-ssa -s -t " ++ file ++ " > canonical.out"
+    -- system $ "runhaskell Main.hs --stopAt type " ++ file ++ " > mine.out"
+    system $ "canonical/bin/mjcompile-ssa -s " ++ file ++ " > canonical.out"
+    system $ "runhaskell Main.hs --stopAt SSA " ++ file ++ " > mine.out"
+    -- system $ "canonical/bin/mjparse-ast " ++ file ++ " | runhaskell PrettySExp.hs > canonical.out"
+    -- system $ "runhaskell Main.hs --stopAt parse " ++ file ++ " | runhaskell PrettySExp.hs > mine.out"
     (exit, stdout, stderr) <- readProcessWithExitCode "diff" ["-y", "canonical.out", "mine.out"] ""
     case exit of
         ExitFailure _ -> putStr stdout >> return False

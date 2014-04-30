@@ -4,6 +4,11 @@ import Options.Applicative
 import Parser
 import AST
 import SSACompiler
+-- import qualified TypeChecker as TC
+import Control.Monad.State
+import Data.Maybe
+import qualified Data.Map as M
+import Data.Bifunctor
 
 data Options = Options { stopAt :: String, file :: String }
 
@@ -14,8 +19,8 @@ options = Options
 
 compile :: Options -> String -> String
 compile (Options "parse" _) source = sExpProgram $ parseString source
-compile (Options "SSA" _) source = show $ ssaCompileProgram $ parseString source
-compile (Options "type" _) source = error "unimplemented target: type"
+compile (Options "SSA" _) source = (++ "\n") $ show $ (\(p, m) -> let f ref = fromJust $ M.lookup ref m; g = id in bimap f g p) $ ssaCompile $ parseString source
+-- compile (Options "type" _) source = (++ "\n") $ show $ TCA.typeCheck $ parseString source
 compile (Options "reg" _) source = error "unimplemented target: reg"
 compile (Options "code" _) source = error "unimplemented target: code"
 compile (Options target _) _ = error $ "unknown target: " ++ target
