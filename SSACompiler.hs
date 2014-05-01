@@ -154,14 +154,6 @@ instance Bifunctor SSAClass where
 instance Bifunctor SSAMethod where
     bimap f g (SSAMethod md ps ss r) = SSAMethod md (map f ps) (map f ss) (f r)
 
--- instance Show StaticType where
---     show TypeInt = "Type(int)"
---     show TypeBoolean = "Type(boolean)"
---     show (TypeObject t) = show t
---
--- instance Show StaticTypeObject where
---     show (StaticTypeObject name _) = printf "Type(%s)" name
-
 data SSAState ref info = SSAState
     { getProg     :: AST.Program
     , getID       :: ID
