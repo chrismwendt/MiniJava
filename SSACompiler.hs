@@ -94,8 +94,7 @@ instance Show info => Show (SSAField info) where
     show (SSAField (AST.VarDecl _ name) _ _) = name
 
 instance (Show ref, Show info) => Show (SSAStatement ref info) where
-    -- show (SSAStatement id op info) = printf "      %s: %s :%s\n" (show id) (show op) (show info)
-    show (SSAStatement id op info) = printf "      %s: %s\n" (show id) (show op)
+    show (SSAStatement id op info) = printf "      %s: %s :%s\n" (show id) (show op) (show info)
 
 instance Show ref => Show (SSAOp ref) where
     show (Unify l r) = printf "Unify %s %s" (show l) (show r)
