@@ -25,12 +25,13 @@ data StaticType =
       TypeInt
     | TypeBoolean
     | TypeVoid
-    | TypeObject StaticTypeObject deriving (Show)
+    | TypeObject StaticTypeObject deriving (Show, Eq)
 
 data StaticTypeObject = StaticTypeObject
     { typeName :: String
     , typeSuper :: (Maybe StaticTypeObject)
     }
+    deriving (Eq)
 
 data SSAStatement ref info = SSAStatement { getIDSSA :: ID, getOp :: SSAOp ref, getInfo :: info } deriving (Eq)
 
