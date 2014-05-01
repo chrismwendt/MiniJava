@@ -1,3 +1,4 @@
+-- TODO try using Parsec's operator table
 module Parser where
 
 import System.Environment
