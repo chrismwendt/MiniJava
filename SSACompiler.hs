@@ -221,8 +221,8 @@ getSSA id = do
 
 singleton a = [a]
 
-ssaCompile :: AST.Program -> (SSAProgram ID (), M.Map ID (SSAStatement ID ()))
-ssaCompile program = let (a, s) = runState scProgram state in (a, getIDMap s)
+ssaCompile :: AST.Program -> (SSAProgram ID (), [ID], M.Map ID (SSAStatement ID ()))
+ssaCompile program = let (a, s) = runState scProgram state in (a, getSSAList s, getIDMap s)
     where
     state = SSAState
         { getProg = program

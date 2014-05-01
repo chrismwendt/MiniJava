@@ -60,8 +60,8 @@ augment types (AST.Program _ classDecls) = moreTypes
         (Just (_, parentType), _) -> error $ "No class can extend " ++ show parentType
     moreTypes = snd $ until (null . fst) insertOrphan (orphans, types)
 
-typeCheck :: SSAProgram ID () -> M.Map ID (SSAStatement ID ()) -> (SSAProgram ID StaticType, M.Map ID (SSAStatement ID StaticType))
-typeCheck program@(SSAProgram ast _ _) m = (a, getMap' s)
+typeCheck :: SSAProgram ID () -> [ID] -> M.Map ID (SSAStatement ID ()) -> (SSAProgram ID StaticType, [ID], M.Map ID (SSAStatement ID StaticType))
+typeCheck program@(SSAProgram ast _ _) ids m = (a, ids, getMap' s)
     where
     (a, s) = runState (tcProgram program) TypeState
         { getAST      = ast

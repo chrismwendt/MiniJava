@@ -19,13 +19,15 @@ options = Options
 
 compile :: Options -> String -> String
 compile (Options "parse" _) source = sExpProgram $ parseString source
-compile (Options "SSA" _) source = (++ "\n") $ show $ freeze $ ssaCompile $ parseString source
-compile (Options "type" _) source = (++ "\n") $ show $ freeze $ uncurry TC.typeCheck $ ssaCompile $ parseString source
+compile (Options "SSA" _) source = (++ "\n") $ show $ fst $ freeze $ ssaCompile $ parseString source
+compile (Options "type" _) source = (++ "\n") $ show $ fst $ freeze $ uncurry3 TC.typeCheck $ ssaCompile $ parseString source
 compile (Options "reg" _) source = error "unimplemented target: reg"
 compile (Options "code" _) source = error "unimplemented target: code"
 compile (Options target _) _ = error $ "unknown target: " ++ target
 
-freeze (program, m) = let f ref = fromJust $ M.lookup ref m in bimap f id program
+freeze (program, l, m) = let f ref = fromJust $ M.lookup ref m in (bimap f id program, map f l)
+
+uncurry3 f (a, b, c) = f a b c
 
 main :: IO ()
 main = execParser opts >>= \os -> do
