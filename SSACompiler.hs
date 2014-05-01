@@ -25,7 +25,7 @@ data StaticType =
       TypeInt
     | TypeBoolean
     | TypeVoid
-    | TypeObject StaticTypeObject deriving (Show, Eq)
+    | TypeObject StaticTypeObject deriving (Eq)
 
 data StaticTypeObject = StaticTypeObject
     { typeName :: String
@@ -79,8 +79,13 @@ data SSAOp ref =
     deriving (Eq, Functor)
 
 instance Show StaticTypeObject where
-    show (StaticTypeObject name Nothing) = name
-    show (StaticTypeObject name (Just super)) = name ++ " <" ++ show super
+    show (StaticTypeObject name _) = name
+
+instance Show StaticType where
+    show TypeBoolean = "boolean"
+    show TypeInt = "int"
+    show TypeVoid = "void"
+    show (TypeObject o) = show o
 
 instance (Show ref, Show info) => Show (SSAProgram ref info) where
     show (SSAProgram _ ss cs) = printf "program:\n  main:\n    method main:\n%s%s" (concatMap show ss) (concatMap show cs)
