@@ -9,6 +9,7 @@ import qualified Data.Set as S
 import Control.Monad.State
 import Data.List
 import Control.Lens
+import Data.Functor
 
 type Register = Int
 
@@ -69,4 +70,21 @@ allocate registerCount program ss m = (a, s ^. idList, s ^. idToS')
         }
 
 allocProgram :: SSAProgram ID StaticType -> State RegState (SSAProgram ID (StaticType, Register))
-allocProgram program = undefined
+allocProgram (SSAProgram ast@(AST.Program s cs) ids classes) = do
+    let mainMethod = SSAMethod (AST.MethodDecl (AST.ObjectType "") "" [] [] [s] AST.ThisExp) [] [] 0
+    mainIDs <- (^. mStatements) <$> allocMethod mainMethod
+    classes' <- mapM allocClass classes
+    return $ SSAProgram ast mainIDs classes'
+
+allocClass :: SSAClass ID StaticType -> State RegState (SSAClass ID (StaticType, Register))
+allocClass (SSAClass classDecl@(AST.ClassDecl c _ _ _) fields methods) = do
+    fields' <- mapM allocField fields
+    methods' <- mapM allocMethod methods
+    return $ SSAClass classDecl fields' methods'
+
+allocField :: SSAField StaticType -> State RegState (SSAField (StaticType, Register))
+allocField (SSAField ast index id) = return $ SSAField ast index (id, 0)
+
+-- XXX ignore the return value in the SSAMethod
+allocMethod :: SSAMethod ID StaticType -> State RegState (SSAMethod ID (StaticType, Register))
+allocMethod method = undefined
