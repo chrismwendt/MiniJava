@@ -200,6 +200,9 @@ instance Bifunctor SSAClass where
 instance Bifunctor SSAMethod where
     bimap f g (SSAMethod md ps ss r) = SSAMethod md (map f ps) (map f ss) (f r)
 
+instance Bifunctor SSAStatement where
+    bimap f g (SSAStatement id op info) = SSAStatement (f id) (fmap f op) (g info)
+
 ssaCompile :: AST.Program -> (SSAProgram ID (), [ID], M.Map ID (SSAStatement ID ()))
 ssaCompile program = let (a, s) = runState scProgram state in (a, _stIDList s, _stIDToS s)
     where
