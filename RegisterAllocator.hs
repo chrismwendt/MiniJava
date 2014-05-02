@@ -31,7 +31,8 @@ data TempNode = TempNode
     }
 
 data RegState = RegState
-    { _sToV :: M.Map ID Variable
+    { _registerCount :: Int
+    , _sToV :: M.Map ID Variable
     , _vToT :: M.Map Variable TempNode
     , _nonSpills :: S.Set TempNode
     , _potentialSpills :: S.Set TempNode
@@ -47,14 +48,16 @@ makeLenses ''TempNode
 makeLenses ''RegState
 
 allocate ::
-       SSAProgram ID StaticType
+       Int
+    -> SSAProgram ID StaticType
     -> [ID]
     -> M.Map ID (SSAStatement ID StaticType)
     -> (SSAProgram ID (StaticType, Register), [ID], M.Map ID (SSAStatement ID (StaticType, Register)))
-allocate program ss m = (a, s ^. idList, s ^. idToS')
+allocate registerCount program ss m = (a, s ^. idList, s ^. idToS')
     where
     (a, s) = runState (allocProgram program) RegState
-        { _sToV = M.empty
+        { _registerCount = registerCount
+        , _sToV = M.empty
         , _vToT = M.empty
         , _nonSpills = S.empty
         , _potentialSpills = S.empty

@@ -22,7 +22,7 @@ compile :: Options -> String -> String
 compile (Options "parse" _) source = sExpProgram $ parseString source
 compile (Options "SSA" _) source = (++ "\n") $ show $ fst $ freeze $ ssaCompile $ parseString source
 compile (Options "type" _) source = (++ "\n") $ show $ fst $ freeze $ uncurry3 TC.typeCheck $ ssaCompile $ parseString source
-compile (Options "reg" _) source = (++ "\n") $ show $ fst $ freeze $ uncurry3 Reg.allocate $ uncurry3 TC.typeCheck $ ssaCompile $ parseString source
+compile (Options "reg" _) source = (++ "\n") $ show $ fst $ freeze $ uncurry3 (Reg.allocate 22) $ uncurry3 TC.typeCheck $ ssaCompile $ parseString source
 compile (Options "code" _) source = error "unimplemented target: code"
 compile (Options target _) _ = error $ "unknown target: " ++ target
 
