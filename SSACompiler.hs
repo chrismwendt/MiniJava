@@ -235,8 +235,8 @@ scStatement (AST.BlockStatement ss) = mapM scStatement ss >> return ()
 scStatement axe@(AST.IfStatement condExp branchTrue branchFalse) = do
     condSSA <- scExp condExp
 
-    labelElse <- liftM (printf "l_%d" :: Int -> String) nextLabel
-    labelDone <- liftM (printf "l_%d" :: Int -> String) nextLabel
+    labelElse <- (printf "l_%d" :: Int -> String) <$> nextLabel
+    labelDone <- (printf "l_%d" :: Int -> String) <$> nextLabel
 
     make (NBranch condSSA labelElse)
 
@@ -262,8 +262,8 @@ scStatement axe@(AST.IfStatement condExp branchTrue branchFalse) = do
 
     return ()
 scStatement (AST.WhileStatement condExp body) = do
-    labelStart <- liftM (printf "l_%d" :: Int -> String) nextLabel
-    labelEnd <- liftM (printf "l_%d" :: Int -> String) nextLabel
+    labelStart <- (printf "l_%d" :: Int -> String) <$> nextLabel
+    labelEnd <- (printf "l_%d" :: Int -> String) <$> nextLabel
 
     make (Label labelStart)
 
