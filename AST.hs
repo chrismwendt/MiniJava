@@ -1,17 +1,46 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module AST where
 
 import Text.Printf
 import Data.List
+import Control.Lens
 
-data Program = Program Statement [ClassDecl] deriving (Show, Eq)
+data Program = Program 
+    { _pMain :: Statement
+    , _pClassDecls :: [ClassDecl]
+    }
+    deriving (Show, Eq)
 
-data ClassDecl = ClassDecl String (Maybe String) [VarDecl] [MethodDecl] deriving (Show, Eq)
+data ClassDecl = ClassDecl 
+    { _cName :: String
+    , _cParent :: Maybe String
+    , _cVarDecls :: [VarDecl]
+    , _cMethodDecls :: [MethodDecl]
+    }
+    deriving (Show, Eq)
 
-data VarDecl = VarDecl Type String deriving (Show, Eq)
+data VarDecl = VarDecl
+    { _vType :: Type
+    , _vName :: String
+    }
+    deriving (Show, Eq)
 
-data MethodDecl = MethodDecl Type String [Parameter] [VarDecl] [Statement] Exp deriving (Show, Eq)
+data MethodDecl = MethodDecl
+    { _mReturnType :: Type
+    , _mName :: String
+    , _mParameters :: [Parameter]
+    , _mVarDecls :: [VarDecl]
+    , _mStatements :: [Statement]
+    , _mReturnExp :: Exp
+    }
+    deriving (Show, Eq)
 
-data Parameter = Parameter Type String deriving (Show, Eq)
+data Parameter = Parameter
+    { _parType :: Type
+    , _parName :: String
+    }
+    deriving (Show, Eq)
 
 data Statement =
       BlockStatement [Statement]
@@ -40,8 +69,17 @@ data Type =
       BooleanType
     | IntType
     | IntArrayType
-    | ObjectType String
+    | ObjectType
+        { _tObject :: String
+        }
     deriving (Show, Eq)
+
+makeLenses ''Program
+makeLenses ''ClassDecl
+makeLenses ''VarDecl
+makeLenses ''MethodDecl
+makeLenses ''Parameter
+makeLenses ''Type
 
 -- TODO use Show instances instead of explicit string functions
 

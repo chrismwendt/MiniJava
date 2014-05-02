@@ -110,7 +110,7 @@ tcMethod (SSAMethod methodDecl varIDs sIDs retID) = do
     mapM (tcStatement methodDecl) $ map (unsafeFind m) sIDs
     TypeState { getClassMap = cm, getMap = m, getMap' = m' } <- get
     tcStatement methodDecl $ unsafeFind m retID
-    let getType id = getInfo $ unsafeFind m' id
+    let getType id = _sInfo $ unsafeFind m' id
     let toStaticType AST.BooleanType = TypeBoolean
         toStaticType AST.IntType = TypeInt
         toStaticType AST.IntArrayType = unsafeFind cm "int[]"
@@ -128,7 +128,7 @@ tcStatement :: AST.MethodDecl -> SSAStatement ID () -> State (TypeState ID) Stat
 tcStatement astMethod s@(SSAStatement id op ()) = do
     t <- tcStatement' astMethod s
     state@(TypeState { getMap' = m }) <- get
-    put $ state { getMap' = M.insert id (s { getInfo = t }) m }
+    put $ state { getMap' = M.insert id (s { _sInfo = t }) m }
     return t
 
 tcStatement' :: AST.MethodDecl -> SSAStatement ID () -> State (TypeState ID) StaticType
@@ -138,7 +138,7 @@ tcStatement' astMethod (SSAStatement id op ()) = do
         toStaticType AST.IntType = TypeInt
         toStaticType AST.IntArrayType = unsafeFind cm "int[]"
         toStaticType (AST.ObjectType name) = unsafeFind cm name
-    let getType id = getInfo $ unsafeFind m id
+    let getType id = _sInfo $ unsafeFind m id
     let getClass = unsafeFind cm
     let getClassDecl name = case find (\(AST.ClassDecl cname _ _ _) -> cname == name) (let (AST.Program _ cs) = ast in cs) of
                                 Nothing -> error $ "No such class: " ++ name
