@@ -9,8 +9,6 @@ import Data.Maybe
 import Data.Graph.Inductive (mapFst, mapSnd)
 import Data.List
 import qualified Data.Foldable as F
-import Debug.Trace
-traceShowId x = traceShow x x
 
 data TypeState ref = TypeState
     { getAST      :: AST.Program
