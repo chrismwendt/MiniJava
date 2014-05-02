@@ -59,7 +59,7 @@ data StaticTypeObject = StaticTypeObject
     deriving (Eq)
 
 data SSAStatement ref info = SSAStatement
-    { _sID :: ID
+    { _sID :: ref
     , _sOp :: SSAOp ref
     , _sInfo :: info
     }
