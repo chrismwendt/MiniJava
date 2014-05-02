@@ -14,8 +14,8 @@ data TypeState ref = TypeState
     { getAST      :: AST.Program
     , getClassMap :: M.Map String StaticType
     , getScope    :: M.Map String StaticType
-    , getMap      :: M.Map ref (SSAStatement ref ())
-    , getMap'     :: M.Map ref (SSAStatement ref StaticType)
+    , getMap      :: M.Map ref (SSAStatement () ref)
+    , getMap'     :: M.Map ref (SSAStatement StaticType ref)
     , getThis     :: StaticType
     }
 
@@ -58,7 +58,7 @@ augment types (AST.Program _ classDecls) = moreTypes
         (Just (_, parentType), _) -> error $ "No class can extend " ++ show parentType
     moreTypes = snd $ until (null . fst) insertOrphan (orphans, types)
 
-typeCheck :: SSAProgram ID () -> [ID] -> M.Map ID (SSAStatement ID ()) -> (SSAProgram ID StaticType, [ID], M.Map ID (SSAStatement ID StaticType))
+typeCheck :: SSAProgram () ID -> [ID] -> M.Map ID (SSAStatement () ID) -> (SSAProgram StaticType ID, [ID], M.Map ID (SSAStatement StaticType ID))
 typeCheck program@(SSAProgram ast _ _) ids m = (a, ids, getMap' s)
     where
     (a, s) = runState (tcProgram program) TypeState
@@ -70,7 +70,7 @@ typeCheck program@(SSAProgram ast _ _) ids m = (a, ids, getMap' s)
         , getThis     = TypeVoid
         }
 
-tcProgram :: SSAProgram ID () -> State (TypeState ID) (SSAProgram ID StaticType)
+tcProgram :: SSAProgram () ID -> State (TypeState ID) (SSAProgram StaticType ID)
 tcProgram (SSAProgram ast@(AST.Program s cs) sIDs classes) = do
     TypeState { getMap = m } <- get
     let mainMethodDecl = AST.MethodDecl (AST.ObjectType "") "" [] [] [s] AST.ThisExp
@@ -78,7 +78,7 @@ tcProgram (SSAProgram ast@(AST.Program s cs) sIDs classes) = do
     classes' <- mapM tcClass classes
     return (SSAProgram ast sIDs classes')
 
-tcClass :: SSAClass ID () -> State (TypeState ID) (SSAClass ID StaticType)
+tcClass :: SSAClass () ID -> State (TypeState ID) (SSAClass StaticType ID)
 tcClass (SSAClass classDecl@(AST.ClassDecl c _ _ _) fields methods) = do
     s@(TypeState { getClassMap = m, getThis = this }) <- get
     put $ s { getThis = unsafeFind m c }
@@ -100,7 +100,7 @@ tcField (SSAField (AST.VarDecl (AST.ObjectType super) name) index info) = do
         toStaticType (AST.ObjectType name) = unsafeFind cm name
     return $ (SSAField (AST.VarDecl (AST.ObjectType super) name) index (unsafeFind cm name))
 
-tcMethod :: SSAMethod ID () -> State (TypeState ID) (SSAMethod ID StaticType)
+tcMethod :: SSAMethod () ID -> State (TypeState ID) (SSAMethod StaticType ID)
 tcMethod (SSAMethod methodDecl varIDs sIDs retID) = do
     TypeState { getClassMap = cm, getMap = m, getMap' = m' } <- get
     mapM (tcStatement methodDecl) $ map (unsafeFind m) varIDs
@@ -122,14 +122,14 @@ tcMethod (SSAMethod methodDecl varIDs sIDs retID) = do
         then return $ SSAMethod methodDecl varIDs sIDs retID
         else error "Type mismatch2"
 
-tcStatement :: AST.MethodDecl -> SSAStatement ID () -> State (TypeState ID) StaticType
+tcStatement :: AST.MethodDecl -> SSAStatement () ID -> State (TypeState ID) StaticType
 tcStatement astMethod s@(SSAStatement id op ()) = do
     t <- tcStatement' astMethod s
     state@(TypeState { getMap' = m }) <- get
     put $ state { getMap' = M.insert id (s { _sInfo = t }) m }
     return t
 
-tcStatement' :: AST.MethodDecl -> SSAStatement ID () -> State (TypeState ID) StaticType
+tcStatement' :: AST.MethodDecl -> SSAStatement () ID -> State (TypeState ID) StaticType
 tcStatement' astMethod (SSAStatement id op ()) = do
     TypeState { getAST = ast, getClassMap = cm, getMap' = m, getThis = this } <- get
     let toStaticType AST.BooleanType = TypeBoolean

@@ -17,16 +17,16 @@ import Control.Lens
 
 type ID = Int
 
-data SSAProgram ref info = SSAProgram
+data SSAProgram info ref = SSAProgram
     { _pProgram :: AST.Program
     , _pMain :: [ref]
-    , _pClasses :: [SSAClass ref info]
+    , _pClasses :: [SSAClass info ref]
     }
 
-data SSAClass ref info = SSAClass
+data SSAClass info ref = SSAClass
     { _cClassDecl :: AST.ClassDecl
     , _cFields :: [SSAField info]
-    , _cMethod :: [SSAMethod ref info]
+    , _cMethod :: [SSAMethod info ref]
     }
 
 data SSAField info = SSAField
@@ -36,7 +36,7 @@ data SSAField info = SSAField
     }
     deriving (Functor)
 
-data SSAMethod ref info = SSAMethod
+data SSAMethod info ref = SSAMethod
     { _mMethodDecl :: AST.MethodDecl
     , _mParameters :: [ref]
     , _mStatements :: [ref]
@@ -58,7 +58,7 @@ data StaticTypeObject = StaticTypeObject
     }
     deriving (Eq)
 
-data SSAStatement ref info = SSAStatement
+data SSAStatement info ref = SSAStatement
     { _sID :: ref
     , _sOp :: SSAOp ref
     , _sInfo :: info
@@ -106,11 +106,11 @@ data SSAOp ref =
     | Mod ref ref
     deriving (Eq, Functor)
 
-data SSAState ref info = SSAState
+data SSAState info ref = SSAState
     { _stProgram :: AST.Program
     , _stNextID :: ID
     , _stVarToID :: M.Map String ID
-    , _stIDToS :: M.Map ID (SSAStatement ref info)
+    , _stIDToS :: M.Map ID (SSAStatement info ref)
     , _stIDList :: [ID]
     , _stNextLabel :: Int
     }
@@ -133,19 +133,19 @@ instance Show StaticType where
     show TypeVoid = "void"
     show (TypeObject o) = show o
 
-instance (Show ref, Show info) => Show (SSAProgram ref info) where
+instance (Show ref, Show info) => Show (SSAProgram info ref) where
     show (SSAProgram _ ss cs) = printf "program:\n  main:\n    method main:\n%s%s" (concatMap show ss) (concatMap show cs)
 
-instance (Show ref, Show info) => Show (SSAMethod ref info) where
+instance (Show ref, Show info) => Show (SSAMethod info ref) where
     show (SSAMethod (AST.MethodDecl _ name _ _ _ _) ps ss _) = printf "    method %s:\n%s" name (concatMap show ss)
 
-instance (Show ref, Show info) => Show (SSAClass ref info) where
+instance (Show ref, Show info) => Show (SSAClass info ref) where
     show (SSAClass (AST.ClassDecl name _ _ _) _ ms) = printf "  class %s:\n%s" name (concatMap show ms)
 
 instance Show info => Show (SSAField info) where
     show (SSAField (AST.VarDecl _ name) _ _) = name
 
-instance (Show ref, Show info) => Show (SSAStatement ref info) where
+instance (Show ref, Show info) => Show (SSAStatement info ref) where
     show (SSAStatement id op info) = printf "      %s: %s :%s\n" (show id) (show op) (show info)
 
 instance Show ref => Show (SSAOp ref) where
@@ -192,18 +192,18 @@ instance Show ref => Show (SSAOp ref) where
     show (Mod sl sr) = printf "Mod %s %s" (show sl) (show sr)
 
 instance Bifunctor SSAProgram where
-    bimap f g (SSAProgram ast rs cs) = SSAProgram ast (map f rs) (map (bimap f g) cs)
+    bimap f g (SSAProgram ast rs cs) = SSAProgram ast (map g rs) (map (bimap f g) cs)
 
 instance Bifunctor SSAClass where
-    bimap f g (SSAClass cd fs ms) = SSAClass cd (map (fmap g) fs) (map (bimap f g) ms)
+    bimap f g (SSAClass cd fs ms) = SSAClass cd (map (fmap f) fs) (map (bimap f g) ms)
 
 instance Bifunctor SSAMethod where
-    bimap f g (SSAMethod md ps ss r) = SSAMethod md (map f ps) (map f ss) (f r)
+    bimap f g (SSAMethod md ps ss r) = SSAMethod md (map g ps) (map g ss) (g r)
 
 instance Bifunctor SSAStatement where
-    bimap f g (SSAStatement id op info) = SSAStatement (f id) (fmap f op) (g info)
+    bimap f g (SSAStatement id op info) = SSAStatement (g id) (fmap g op) (f info)
 
-ssaCompile :: AST.Program -> (SSAProgram ID (), [ID], M.Map ID (SSAStatement ID ()))
+ssaCompile :: AST.Program -> (SSAProgram () ID, [ID], M.Map ID (SSAStatement () ID))
 ssaCompile program = let (a, s) = runState scProgram state in (a, _stIDList s, _stIDToS s)
     where
     state = SSAState
@@ -215,7 +215,7 @@ ssaCompile program = let (a, s) = runState scProgram state in (a, _stIDList s, _
         , _stNextLabel = 0
         }
 
-scProgram :: State (SSAState ID ()) (SSAProgram ID ())
+scProgram :: State (SSAState () ID) (SSAProgram () ID)
 scProgram = do
     state <- get
     let program = state ^. stProgram
@@ -223,7 +223,7 @@ scProgram = do
     let classes = state ^. stProgram . AST.pClassDecls
     SSAProgram program <$> (scStatement main >> get >>= return . (^. stIDList)) <*> (mapM scClassDecl classes)
 
-scStatement :: AST.Statement -> State (SSAState ID ()) ()
+scStatement :: AST.Statement -> State (SSAState () ID) ()
 scStatement (AST.BlockStatement ss) = mapM scStatement ss >> return ()
 scStatement axe@(AST.IfStatement condExp branchTrue branchFalse) = do
     condSSA <- scExp condExp
@@ -286,7 +286,7 @@ scStatement (AST.PrintStatement e) = do
     return ()
 scStatement (AST.ExpressionStatement e) = singleton <$> scExp e >> return ()
 
-scExp :: AST.Exp -> State (SSAState ID ()) ID
+scExp :: AST.Exp -> State (SSAState () ID) ID
 scExp (AST.IntLiteral v) = buildStatement (SInt v)
 scExp (AST.BooleanLiteral v) = buildStatement (SBoolean v)
 scExp (AST.AssignExpression var val) = case var of
@@ -349,14 +349,14 @@ scExp (AST.NewObjectExp name) = do
     buildStatement (NewObj name)
 scExp AST.ThisExp = buildStatement This
 
-scClassDecl :: AST.ClassDecl -> State (SSAState ID ()) (SSAClass ID ())
+scClassDecl :: AST.ClassDecl -> State (SSAState () ID) (SSAClass () ID)
 scClassDecl ast@(AST.ClassDecl name extends vs ms) =
     SSAClass ast <$> zipWithM scVarDeclAsField vs [0 .. ] <*> mapM scMethodDecl ms
 
-scVarDeclAsField :: AST.VarDecl -> Int -> State (SSAState ID ()) (SSAField ())
+scVarDeclAsField :: AST.VarDecl -> Int -> State (SSAState () ID) (SSAField ())
 scVarDeclAsField v i = return $ SSAField v i ()
 
-scMethodDecl :: AST.MethodDecl -> State (SSAState ID ()) (SSAMethod ID ())
+scMethodDecl :: AST.MethodDecl -> State (SSAState () ID) (SSAMethod () ID)
 scMethodDecl ast@(AST.MethodDecl t name ps vs ss ret) = do
     modify $ stIDList .~ []
     ssaParams <- mapM buildStatement (zipWith Parameter ps [0 .. ])
@@ -369,7 +369,7 @@ scMethodDecl ast@(AST.MethodDecl t name ps vs ss ret) = do
     allStatements <- (^. stIDList) <$> get
     return $ SSAMethod ast ssaParams allStatements ret'
 
-scVarDecl :: AST.VarDecl -> State (SSAState ID ()) ID
+scVarDecl :: AST.VarDecl -> State (SSAState () ID) ID
 scVarDecl (AST.VarDecl t name) = do
     r <- buildStatement (Null t)
     modify $ stVarToID %~ M.insert name r
@@ -395,18 +395,18 @@ binaryOps =
     , ("%", Mod)
     ]
 
-nextID :: State (SSAState ID ()) ID
+nextID :: State (SSAState () ID) ID
 nextID = state $ \s -> (s ^. stNextID, stNextID %~ succ $ s)
 
-nextLabel :: State (SSAState ID ()) Int
+nextLabel :: State (SSAState () ID) Int
 nextLabel = state $ \s -> (s ^. stNextLabel, stNextLabel %~ succ $ s)
 
-buildStatement :: SSAOp ID -> State (SSAState ID ()) ID
+buildStatement :: SSAOp ID -> State (SSAState () ID) ID
 buildStatement op = do
     id <- nextID
     modify $ stIDList %~ (++ [id])
     modify $ stIDToS %~ M.insert id (SSAStatement id op ())
     return id
 
-insertVarToID :: String -> ID -> State (SSAState ID info) ()
+insertVarToID :: String -> ID -> State (SSAState info ID) ()
 insertVarToID name id = modify $ stVarToID %~ M.insert name id

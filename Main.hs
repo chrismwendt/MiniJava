@@ -26,7 +26,7 @@ compile (Options "reg" _) source = (++ "\n") $ show $ fst $ freeze $ uncurry3 (R
 compile (Options "code" _) source = error "unimplemented target: code"
 compile (Options target _) _ = error $ "unknown target: " ++ target
 
-freeze (program, l, m) = let f ref = fromJust $ M.lookup ref m in (bimap f id program, map f l)
+freeze (program, l, m) = let f ref = fromJust $ M.lookup ref m in (bimap id f program, map f l)
 
 uncurry3 f (a, b, c) = f a b c
 

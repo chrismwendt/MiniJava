@@ -13,7 +13,7 @@ import Data.Functor
 
 type Register = Int
 
-type Variable = S.Set (SSAStatement ID StaticType)
+type Variable = S.Set (SSAStatement StaticType ID)
 
 data CFNode = CFNode
     { _defs  :: S.Set Variable
@@ -40,8 +40,8 @@ data RegState = RegState
     , _vToSSAs :: M.Map Variable (S.Set ID)
     , _spillCount :: Int
     , _idList :: [ID]
-    , _idToS :: M.Map ID (SSAStatement ID StaticType)
-    , _idToS' :: M.Map ID (SSAStatement ID (StaticType, Register))
+    , _idToS :: M.Map ID (SSAStatement StaticType ID)
+    , _idToS' :: M.Map ID (SSAStatement (StaticType, Register) ID)
     }
 
 makeLenses ''CFNode
@@ -50,10 +50,10 @@ makeLenses ''RegState
 
 allocate ::
        Int
-    -> SSAProgram ID StaticType
+    -> SSAProgram StaticType ID
     -> [ID]
-    -> M.Map ID (SSAStatement ID StaticType)
-    -> (SSAProgram ID (StaticType, Register), [ID], M.Map ID (SSAStatement ID (StaticType, Register)))
+    -> M.Map ID (SSAStatement StaticType ID)
+    -> (SSAProgram (StaticType, Register) ID, [ID], M.Map ID (SSAStatement (StaticType, Register) ID))
 allocate registerCount program ss m = (a, s ^. idList, s ^. idToS')
     where
     (a, s) = runState (allocProgram program) RegState
@@ -69,14 +69,14 @@ allocate registerCount program ss m = (a, s ^. idList, s ^. idToS')
         , _idToS' = M.empty
         }
 
-allocProgram :: SSAProgram ID StaticType -> State RegState (SSAProgram ID (StaticType, Register))
+allocProgram :: SSAProgram StaticType ID -> State RegState (SSAProgram (StaticType, Register) ID)
 allocProgram (SSAProgram ast@(AST.Program s cs) ids classes) = do
     let mainMethod = SSAMethod (AST.MethodDecl (AST.ObjectType "") "" [] [] [s] AST.ThisExp) [] [] 0
     mainIDs <- (^. mStatements) <$> allocMethod mainMethod
     classes' <- mapM allocClass classes
     return $ SSAProgram ast mainIDs classes'
 
-allocClass :: SSAClass ID StaticType -> State RegState (SSAClass ID (StaticType, Register))
+allocClass :: SSAClass StaticType ID -> State RegState (SSAClass (StaticType, Register) ID)
 allocClass (SSAClass classDecl@(AST.ClassDecl c _ _ _) fields methods) = do
     fields' <- mapM allocField fields
     methods' <- mapM allocMethod methods
@@ -86,5 +86,7 @@ allocField :: SSAField StaticType -> State RegState (SSAField (StaticType, Regis
 allocField (SSAField ast index id) = return $ SSAField ast index (id, 0)
 
 -- XXX ignore the return value in the SSAMethod
-allocMethod :: SSAMethod ID StaticType -> State RegState (SSAMethod ID (StaticType, Register))
-allocMethod method = undefined
+allocMethod :: SSAMethod StaticType ID -> State RegState (SSAMethod (StaticType, Register) ID)
+allocMethod = undefined
+-- allocMethod (SSAMethod methodDecl varIDs ids retID) = do
+--     return $ SSAMethod methodDecl varIDs ids' retID
