@@ -74,7 +74,7 @@ tcProgram :: SSAProgram () ID -> State (TypeState ID) (SSAProgram StaticType ID)
 tcProgram (SSAProgram ast@(AST.Program s cs) sIDs classes) = do
     TypeState { getMap = m } <- get
     let mainMethodDecl = AST.MethodDecl (AST.ObjectType "") "" [] [] [s] AST.ThisExp
-    mapM (tcStatement mainMethodDecl) $ map (unsafeFind m) sIDs
+    mapM (tcStatement mainMethodDecl) sIDs
     classes' <- mapM tcClass classes
     return (SSAProgram ast sIDs classes')
 
@@ -102,12 +102,10 @@ tcField (SSAField (AST.VarDecl (AST.ObjectType super) name) index info) = do
 
 tcMethod :: SSAMethod () ID -> State (TypeState ID) (SSAMethod StaticType ID)
 tcMethod (SSAMethod methodDecl varIDs sIDs retID) = do
+    mapM (tcStatement methodDecl) varIDs
+    mapM (tcStatement methodDecl) sIDs
     TypeState { getClassMap = cm, getMap = m, getMap' = m' } <- get
-    mapM (tcStatement methodDecl) $ map (unsafeFind m) varIDs
-    TypeState { getClassMap = cm, getMap = m, getMap' = m' } <- get
-    mapM (tcStatement methodDecl) $ map (unsafeFind m) sIDs
-    TypeState { getClassMap = cm, getMap = m, getMap' = m' } <- get
-    tcStatement methodDecl $ unsafeFind m retID
+    tcStatement methodDecl retID
     let getType id = _sInfo $ unsafeFind m' id
     let toStaticType AST.BooleanType = TypeBoolean
         toStaticType AST.IntType = TypeInt
@@ -122,15 +120,17 @@ tcMethod (SSAMethod methodDecl varIDs sIDs retID) = do
         then return $ SSAMethod methodDecl varIDs sIDs retID
         else error "Type mismatch2"
 
-tcStatement :: AST.MethodDecl -> SSAStatement () ID -> State (TypeState ID) StaticType
-tcStatement astMethod s@(SSAStatement id op ()) = do
+tcStatement :: AST.MethodDecl -> ID -> State (TypeState ID) StaticType
+tcStatement astMethod sID = do
+    TypeState { getMap = m } <- get
+    let s = unsafeFind m sID
     t <- tcStatement' astMethod s
     state@(TypeState { getMap' = m }) <- get
-    put $ state { getMap' = M.insert id (s { _sInfo = t }) m }
+    put $ state { getMap' = M.insert sID (s { _sInfo = t }) m }
     return t
 
 tcStatement' :: AST.MethodDecl -> SSAStatement () ID -> State (TypeState ID) StaticType
-tcStatement' astMethod (SSAStatement id op ()) = do
+tcStatement' astMethod (SSAStatement op ()) = do
     TypeState { getAST = ast, getClassMap = cm, getMap' = m, getThis = this } <- get
     let toStaticType AST.BooleanType = TypeBoolean
         toStaticType AST.IntType = TypeInt

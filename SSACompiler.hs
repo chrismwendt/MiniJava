@@ -59,8 +59,7 @@ data StaticTypeObject = StaticTypeObject
     deriving (Eq)
 
 data SSAStatement info ref = SSAStatement
-    { _sID :: ref
-    , _sOp :: SSAOp ref
+    { _sOp :: SSAOp ref
     , _sInfo :: info
     }
     deriving (Eq)
@@ -146,7 +145,7 @@ instance Show info => Show (SSAField info) where
     show (SSAField (AST.VarDecl _ name) _ _) = name
 
 instance (Show ref, Show info) => Show (SSAStatement info ref) where
-    show (SSAStatement id op info) = printf "      %s: %s :%s\n" (show id) (show op) (show info)
+    show (SSAStatement op info) = printf "      ?: %s :%s\n" (show op) (show info)
 
 instance Show ref => Show (SSAOp ref) where
     show (Unify l r) = printf "Unify %s %s" (show l) (show r)
@@ -201,7 +200,7 @@ instance Bifunctor SSAMethod where
     bimap f g (SSAMethod md ps ss r) = SSAMethod md (map g ps) (map g ss) (g r)
 
 instance Bifunctor SSAStatement where
-    bimap f g (SSAStatement id op info) = SSAStatement (g id) (fmap g op) (f info)
+    bimap f g (SSAStatement op info) = SSAStatement (fmap g op) (f info)
 
 ssaCompile :: AST.Program -> (SSAProgram () ID, [ID], M.Map ID (SSAStatement () ID))
 ssaCompile program = let (a, s) = runState scProgram state in (a, _stIDList s, _stIDToS s)
@@ -405,7 +404,7 @@ buildStatement :: SSAOp ID -> State (SSAState () ID) ID
 buildStatement op = do
     id <- nextID
     modify $ stIDList %~ (++ [id])
-    modify $ stIDToS %~ M.insert id (SSAStatement id op ())
+    modify $ stIDToS %~ M.insert id (SSAStatement op ())
     return id
 
 insertVarToID :: String -> ID -> State (SSAState info ID) ()
