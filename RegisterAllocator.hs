@@ -64,7 +64,7 @@ makeLenses ''ThawState
 thaw :: SSAProgram StaticType ID -> [ID] -> M.Map ID (SSAStatement StaticType ID) -> ST s (SSAProgram StaticType (Ref s))
 thaw program ssaList ssaMap = evalState (thawProgram program) ThawState
     { _tList = ssaList
-    , _tMap = M.empty
+    , _tMap = ssaMap
     , _tMapRef = M.empty
     }
 
@@ -101,36 +101,42 @@ thawStatement sID = do
     mRef <- (^. tMapRef) <$> get
     return =<< case M.lookup sID m of
         Just ssa -> return $ Fix . Compose <$> (newSTRef $ bimap id (\sID' -> case M.lookup sID' mRef of
-                Just x -> traceShow sID' x
+                Just x -> x
                 Nothing -> error $ "bimap id " ++ show sID ++ " not found") ssa)
         Nothing -> error $ "sID " ++ show sID ++ " not found"
 
-freeze :: SSAProgram (StaticType, Register) (Ref s) -> ST s (SSAProgram (StaticType, Register) ID, [ID], M.Map ID (SSAStatement (StaticType, Register) ID))
-freeze = error "freeze unimplemented"
+freeze :: ST s (SSAProgram StaticType (Ref s)) -> (SSAProgram (StaticType, Register) ID, [ID], M.Map ID (SSAStatement (StaticType, Register) ID))
+freeze = undefined
+-- freeze state = runState $ state >>= do
+--     evalState (thawProgram program) ThawState
+--     { _tList = ssaList
+--     , _tMap = M.empty
+--     , _tMapRef = M.empty
+--     }
 
-allocate ::
-       Int
-    -> SSAProgram StaticType ID
-    -> [ID]
-    -> M.Map ID (SSAStatement StaticType ID)
-    -> (SSAProgram (StaticType, Register) ID, [ID], M.Map ID (SSAStatement (StaticType, Register) ID))
-allocate registerCount program ssaList ssaMap = runST $ do
-    mutableProgram <- thaw program ssaList ssaMap
-    mutableProgram' <- evalState (allocProgram mutableProgram) RegState
-        { _registerCount = registerCount
-        , _sToV = M.empty
-        -- , _vToT = M.empty
-        -- , _nonSpills = S.empty
-        -- , _potentialSpills = S.empty
-        -- , _vToSSAs = M.empty
-        , _spillCount = 0
-        }
-    freeze mutableProgram'
+-- allocate ::
+--        Int
+--     -> SSAProgram StaticType ID
+--     -> [ID]
+--     -> M.Map ID (SSAStatement StaticType ID)
+--     -> (SSAProgram (StaticType, Register) ID, [ID], M.Map ID (SSAStatement (StaticType, Register) ID))
+-- allocate registerCount program ssaList ssaMap = runST $ do
+--     mutableProgram <- thaw program ssaList ssaMap
+--     mutableProgram' <- evalState (allocProgram mutableProgram) RegState
+--         { _registerCount = registerCount
+--         , _sToV = M.empty
+--         -- , _vToT = M.empty
+--         -- , _nonSpills = S.empty
+--         -- , _potentialSpills = S.empty
+--         -- , _vToSSAs = M.empty
+--         , _spillCount = 0
+--         }
+--     freeze mutableProgram'
 
-allocProgram :: SSAProgram StaticType (Ref s) -> State (RegState s) (ST s (SSAProgram (StaticType, Register) (Ref s)))
-allocProgram (SSAProgram ast@(AST.Program s cs) ids classes) = do
-    return $ do
-        return $ SSAProgram ast [] []
+-- allocProgram :: SSAProgram StaticType (Ref s) -> State (RegState s) (ST s (SSAProgram (StaticType, Register) (Ref s)))
+-- allocProgram (SSAProgram ast@(AST.Program s cs) ids classes) = do
+--     return $ do
+--         return $ SSAProgram ast [] []
 
 -- allocProgram :: SSAProgram StaticType ID -> State RegState (SSAProgram (StaticType, Register) ID)
 -- allocProgram (SSAProgram ast@(AST.Program s cs) ids classes) = do
@@ -144,10 +150,10 @@ allocProgram (SSAProgram ast@(AST.Program s cs) ids classes) = do
 --     fields' <- mapM allocField fields
 --     methods' <- mapM allocMethod methods
 --     return $ SSAClass classDecl fields' methods'
---
+
 -- allocField :: SSAField StaticType -> State RegState (SSAField (StaticType, Register))
 -- allocField (SSAField ast index id) = return $ SSAField ast index (id, 0)
---
+
 -- -- XXX ignore the return value in the SSAMethod
 -- allocMethod :: SSAMethod StaticType ID -> State RegState (SSAMethod (StaticType, Register) ID)
 -- allocMethod = undefined
