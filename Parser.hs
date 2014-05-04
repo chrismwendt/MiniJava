@@ -1,8 +1,8 @@
 -- TODO try using Parsec's operator table
 module Parser where
 
-import Text.ParserCombinators.Parsec hiding ((<|>))
-import qualified Text.Parsec.Prim as P
+import Text.ParserCombinators.Parsec hiding ((<|>), many, try)
+import Text.Parsec.Prim hiding ((<|>), many)
 import AST
 import Data.Functor
 import Control.Applicative
@@ -14,7 +14,7 @@ parseString str = case parse program "" str of
     Right r -> r
 
 program :: Parser Program
-program = Program <$> (whiteSpace *> mainClass) <*> P.many normalClass
+program = Program <$> (whiteSpace *> mainClass) <*> many normalClass
 
 mainClass :: Parser Statement
 mainClass = reserved "class" >> identifier >> braces (do
@@ -27,7 +27,7 @@ normalClass = do
     reserved "class"
     name <- identifier
     extends <- optionMaybe (reserved "extends" >> identifier)
-    braces $ ClassDecl name extends <$> P.many varDecl <*> P.many methodDecl
+    braces $ ClassDecl name extends <$> many varDecl <*> many methodDecl
 
 statement :: Parser Statement
 statement =
@@ -38,7 +38,7 @@ statement =
     <|> expressionStatement
 
 blockStatement :: Parser Statement
-blockStatement = BlockStatement <$> braces (P.many statement)
+blockStatement = BlockStatement <$> braces (many statement)
 
 ifStatement :: Parser Statement
 ifStatement = IfStatement <$> (reserved "if" *> parens expression) <*> statement <*> optionMaybe (reserved "else" >> statement)
@@ -67,7 +67,7 @@ logicOp :: Parser Exp
 logicOp = chainl1 comparisonOp ((symbol "&&" <|> symbol "||") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
 
 comparisonOp :: Parser Exp
-comparisonOp = chainl1 addOp (foldr1 (<|>) (map (P.try . symbol) $ words "<= < == != >= >") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
+comparisonOp = chainl1 addOp (foldr1 (<|>) (map (try . symbol) $ words "<= < == != >= >") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
 
 addOp :: Parser Exp
 addOp = chainl1 mulOp ((symbol "+" <|> symbol "-") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
@@ -82,13 +82,13 @@ notOp :: Parser Exp
 notOp = NotExp <$ symbol "!" <*> unaryOp
 
 postfixOp :: Parser Exp
-postfixOp = foldl (flip ($)) <$> primaryExpression <*> P.many (indexPostfixOp <|> callPostfixOp <|> memberPostfixOp)
+postfixOp = foldl (flip ($)) <$> primaryExpression <*> many (indexPostfixOp <|> callPostfixOp <|> memberPostfixOp)
 
 indexPostfixOp :: Parser (Exp -> Exp)
 indexPostfixOp = flip IndexExp <$> brackets expression
 
 callPostfixOp :: Parser (Exp -> Exp)
-callPostfixOp = P.try $ (\m as o -> CallExp o m as) <$ symbol "." <*> identifier <*> parens args
+callPostfixOp = try $ (\m as o -> CallExp o m as) <$ symbol "." <*> identifier <*> parens args
 
 memberPostfixOp :: Parser (Exp -> Exp)
 memberPostfixOp = flip MemberExp <$ symbol "." <*> identifier
@@ -102,7 +102,7 @@ primaryExpression =
     <|> booleanLiteral
     <|> VarExp <$> identifier
     <|> ThisExp <$ reserved "this"
-    <|> P.try (NewIntArrayExp <$> (reserved "new" *> reserved "int" *> brackets expression))
+    <|> try (NewIntArrayExp <$> (reserved "new" *> reserved "int" *> brackets expression))
     <|> NewObjectExp <$> (reserved "new" *> identifier <* parens nothing)
     <|> parens expression
 
@@ -116,7 +116,7 @@ booleanLiteral =
 
 typeSpecifier :: Parser Type
 typeSpecifier =
-        P.try (IntArrayType <$ reserved "int" <* brackets nothing)
+        try (IntArrayType <$ reserved "int" <* brackets nothing)
     <|> BooleanType <$ reserved "boolean"
     <|> IntType <$ reserved "int"
     <|> ObjectType <$> identifier
@@ -133,7 +133,7 @@ methodDecl = do
     t <- typeSpecifier
     name <- identifier
     params <- parens $ parameter `sepBy` comma
-    braces $ MethodDecl t name params <$> P.many (P.try varDecl) <*> P.many statement <*> (reserved "return" *> expression) <* semi
+    braces $ MethodDecl t name params <$> many (try varDecl) <*> many statement <*> (reserved "return" *> expression) <* semi
 
 nothing :: Parser ()
 nothing = return ()
