@@ -30,6 +30,27 @@ normalClass = do
     extends <- optionMaybe (reserved "extends" >> identifier)
     braces $ ClassDecl name extends <$> many varDecl <*> many methodDecl
 
+typeSpecifier :: Parser Type
+typeSpecifier =
+        try (IntArrayType <$ reserved "int" <* brackets nothing)
+    <|> BooleanType <$ reserved "boolean"
+    <|> IntType <$ reserved "int"
+    <|> ObjectType <$> identifier
+
+varDecl :: Parser VarDecl
+varDecl = VarDecl <$> typeSpecifier <*> identifier <* semi
+
+methodDecl :: Parser MethodDecl
+methodDecl = do
+    reserved "public"
+    t <- typeSpecifier
+    name <- identifier
+    params <- parens $ parameter `sepBy` comma
+    braces $ MethodDecl t name params <$> many (try varDecl) <*> many statement <*> (reserved "return" *> expression) <* semi
+
+parameter :: Parser Parameter
+parameter = Parameter <$> typeSpecifier <*> identifier
+
 statement :: Parser Statement
 statement =
         blockStatement
@@ -114,27 +135,6 @@ booleanLiteral :: Parser Exp
 booleanLiteral =
         BooleanLiteral False <$ reserved "false"
     <|> BooleanLiteral True <$ reserved "true"
-
-typeSpecifier :: Parser Type
-typeSpecifier =
-        try (IntArrayType <$ reserved "int" <* brackets nothing)
-    <|> BooleanType <$ reserved "boolean"
-    <|> IntType <$ reserved "int"
-    <|> ObjectType <$> identifier
-
-varDecl :: Parser VarDecl
-varDecl = VarDecl <$> typeSpecifier <*> identifier <* semi
-
-parameter :: Parser Parameter
-parameter = Parameter <$> typeSpecifier <*> identifier
-
-methodDecl :: Parser MethodDecl
-methodDecl = do
-    reserved "public"
-    t <- typeSpecifier
-    name <- identifier
-    params <- parens $ parameter `sepBy` comma
-    braces $ MethodDecl t name params <$> many (try varDecl) <*> many statement <*> (reserved "return" *> expression) <* semi
 
 nothing :: Parser ()
 nothing = return ()
