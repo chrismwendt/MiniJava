@@ -37,7 +37,7 @@ pClass = do
 
 pStatement :: Parser Statement
 pStatement =
-          pBlockStatement
+        pBlockStatement
     <|> pIfStatement
     <|> pWhileStatement
     <|> pPrintStatement
@@ -104,7 +104,7 @@ pArgs = pExp `sepBy` comma
 
 pPrimaryExp :: Parser Exp
 pPrimaryExp =
-          pIntLiteral
+        pIntLiteral
     <|> pBooleanLiteral
     <|> VarExp <$> identifier
     <|> ThisExp <$ reserved "this"
@@ -117,12 +117,12 @@ pIntLiteral = IntLiteral <$> (fromIntegral <$> integer)
 
 pBooleanLiteral :: Parser Exp
 pBooleanLiteral =
-          BooleanLiteral False <$ reserved "false"
+        BooleanLiteral False <$ reserved "false"
     <|> BooleanLiteral True <$ reserved "true"
 
 pType :: Parser Type
 pType =
-          P.try (IntArrayType <$ reserved "int" <* brackets pEmpty)
+        P.try (IntArrayType <$ reserved "int" <* brackets pEmpty)
     <|> BooleanType <$ reserved "boolean"
     <|> IntType <$ reserved "int"
     <|> ObjectType <$> identifier
