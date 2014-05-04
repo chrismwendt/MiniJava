@@ -86,8 +86,9 @@ binaryOps ops = foldr1 (<|>) $ map (\(s, op) -> (\e1 e2 -> Binary e1 op e2) <$ t
 primary :: Parser Expression
 primary =
         LiteralInt . fromIntegral <$> integer
-    <|> LiteralBoolean False <$ reserved "false"
-    <|> LiteralBoolean True <$ reserved "true"
+    <|> (   LiteralBoolean False <$ reserved "false"
+        <|> LiteralBoolean True <$ reserved "true"
+        )
     <|> VariableGet <$> identifier
     <|> This <$ reserved "this"
     <|> try (NewIntArray <$> (reserved "new" *> reserved "int" *> brackets expression))
