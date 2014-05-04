@@ -9,134 +9,131 @@ import Control.Applicative
 import Lexer
 
 parseString :: String -> Program
-parseString str = case parse pProgram "" str of
+parseString str = case parse program "" str of
     Left e  -> error $ show e
     Right r -> r
 
-pProgram :: Parser Program
-pProgram = Program <$> (whiteSpace *> pMainClass) <*> P.many pClass
+program :: Parser Program
+program = Program <$> (whiteSpace *> mainClass) <*> P.many normalClass
 
-pMainClass :: Parser Statement
-pMainClass = reserved "class" >> identifier >> braces (do
+mainClass :: Parser Statement
+mainClass = reserved "class" >> identifier >> braces (do
     reserved "public" >> reserved "static" >> reserved "void" >> reserved "main"
-    parens $ symbol "String" >> brackets pEmpty >> identifier
-    braces pStatement)
+    parens $ symbol "String" >> brackets nothing >> identifier
+    braces statement)
 
-pClass :: Parser ClassDecl
-pClass = do
+normalClass :: Parser ClassDecl
+normalClass = do
     reserved "class"
     name <- identifier
     extends <- optionMaybe (reserved "extends" >> identifier)
-    braces $ ClassDecl name extends <$> P.many pVarDecl <*> P.many pMethodDecl
+    braces $ ClassDecl name extends <$> P.many varDecl <*> P.many methodDecl
 
-pStatement :: Parser Statement
-pStatement =
-        pBlockStatement
-    <|> pIfStatement
-    <|> pWhileStatement
-    <|> pPrintStatement
-    <|> pExpressionStatement
+statement :: Parser Statement
+statement =
+        blockStatement
+    <|> ifStatement
+    <|> whileStatement
+    <|> printStatement
+    <|> expressionStatement
 
-pBlockStatement :: Parser Statement
-pBlockStatement = BlockStatement <$> braces (P.many pStatement)
+blockStatement :: Parser Statement
+blockStatement = BlockStatement <$> braces (P.many statement)
 
-pIfStatement :: Parser Statement
-pIfStatement = IfStatement <$> (reserved "if" *> parens pExp) <*> pStatement <*> optionMaybe (reserved "else" >> pStatement)
+ifStatement :: Parser Statement
+ifStatement = IfStatement <$> (reserved "if" *> parens expression) <*> statement <*> optionMaybe (reserved "else" >> statement)
 
-pWhileStatement :: Parser Statement
-pWhileStatement = WhileStatement <$> (reserved "while" *> parens pExp) <*> pStatement
+whileStatement :: Parser Statement
+whileStatement = WhileStatement <$> (reserved "while" *> parens expression) <*> statement
 
-pPrintStatement :: Parser Statement
-pPrintStatement = PrintStatement <$> (reserved "System.out.println" *> parens pExp <* semi)
+printStatement :: Parser Statement
+printStatement = PrintStatement <$> (reserved "System.out.println" *> parens expression <* semi)
 
-pExpressionStatement :: Parser Statement
-pExpressionStatement = ExpressionStatement <$> pExp <* semi
+expressionStatement :: Parser Statement
+expressionStatement = ExpressionStatement <$> expression <* semi
 
-pExp :: Parser Exp
-pExp = pAssignExpression
+expression :: Parser Exp
+expression = assignment
 
-pAssignExpression :: Parser Exp
-pAssignExpression = do
-    target <- pLogicOp
-    o <- optionMaybe (symbol "=" >> pAssignExpression)
+assignment :: Parser Exp
+assignment = do
+    target <- logicOp
+    o <- optionMaybe (symbol "=" >> assignment)
     return $ case o of
         Just value -> AssignExpression target value
         Nothing -> target
 
-pLogicOp :: Parser Exp
-pLogicOp = chainl1 pCmpOp ((symbol "&&" <|> symbol "||") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
+logicOp :: Parser Exp
+logicOp = chainl1 comparisonOp ((symbol "&&" <|> symbol "||") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
 
-pCmpOp :: Parser Exp
-pCmpOp = chainl1 pAddOp (foldr1 (<|>) (map (P.try . symbol) $ words "<= < == != >= >") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
+comparisonOp :: Parser Exp
+comparisonOp = chainl1 addOp (foldr1 (<|>) (map (P.try . symbol) $ words "<= < == != >= >") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
 
-pAddOp :: Parser Exp
-pAddOp = chainl1 pMulOp ((symbol "+" <|> symbol "-") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
+addOp :: Parser Exp
+addOp = chainl1 mulOp ((symbol "+" <|> symbol "-") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
 
-pMulOp :: Parser Exp
-pMulOp = chainl1 pUnaryOp ((symbol "*" <|> symbol "/" <|> symbol "%") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
+mulOp :: Parser Exp
+mulOp = chainl1 unaryOp ((symbol "*" <|> symbol "/" <|> symbol "%") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
 
-pUnaryOp :: Parser Exp
-pUnaryOp = pNotExp <|> pPostfixOp
+unaryOp :: Parser Exp
+unaryOp = notOp <|> postfixOp
 
-pNotExp :: Parser Exp
-pNotExp = NotExp <$ symbol "!" <*> pUnaryOp
+notOp :: Parser Exp
+notOp = NotExp <$ symbol "!" <*> unaryOp
 
-pPostfixOp :: Parser Exp
-pPostfixOp = foldl (flip ($)) <$> pPrimaryExp <*> P.many (pIndexPostfixOp <|> pCallPostfixOp <|> pMemberPostfixOp)
+postfixOp :: Parser Exp
+postfixOp = foldl (flip ($)) <$> primaryExpression <*> P.many (indexPostfixOp <|> callPostfixOp <|> memberPostfixOp)
 
-pIndexPostfixOp :: Parser (Exp -> Exp)
-pIndexPostfixOp = flip IndexExp <$> brackets pExp
+indexPostfixOp :: Parser (Exp -> Exp)
+indexPostfixOp = flip IndexExp <$> brackets expression
 
-pCallPostfixOp :: Parser (Exp -> Exp)
-pCallPostfixOp = P.try $ (\m as o -> CallExp o m as) <$ symbol "." <*> identifier <*> parens pArgs
+callPostfixOp :: Parser (Exp -> Exp)
+callPostfixOp = P.try $ (\m as o -> CallExp o m as) <$ symbol "." <*> identifier <*> parens args
 
-pMemberPostfixOp :: Parser (Exp -> Exp)
-pMemberPostfixOp = flip MemberExp <$ symbol "." <*> identifier
+memberPostfixOp :: Parser (Exp -> Exp)
+memberPostfixOp = flip MemberExp <$ symbol "." <*> identifier
 
-pArgs :: Parser [Exp]
-pArgs = pExp `sepBy` comma
+args :: Parser [Exp]
+args = expression `sepBy` comma
 
-pPrimaryExp :: Parser Exp
-pPrimaryExp =
-        pIntLiteral
-    <|> pBooleanLiteral
+primaryExpression :: Parser Exp
+primaryExpression =
+        intLiteral
+    <|> booleanLiteral
     <|> VarExp <$> identifier
     <|> ThisExp <$ reserved "this"
-    <|> P.try (NewIntArrayExp <$> (reserved "new" *> reserved "int" *> brackets pExp))
-    <|> NewObjectExp <$> (reserved "new" *> identifier <* parens pEmpty)
-    <|> parens pExp
+    <|> P.try (NewIntArrayExp <$> (reserved "new" *> reserved "int" *> brackets expression))
+    <|> NewObjectExp <$> (reserved "new" *> identifier <* parens nothing)
+    <|> parens expression
 
-pIntLiteral :: Parser Exp
-pIntLiteral = IntLiteral <$> (fromIntegral <$> integer)
+intLiteral :: Parser Exp
+intLiteral = IntLiteral <$> (fromIntegral <$> integer)
 
-pBooleanLiteral :: Parser Exp
-pBooleanLiteral =
+booleanLiteral :: Parser Exp
+booleanLiteral =
         BooleanLiteral False <$ reserved "false"
     <|> BooleanLiteral True <$ reserved "true"
 
-pType :: Parser Type
-pType =
-        P.try (IntArrayType <$ reserved "int" <* brackets pEmpty)
+typeSpecifier :: Parser Type
+typeSpecifier =
+        P.try (IntArrayType <$ reserved "int" <* brackets nothing)
     <|> BooleanType <$ reserved "boolean"
     <|> IntType <$ reserved "int"
     <|> ObjectType <$> identifier
 
-pVarDecl :: Parser VarDecl
-pVarDecl = VarDecl <$> pType <*> identifier <* semi
+varDecl :: Parser VarDecl
+varDecl = VarDecl <$> typeSpecifier <*> identifier <* semi
 
-pParameters :: Parser [Parameter]
-pParameters = pParameter `sepBy` comma
+parameter :: Parser Parameter
+parameter = Parameter <$> typeSpecifier <*> identifier
 
-pParameter :: Parser Parameter
-pParameter = Parameter <$> pType <*> identifier
-
-pMethodDecl :: Parser MethodDecl
-pMethodDecl = do
+methodDecl :: Parser MethodDecl
+methodDecl = do
     reserved "public"
-    t <- pType
+    t <- typeSpecifier
     name <- identifier
-    params <- parens pParameters
-    braces $ MethodDecl t name params <$> P.many (P.try pVarDecl) <*> P.many pStatement <*> (reserved "return" *> pExp) <* semi
+    params <- parens $ parameter `sepBy` comma
+    braces $ MethodDecl t name params <$> P.many (P.try varDecl) <*> P.many statement <*> (reserved "return" *> expression) <* semi
 
-pEmpty :: Parser ()
-pEmpty = return ()
+nothing :: Parser ()
+nothing = return ()
