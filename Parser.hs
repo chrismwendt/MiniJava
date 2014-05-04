@@ -1,4 +1,3 @@
--- TODO try using Parsec's operator table
 module Parser where
 
 import Text.Parsec hiding ((<|>), many, try)
