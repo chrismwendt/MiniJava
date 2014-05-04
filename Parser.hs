@@ -4,8 +4,10 @@ module Parser where
 import Text.Parsec hiding ((<|>), many, try)
 import Text.Parsec.Prim hiding ((<|>), many)
 import Text.Parsec.String
+import Text.Parsec.Expr
 import AST
 import Data.Functor
+import Data.Functor.Identity
 import Control.Applicative
 import Lexer
 
@@ -75,45 +77,23 @@ expressionStatement :: Parser Statement
 expressionStatement = ExpressionStatement <$> expression <* semi
 
 expression :: Parser Exp
-expression = assignment
+expression = buildExpressionParser operatorTable primaryExpression
 
-assignment :: Parser Exp
-assignment = do
-    target <- logicOp
-    o <- optionMaybe (symbol "=" >> assignment)
-    return $ case o of
-        Just value -> AssignExpression target value
-        Nothing -> target
-
-logicOp :: Parser Exp
-logicOp = chainl1 comparisonOp ((symbol "&&" <|> symbol "||") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
-
-comparisonOp :: Parser Exp
-comparisonOp = chainl1 addOp (foldr1 (<|>) (map (try . symbol) $ words "<= < == != >= >") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
-
-addOp :: Parser Exp
-addOp = chainl1 mulOp ((symbol "+" <|> symbol "-") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
-
-mulOp :: Parser Exp
-mulOp = chainl1 unaryOp ((symbol "*" <|> symbol "/" <|> symbol "%") >>= \op -> return (\e1 e2 -> BinaryExpression e1 op e2))
-
-unaryOp :: Parser Exp
-unaryOp = notOp <|> postfixOp
-
-notOp :: Parser Exp
-notOp = NotExp <$ symbol "!" <*> unaryOp
-
-postfixOp :: Parser Exp
-postfixOp = foldl (flip ($)) <$> primaryExpression <*> many (indexPostfixOp <|> callPostfixOp <|> memberPostfixOp)
-
-indexPostfixOp :: Parser (Exp -> Exp)
-indexPostfixOp = flip IndexExp <$> brackets expression
-
-callPostfixOp :: Parser (Exp -> Exp)
-callPostfixOp = try $ (\m as o -> CallExp o m as) <$ symbol "." <*> identifier <*> parens (expression `sepBy` comma)
-
-memberPostfixOp :: Parser (Exp -> Exp)
-memberPostfixOp = flip MemberExp <$ symbol "." <*> identifier
+operatorTable :: OperatorTable String () Identity Exp
+operatorTable =
+    [ [ Postfix (flip IndexExp <$> brackets expression)
+      , Postfix (try $ (\m as o -> CallExp o m as) <$ symbol "." <*> identifier <*> parens (expression `sepBy` comma))
+      , Postfix (flip MemberExp <$ symbol "." <*> identifier)
+      ]
+    , [ Prefix (NotExp <$ symbol "!") ]
+    , [ Infix ((\op e1 e2 -> BinaryExpression e1 op e2) <$> (symbol "*" <|> symbol "/" <|> symbol "%")) AssocLeft ]
+    , [ Infix ((\op e1 e2 -> BinaryExpression e1 op e2) <$> (symbol "+" <|> symbol "-")) AssocLeft ]
+    , [ Infix ((\op e1 e2 -> BinaryExpression e1 op e2) <$> (foldr1 (<|>) (map (try . symbol) $ words "< <= >= >"))) AssocLeft ]
+    , [ Infix ((\op e1 e2 -> BinaryExpression e1 op e2) <$> (try (symbol "==") <|> symbol "!=")) AssocLeft ]
+    , [ Infix ((\op e1 e2 -> BinaryExpression e1 op e2) <$> symbol "&&") AssocLeft ]
+    , [ Infix ((\op e1 e2 -> BinaryExpression e1 op e2) <$> symbol "||") AssocLeft ]
+    , [ Infix (AssignExpression <$ symbol "=") AssocRight ]
+    ]
 
 primaryExpression :: Parser Exp
 primaryExpression =
