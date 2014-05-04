@@ -126,12 +126,12 @@ primaryExpression =
     <|> parens expression
 
 intLiteral :: Parser Exp
-intLiteral = IntLiteral <$> (fromIntegral <$> integer)
+intLiteral = IntLiteral . fromIntegral <$> integer
 
 booleanLiteral :: Parser Exp
 booleanLiteral =
-        BooleanLiteral False <$ reserved "false"
-    <|> BooleanLiteral True <$ reserved "true"
+        reserved "false" *> return (BooleanLiteral False)
+    <|> reserved "true" *> return (BooleanLiteral True)
 
 nothing :: Parser ()
 nothing = return ()
