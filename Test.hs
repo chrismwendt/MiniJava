@@ -4,6 +4,8 @@ import Control.Monad.Loops
 import System.Exit
 import Control.Monad
 import Data.List
+import SSACompiler
+import qualified AST
 
 -- main = allM test examples >> return ()
 main = do
@@ -25,7 +27,9 @@ ensureGolden a b = do
     outB <- b
     if outA == outB
         then return ()
-        else error "crud"
+        else do
+            putStrLn outA
+            error "crud"
 
 testSSA file = do
     putStrLn $ "Testing " ++ file
