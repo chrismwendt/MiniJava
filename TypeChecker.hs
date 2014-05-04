@@ -1,6 +1,6 @@
 module TypeChecker where
 
-import qualified AST as AST
+import qualified ASTUntyped as ASTUntyped
 import SSACompiler as SSA
 import qualified Data.Map as M
 import Control.Monad.State
@@ -11,7 +11,7 @@ import Data.List
 import qualified Data.Foldable as F
 
 data TypeState ref = TypeState
-    { getAST      :: AST.Program
+    { getASTUntyped      :: ASTUntyped.Program
     , getClassMap :: M.Map String StaticType
     , getScope    :: M.Map String StaticType
     , getMap      :: M.Map ref (SSAStatement () ref)
@@ -45,10 +45,10 @@ extract f (a:as) = case f a of
     Just b -> (Just (a, b), as)
     Nothing -> let (maybeB, rest) = extract f as in (maybeB, a:rest)
 
-augment :: M.Map String StaticType -> AST.Program -> M.Map String StaticType
-augment types (AST.Program _ classDecls) = moreTypes
+augment :: M.Map String StaticType -> ASTUntyped.Program -> M.Map String StaticType
+augment types (ASTUntyped.Program _ classDecls) = moreTypes
     where
-    pair (AST.Class name super _ _) = (name, super)
+    pair (ASTUntyped.Class name super _ _) = (name, super)
     orphans = map (mapSnd (fromJustDef "Object") . pair) $ classDecls
     fail a b = error "Duplicate"
     insertOrphan ([], m) = ([], m)
@@ -62,7 +62,7 @@ typeCheck :: SSAProgram () ID -> [ID] -> M.Map ID (SSAStatement () ID) -> (SSAPr
 typeCheck program@(SSAProgram ast _ _) ids m = (a, ids, getMap' s)
     where
     (a, s) = runState (tcProgram program) TypeState
-        { getAST      = ast
+        { getASTUntyped      = ast
         , getClassMap = augment builtInTypes ast
         , getScope    = M.empty
         , getMap      = m
@@ -71,15 +71,15 @@ typeCheck program@(SSAProgram ast _ _) ids m = (a, ids, getMap' s)
         }
 
 tcProgram :: SSAProgram () ID -> State (TypeState ID) (SSAProgram StaticType ID)
-tcProgram (SSAProgram ast@(AST.Program s cs) sIDs classes) = do
+tcProgram (SSAProgram ast@(ASTUntyped.Program s cs) sIDs classes) = do
     TypeState { getMap = m } <- get
-    let mainMethod = AST.Method (AST.TypeObject "") "" [] [] [s] AST.This
+    let mainMethod = ASTUntyped.Method (ASTUntyped.TypeObject "") "" [] [] [s] ASTUntyped.This
     mapM (tcStatement mainMethod) sIDs
     classes' <- mapM tcClass classes
     return (SSAProgram ast sIDs classes')
 
 tcClass :: SSAClass () ID -> State (TypeState ID) (SSAClass StaticType ID)
-tcClass (SSAClass classDecl@(AST.Class c _ _ _) fields methods) = do
+tcClass (SSAClass classDecl@(ASTUntyped.Class c _ _ _) fields methods) = do
     s@(TypeState { getClassMap = m, getThis = this }) <- get
     put $ s { getThis = unsafeFind m c }
     fields' <- mapM tcField fields
@@ -87,18 +87,18 @@ tcClass (SSAClass classDecl@(AST.Class c _ _ _) fields methods) = do
     return $ SSAClass classDecl fields' methods'
 
 tcField :: SSAField () -> State (TypeState ID) (SSAField StaticType)
-tcField (SSAField (AST.Variable AST.TypeBoolean name) index info) = return $ SSAField (AST.Variable AST.TypeBoolean name) index TypeBoolean
-tcField (SSAField (AST.Variable AST.TypeInt name) index info) = return $ SSAField (AST.Variable AST.TypeInt name) index TypeInt
-tcField (SSAField (AST.Variable AST.TypeIntArray name) index info) = do
+tcField (SSAField (ASTUntyped.Variable ASTUntyped.TypeBoolean name) index info) = return $ SSAField (ASTUntyped.Variable ASTUntyped.TypeBoolean name) index TypeBoolean
+tcField (SSAField (ASTUntyped.Variable ASTUntyped.TypeInt name) index info) = return $ SSAField (ASTUntyped.Variable ASTUntyped.TypeInt name) index TypeInt
+tcField (SSAField (ASTUntyped.Variable ASTUntyped.TypeIntArray name) index info) = do
     TypeState { getClassMap = cm } <- get
-    return $ (SSAField (AST.Variable AST.TypeIntArray name) index (unsafeFind cm "int[]"))
-tcField (SSAField (AST.Variable (AST.TypeObject super) name) index info) = do
+    return $ (SSAField (ASTUntyped.Variable ASTUntyped.TypeIntArray name) index (unsafeFind cm "int[]"))
+tcField (SSAField (ASTUntyped.Variable (ASTUntyped.TypeObject super) name) index info) = do
     TypeState { getClassMap = cm } <- get
-    let toStaticType AST.TypeBoolean = TypeBoolean
-        toStaticType AST.TypeInt = TypeInt
-        toStaticType AST.TypeIntArray = unsafeFind cm "int[]"
-        toStaticType (AST.TypeObject name) = unsafeFind cm name
-    return $ (SSAField (AST.Variable (AST.TypeObject super) name) index (unsafeFind cm name))
+    let toStaticType ASTUntyped.TypeBoolean = TypeBoolean
+        toStaticType ASTUntyped.TypeInt = TypeInt
+        toStaticType ASTUntyped.TypeIntArray = unsafeFind cm "int[]"
+        toStaticType (ASTUntyped.TypeObject name) = unsafeFind cm name
+    return $ (SSAField (ASTUntyped.Variable (ASTUntyped.TypeObject super) name) index (unsafeFind cm name))
 
 tcMethod :: SSAMethod () ID -> State (TypeState ID) (SSAMethod StaticType ID)
 tcMethod (SSAMethod methodDecl varIDs sIDs retID) = do
@@ -107,38 +107,38 @@ tcMethod (SSAMethod methodDecl varIDs sIDs retID) = do
     TypeState { getClassMap = cm, getMap = m, getMap' = m' } <- get
     tcStatement methodDecl retID
     let getType id = _sInfo $ unsafeFind m' id
-    let toStaticType AST.TypeBoolean = TypeBoolean
-        toStaticType AST.TypeInt = TypeInt
-        toStaticType AST.TypeIntArray = unsafeFind cm "int[]"
-        toStaticType (AST.TypeObject name) = unsafeFind cm name
+    let toStaticType ASTUntyped.TypeBoolean = TypeBoolean
+        toStaticType ASTUntyped.TypeInt = TypeInt
+        toStaticType ASTUntyped.TypeIntArray = unsafeFind cm "int[]"
+        toStaticType (ASTUntyped.TypeObject name) = unsafeFind cm name
     let isSubtype a@(TypeObject (StaticTypeObject _ (Just super))) b@(TypeObject (StaticTypeObject _ _)) = if a == b then True else isSubtype (TypeObject super) b
         isSubtype a@(TypeObject (StaticTypeObject _ Nothing)) b@(TypeObject (StaticTypeObject _ _)) = if a == b then True else False
         isSubtype a b = a == b
     let subtype a b = if isSubtype a b then a else error "Type mismatch1"
-    let a = isSubtype (getType retID) (toStaticType (let (AST.Method t _ _ _ _ _) = methodDecl in t))
+    let a = isSubtype (getType retID) (toStaticType (let (ASTUntyped.Method t _ _ _ _ _) = methodDecl in t))
     if a
         then return $ SSAMethod methodDecl varIDs sIDs retID
         else error "Type mismatch2"
 
-tcStatement :: AST.Method -> ID -> State (TypeState ID) StaticType
-tcStatement astMethod sID = do
+tcStatement :: ASTUntyped.Method -> ID -> State (TypeState ID) StaticType
+tcStatement method sID = do
     TypeState { getMap = m } <- get
     let s = unsafeFind m sID
-    t <- tcStatement' astMethod s
+    t <- tcStatement' method s
     state@(TypeState { getMap' = m }) <- get
     put $ state { getMap' = M.insert sID (s { _sInfo = t }) m }
     return t
 
-tcStatement' :: AST.Method -> SSAStatement () ID -> State (TypeState ID) StaticType
-tcStatement' astMethod (SSAStatement op ()) = do
-    TypeState { getAST = ast, getClassMap = cm, getMap' = m, getThis = this } <- get
-    let toStaticType AST.TypeBoolean = TypeBoolean
-        toStaticType AST.TypeInt = TypeInt
-        toStaticType AST.TypeIntArray = unsafeFind cm "int[]"
-        toStaticType (AST.TypeObject name) = unsafeFind cm name
+tcStatement' :: ASTUntyped.Method -> SSAStatement () ID -> State (TypeState ID) StaticType
+tcStatement' method (SSAStatement op ()) = do
+    TypeState { getASTUntyped = ast, getClassMap = cm, getMap' = m, getThis = this } <- get
+    let toStaticType ASTUntyped.TypeBoolean = TypeBoolean
+        toStaticType ASTUntyped.TypeInt = TypeInt
+        toStaticType ASTUntyped.TypeIntArray = unsafeFind cm "int[]"
+        toStaticType (ASTUntyped.TypeObject name) = unsafeFind cm name
     let getType id = _sInfo $ unsafeFind m id
     let getClass = unsafeFind cm
-    let getClassDecl name = case find (\(AST.Class cname _ _ _) -> cname == name) (let (AST.Program _ cs) = ast in cs) of
+    let getClassDecl name = case find (\(ASTUntyped.Class cname _ _ _) -> cname == name) (let (ASTUntyped.Program _ cs) = ast in cs) of
                                 Nothing -> error $ "No such class: " ++ name
                                 Just c -> c
     let eqType a b = if a == b then a else error "Type mismatch3"
@@ -150,26 +150,26 @@ tcStatement' astMethod (SSAStatement op ()) = do
     let logicOp l r = assertType (getType l == TypeBoolean && getType r == TypeBoolean) TypeBoolean
     let compareOp l r = assertType (getType l == TypeInt && getType r == TypeInt) TypeBoolean
     let arithOp l r = assertType (getType l == TypeInt && getType r == TypeInt) TypeInt
-    let getMethod (StaticTypeObject name parent) method = (case find (\(AST.Method _ n _ _ _ _) -> n == method) (let (AST.Class _ _ _ ms) = getClassDecl name in ms)
+    let getMethod (StaticTypeObject name parent) method = (case find (\(ASTUntyped.Method _ n _ _ _ _) -> n == method) (let (ASTUntyped.Class _ _ _ ms) = getClassDecl name in ms)
                                                              of Nothing -> (case parent of
                                                                     Nothing -> error "No such method"
                                                                     Just parent -> getMethod parent method)
                                                                 Just m -> m)
-    let getField (StaticTypeObject name parent) field = (case find (\(AST.Variable t n) -> n == field) (let (AST.Class _ _ vs _) = getClassDecl name in vs)
+    let getField (StaticTypeObject name parent) field = (case find (\(ASTUntyped.Variable t n) -> n == field) (let (ASTUntyped.Class _ _ vs _) = getClassDecl name in vs)
                                                              of Nothing -> (case parent of
                                                                     Nothing -> error "No such field"
                                                                     Just parent -> getField parent field)
-                                                                Just (AST.Variable t _) -> t)
+                                                                Just (ASTUntyped.Variable t _) -> t)
     return $ case op of
         Unify l r                    -> subtype (getType l) (getType r)
         Alias s                      -> getType s
         This                         -> this
-        SSA.Parameter (AST.Parameter t _) _ -> toStaticType t
+        SSA.Parameter (ASTUntyped.Parameter t _) _ -> toStaticType t
         Arg arg _                    -> getType arg
-        Null AST.TypeBoolean         -> TypeBoolean
-        Null AST.TypeInt             -> TypeInt
-        Null AST.TypeIntArray        -> getClass "int[]"
-        Null (AST.TypeObject name)   -> getClass name
+        Null ASTUntyped.TypeBoolean         -> TypeBoolean
+        Null ASTUntyped.TypeInt             -> TypeInt
+        Null ASTUntyped.TypeIntArray        -> getClass "int[]"
+        Null (ASTUntyped.TypeObject name)   -> getClass name
         SInt v                       -> TypeInt
         SBoolean v                   -> TypeBoolean
         NewObj name                  -> unsafeFind cm name
@@ -180,8 +180,8 @@ tcStatement' astMethod (SSAStatement op ()) = do
         NBranch s label              -> TypeVoid
         Call method object args      -> case getType object of
             TypeObject c@(StaticTypeObject name parent) ->
-                let (AST.Method t _ ps _ _ _) = getMethod c method
-                in assertType (length ps == length args && (and $ zipWith isSubtype (map getType args) (map (\(AST.Parameter t _) -> toStaticType t) ps))) (toStaticType t)
+                let (ASTUntyped.Method t _ ps _ _ _) = getMethod c method
+                in assertType (length ps == length args && (and $ zipWith isSubtype (map getType args) (map (\(ASTUntyped.Parameter t _) -> toStaticType t) ps))) (toStaticType t)
             _ -> error "Type mismatch6"
         Print s                      -> TypeVoid
         Return s                     -> TypeVoid
@@ -193,10 +193,10 @@ tcStatement' astMethod (SSAStatement op ()) = do
         Store s i                    -> error "Store instruction found in type checking"
         Load i                       -> error "Load instruction found in type checking"
         VarAssg id name              ->
-            let (AST.Method _ _ ps vs _ _) = astMethod
-                vars = map (\(AST.Variable t n) -> (n, t)) vs
-                pars = map (\(AST.Parameter t n) -> (n, t)) ps
-                fields = let (AST.Class _ _ fs _) = getClassDecl (let (TypeObject (StaticTypeObject n _)) = this in n) in map (\(AST.Variable t n) -> (n, t)) fs
+            let (ASTUntyped.Method _ _ ps vs _ _) = method
+                vars = map (\(ASTUntyped.Variable t n) -> (n, t)) vs
+                pars = map (\(ASTUntyped.Parameter t n) -> (n, t)) ps
+                fields = let (ASTUntyped.Class _ _ fs _) = getClassDecl (let (TypeObject (StaticTypeObject n _)) = this in n) in map (\(ASTUntyped.Variable t n) -> (n, t)) fs
                 t = toStaticType $ fromJust $ lookup name (vars ++ pars ++ fields)
                 in if isSubtype (getType id) t then t else error "VarAssg not to subtype"
         MemberAssg object value field -> case getType object of

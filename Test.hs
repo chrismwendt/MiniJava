@@ -5,7 +5,7 @@ import System.Exit
 import Control.Monad
 import Data.List
 import SSACompiler
-import qualified AST
+import qualified ASTUntyped
 
 -- main = allM test examples >> return ()
 main = do

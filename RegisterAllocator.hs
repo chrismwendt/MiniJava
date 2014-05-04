@@ -2,7 +2,7 @@
 
 module RegisterAllocator where
 
-import qualified AST as AST
+import qualified ASTUntyped as ASTUntyped
 import SSACompiler
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -134,25 +134,25 @@ freeze = undefined
 --     freeze mutableProgram'
 
 -- allocProgram :: SSAProgram StaticType (Ref s) -> State (RegState s) (ST s (SSAProgram (StaticType, Register) (Ref s)))
--- allocProgram (SSAProgram ast@(AST.Program s cs) ids classes) = do
+-- allocProgram (SSAProgram ASTUntyped@(ASTUntyped.Program s cs) ids classes) = do
 --     return $ do
---         return $ SSAProgram ast [] []
+--         return $ SSAProgram ASTUntyped [] []
 
 -- allocProgram :: SSAProgram StaticType ID -> State RegState (SSAProgram (StaticType, Register) ID)
--- allocProgram (SSAProgram ast@(AST.Program s cs) ids classes) = do
---     let mainMethod = SSAMethod (AST.MethodDecl (AST.ObjectType "") "" [] [] [s] AST.ThisExp) [] [] 0
+-- allocProgram (SSAProgram ASTUntyped@(ASTUntyped.Program s cs) ids classes) = do
+--     let mainMethod = SSAMethod (ASTUntyped.MethodDecl (ASTUntyped.ObjectType "") "" [] [] [s] ASTUntyped.ThisExp) [] [] 0
 --     mainIDs <- (^. mStatements) <$> allocMethod mainMethod
 --     classes' <- mapM allocClass classes
---     return $ SSAProgram ast mainIDs classes'
+--     return $ SSAProgram ASTUntyped mainIDs classes'
 --
 -- allocClass :: SSAClass StaticType ID -> State RegState (SSAClass (StaticType, Register) ID)
--- allocClass (SSAClass classDecl@(AST.ClassDecl c _ _ _) fields methods) = do
+-- allocClass (SSAClass classDecl@(ASTUntyped.ClassDecl c _ _ _) fields methods) = do
 --     fields' <- mapM allocField fields
 --     methods' <- mapM allocMethod methods
 --     return $ SSAClass classDecl fields' methods'
 
 -- allocField :: SSAField StaticType -> State RegState (SSAField (StaticType, Register))
--- allocField (SSAField ast index id) = return $ SSAField ast index (id, 0)
+-- allocField (SSAField ASTUntyped index id) = return $ SSAField ASTUntyped index (id, 0)
 
 -- -- XXX ignore the return value in the SSAMethod
 -- allocMethod :: SSAMethod StaticType ID -> State RegState (SSAMethod (StaticType, Register) ID)

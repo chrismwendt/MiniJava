@@ -3,7 +3,7 @@
 
 module SSACompiler where
 
-import qualified AST
+import qualified ASTUntyped
 import Text.Printf
 import Data.List
 import Data.Functor
@@ -18,26 +18,26 @@ import Control.Lens
 type ID = Int
 
 data SSAProgram info ref = SSAProgram
-    { _pProgram :: AST.Program
+    { _pProgram :: ASTUntyped.Program
     , _pMain :: [ref]
     , _pClasses :: [SSAClass info ref]
     }
 
 data SSAClass info ref = SSAClass
-    { _cClass :: AST.Class
+    { _cClass :: ASTUntyped.Class
     , _cFields :: [SSAField info]
     , _cMethod :: [SSAMethod info ref]
     }
 
 data SSAField info = SSAField
-    { _fVariable :: AST.Variable
+    { _fVariable :: ASTUntyped.Variable
     , _fPosition :: Int
     , _fInfo :: info
     }
     deriving (Functor)
 
 data SSAMethod info ref = SSAMethod
-    { _mMethod :: AST.Method
+    { _mMethod :: ASTUntyped.Method
     , _mParameters :: [ref]
     , _mStatements :: [ref]
     , _mReturn :: ref
@@ -68,9 +68,9 @@ data SSAOp ref =
       Unify ref ref
     | Alias ref
     | This
-    | Parameter AST.Parameter Int
+    | Parameter ASTUntyped.Parameter Int
     | Arg ref Int
-    | Null AST.Type
+    | Null ASTUntyped.Type
     | SInt Int
     | SBoolean Bool
     | NewObj String
@@ -106,7 +106,7 @@ data SSAOp ref =
     deriving (Eq, Functor)
 
 data SSAState info ref = SSAState
-    { _stProgram :: AST.Program
+    { _stProgram :: ASTUntyped.Program
     , _stNextID :: ID
     , _stVarToID :: M.Map String ID
     , _stIDToS :: M.Map ID (SSAStatement info ref)
@@ -136,13 +136,13 @@ instance (Show ref, Show info) => Show (SSAProgram info ref) where
     show (SSAProgram _ ss cs) = printf "program:\n  main:\n    method main:\n%s%s" (concatMap show ss) (concatMap show cs)
 
 instance (Show ref, Show info) => Show (SSAMethod info ref) where
-    show (SSAMethod (AST.Method _ name _ _ _ _) ps ss _) = printf "    method %s:\n%s" name (concatMap show ss)
+    show (SSAMethod (ASTUntyped.Method _ name _ _ _ _) ps ss _) = printf "    method %s:\n%s" name (concatMap show ss)
 
 instance (Show ref, Show info) => Show (SSAClass info ref) where
-    show (SSAClass (AST.Class name _ _ _) _ ms) = printf "  class %s:\n%s" name (concatMap show ms)
+    show (SSAClass (ASTUntyped.Class name _ _ _) _ ms) = printf "  class %s:\n%s" name (concatMap show ms)
 
 instance Show info => Show (SSAField info) where
-    show (SSAField (AST.Variable _ name) _ _) = name
+    show (SSAField (ASTUntyped.Variable _ name) _ _) = name
 
 instance (Show ref, Show info) => Show (SSAStatement info ref) where
     show (SSAStatement op info) = printf "      ?: %s :%s\n" (show op) (show info)
@@ -153,10 +153,10 @@ instance Show ref => Show (SSAOp ref) where
     show This = printf "This"
     show (Parameter _ index) = printf "Parameter *%s" (show index)
     show (Arg arg index) = printf "Arg %s *%s" (show arg) (show index)
-    show (Null AST.TypeBoolean) = printf "Null *Type(boolean)"
-    show (Null AST.TypeInt) = printf "Null *Type(int)"
-    show (Null AST.TypeIntArray) = printf "Null *Type(int[])"
-    show (Null (AST.TypeObject name)) = printf "Null *Type(%s)" name
+    show (Null ASTUntyped.TypeBoolean) = printf "Null *Type(boolean)"
+    show (Null ASTUntyped.TypeInt) = printf "Null *Type(int)"
+    show (Null ASTUntyped.TypeIntArray) = printf "Null *Type(int[])"
+    show (Null (ASTUntyped.TypeObject name)) = printf "Null *Type(%s)" name
     show (SInt v) = printf "Int *%s" (show v)
     show (SBoolean v) = printf "Boolean *%s" (if v then "true" else "false")
     show (NewObj name) = printf "NewObj *%s" name
@@ -202,7 +202,7 @@ instance Bifunctor SSAMethod where
 instance Bifunctor SSAStatement where
     bimap f g (SSAStatement op info) = SSAStatement (fmap g op) (f info)
 
-ssaCompile :: AST.Program -> (SSAProgram () ID, [ID], M.Map ID (SSAStatement () ID))
+ssaCompile :: ASTUntyped.Program -> (SSAProgram () ID, [ID], M.Map ID (SSAStatement () ID))
 ssaCompile program = let (a, s) = runState scProgram state in (a, _stIDList s, _stIDToS s)
     where
     state = SSAState
@@ -218,13 +218,13 @@ scProgram :: State (SSAState () ID) (SSAProgram () ID)
 scProgram = do
     state <- get
     let program = state ^. stProgram
-    let main = state ^. stProgram . AST.pMain
-    let classes = state ^. stProgram . AST.pClasses
+    let main = state ^. stProgram . ASTUntyped.pMain
+    let classes = state ^. stProgram . ASTUntyped.pClasses
     SSAProgram program <$> (scStatement main >> get >>= return . (^. stIDList)) <*> (mapM scClass classes)
 
-scStatement :: AST.Statement -> State (SSAState () ID) ()
-scStatement (AST.Block ss) = mapM scStatement ss >> return ()
-scStatement axe@(AST.If cond branchTrue branchFalse) = do
+scStatement :: ASTUntyped.Statement -> State (SSAState () ID) ()
+scStatement (ASTUntyped.Block ss) = mapM scStatement ss >> return ()
+scStatement axe@(ASTUntyped.If cond branchTrue branchFalse) = do
     condSSA <- sc cond
 
     labelElse <- (printf "l_%d" :: Int -> String) <$> nextLabel
@@ -253,7 +253,7 @@ scStatement axe@(AST.If cond branchTrue branchFalse) = do
     zipWithM_ insertVarToID (map fst mismatches) unifies
 
     return ()
-scStatement (AST.While cond body) = do
+scStatement (ASTUntyped.While cond body) = do
     labelStart <- (printf "l_%d" :: Int -> String) <$> nextLabel
     labelEnd <- (printf "l_%d" :: Int -> String) <$> nextLabel
 
@@ -279,17 +279,17 @@ scStatement (AST.While cond body) = do
     zipWithM_ insertVarToID (map fst mismatches) unifies
 
     return ()
-scStatement (AST.Print e) = do
+scStatement (ASTUntyped.Print e) = do
     value <- sc e
     buildStatement (Print value)
     return ()
-scStatement (AST.ExpressionStatement e) = singleton <$> sc e >> return ()
+scStatement (ASTUntyped.ExpressionStatement e) = singleton <$> sc e >> return ()
 
-sc :: AST.Expression -> State (SSAState () ID) ID
-sc (AST.LiteralInt v) = buildStatement (SInt v)
-sc (AST.LiteralBoolean v) = buildStatement (SBoolean v)
-sc (AST.Assignment var val) = case var of
-    AST.VariableGet name -> do
+sc :: ASTUntyped.Expression -> State (SSAState () ID) ID
+sc (ASTUntyped.LiteralInt v) = buildStatement (SInt v)
+sc (ASTUntyped.LiteralBoolean v) = buildStatement (SBoolean v)
+sc (ASTUntyped.Assignment var val) = case var of
+    ASTUntyped.VariableGet name -> do
         bs <- get >>= return . _stVarToID
         case M.lookup name bs of
             Just s -> do
@@ -301,66 +301,66 @@ sc (AST.Assignment var val) = case var of
                 this <- buildStatement This
                 r <- sc val
                 buildStatement (MemberAssg this r name)
-    AST.MemberGet object fieldName -> do
+    ASTUntyped.MemberGet object fieldName -> do
         object <- sc object
         r <- sc val
         buildStatement (MemberAssg object r fieldName)
-    AST.Index array index -> do
+    ASTUntyped.Index array index -> do
         array <- sc array
         index <- sc index
         r <- sc val
         buildStatement (IndexAssg array index r)
     l -> error $ "Invalid LHS: " ++ show l
-sc (AST.Binary l op r) = do
+sc (ASTUntyped.Binary l op r) = do
     sl <- sc l
     sr <- sc r
     case lookup op binaryOps of
         Just opConstructor -> buildStatement (opConstructor sl sr)
         Nothing -> error $ "Op " ++ show op ++ " not found in list: " ++ show (map fst binaryOps)
-sc (AST.Not e) = do
+sc (ASTUntyped.Not e) = do
     r <- sc e
     buildStatement (Not r)
-sc (AST.Index array index) = do
+sc (ASTUntyped.Index array index) = do
     array <- sc array
     index <- sc index
     buildStatement (Index array index)
-sc (AST.Call object methodName argExps) = do
+sc (ASTUntyped.Call object methodName argExps) = do
     object <- sc object
     let makeArg arg i = do
         target <- sc arg
         buildStatement (Arg target i)
     args <- zipWithM makeArg argExps [0 .. ]
     buildStatement (Call methodName object args)
-sc (AST.MemberGet object fieldName) = do
+sc (ASTUntyped.MemberGet object fieldName) = do
     object <- sc object
     buildStatement (MemberGet object fieldName)
-sc (AST.VariableGet name) = do
+sc (ASTUntyped.VariableGet name) = do
     bs <- get >>= return . _stVarToID
     case M.lookup name bs of
         Just s -> return s
         Nothing -> do
             this <- buildStatement This
             buildStatement (MemberGet this name)
-sc (AST.NewIntArray index) = do
+sc (ASTUntyped.NewIntArray index) = do
     r <- sc index
     buildStatement (NewIntArray r)
-sc (AST.NewObject name) = do
+sc (ASTUntyped.NewObject name) = do
     buildStatement (NewObj name)
-sc AST.This = buildStatement This
+sc ASTUntyped.This = buildStatement This
 
-scClass :: AST.Class -> State (SSAState () ID) (SSAClass () ID)
-scClass ast@(AST.Class name extends vs ms) =
+scClass :: ASTUntyped.Class -> State (SSAState () ID) (SSAClass () ID)
+scClass ast@(ASTUntyped.Class name extends vs ms) =
     SSAClass ast <$> zipWithM scVariableAsField vs [0 .. ] <*> mapM scMethod ms
 
-scVariableAsField :: AST.Variable -> Int -> State (SSAState () ID) (SSAField ())
+scVariableAsField :: ASTUntyped.Variable -> Int -> State (SSAState () ID) (SSAField ())
 scVariableAsField v i = return $ SSAField v i ()
 
-scMethod :: AST.Method -> State (SSAState () ID) (SSAMethod () ID)
-scMethod ast@(AST.Method t name ps vs ss ret) = do
+scMethod :: ASTUntyped.Method -> State (SSAState () ID) (SSAMethod () ID)
+scMethod ast@(ASTUntyped.Method t name ps vs ss ret) = do
     modify $ stIDList .~ []
     ssaParams <- mapM buildStatement (zipWith Parameter ps [0 .. ])
-    ssaVarAssgs <- mapM buildStatement $ zipWith VarAssg ssaParams (map (^. AST.parName) ps)
-    sequence $ zipWith insertVarToID (map (^. AST.parName) ps) ssaVarAssgs
+    ssaVarAssgs <- mapM buildStatement $ zipWith VarAssg ssaParams (map (^. ASTUntyped.parName) ps)
+    sequence $ zipWith insertVarToID (map (^. ASTUntyped.parName) ps) ssaVarAssgs
     mapM scVariable vs
     mapM scStatement ss
     ret' <- sc ret
@@ -368,8 +368,8 @@ scMethod ast@(AST.Method t name ps vs ss ret) = do
     allStatements <- (^. stIDList) <$> get
     return $ SSAMethod ast ssaParams allStatements ret'
 
-scVariable :: AST.Variable -> State (SSAState () ID) ID
-scVariable (AST.Variable t name) = do
+scVariable :: ASTUntyped.Variable -> State (SSAState () ID) ID
+scVariable (ASTUntyped.Variable t name) = do
     r <- buildStatement (Null t)
     modify $ stVarToID %~ M.insert name r
     return r
@@ -377,21 +377,21 @@ scVariable (AST.Variable t name) = do
 singleton :: a -> [a]
 singleton a = [a]
 
-binaryOps :: [(AST.BinaryOperator, ref -> ref -> SSAOp ref)]
+binaryOps :: [(ASTUntyped.BinaryOperator, ref -> ref -> SSAOp ref)]
 binaryOps =
-    [ (AST.Lt, Lt)
-    , (AST.Le, Le)
-    , (AST.Eq, Eq)
-    , (AST.Ne, Ne)
-    , (AST.Gt, Gt)
-    , (AST.Ge, Ge)
-    , (AST.And, And)
-    , (AST.Or, Or)
-    , (AST.Plus, Plus)
-    , (AST.Minus, Minus)
-    , (AST.Mul, Mul)
-    , (AST.Div, Div)
-    , (AST.Mod, Mod)
+    [ (ASTUntyped.Lt, Lt)
+    , (ASTUntyped.Le, Le)
+    , (ASTUntyped.Eq, Eq)
+    , (ASTUntyped.Ne, Ne)
+    , (ASTUntyped.Gt, Gt)
+    , (ASTUntyped.Ge, Ge)
+    , (ASTUntyped.And, And)
+    , (ASTUntyped.Or, Or)
+    , (ASTUntyped.Plus, Plus)
+    , (ASTUntyped.Minus, Minus)
+    , (ASTUntyped.Mul, Mul)
+    , (ASTUntyped.Div, Div)
+    , (ASTUntyped.Mod, Mod)
     ]
 
 nextID :: State (SSAState () ID) ID

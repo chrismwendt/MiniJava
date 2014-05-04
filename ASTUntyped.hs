@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module AST where
+module ASTUntyped where
 
 import Text.Printf
 import Data.List

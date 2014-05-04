@@ -2,7 +2,7 @@ import System.Environment
 import Data.List
 import Options.Applicative
 import Parser
-import AST
+import qualified ASTUntyped
 import SSACompiler
 import qualified TypeChecker as TC
 import qualified RegisterAllocator as Reg
@@ -19,7 +19,7 @@ options = Options
     <*> argument str (metavar "file")
 
 compile :: Options -> String -> String
-compile (Options "parse" _) source = sExpProgram $ parseString source
+compile (Options "parse" _) source = ASTUntyped.sExpProgram $ parseString source
 compile (Options "SSA" _) source = (++ "\n") $ show $ fst $ freeze $ ssaCompile $ parseString source
 compile (Options "type" _) source = (++ "\n") $ show $ fst $ freeze $ uncurry3 TC.typeCheck $ ssaCompile $ parseString source
 -- compile (Options "reg" _) source = (++ "\n") $ show $ fst $ freeze $ uncurry3 (Reg.allocate 22) $ uncurry3 TC.typeCheck $ ssaCompile $ parseString source

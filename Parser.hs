@@ -5,7 +5,7 @@ import Text.Parsec hiding ((<|>), many, try)
 import Text.Parsec.Prim hiding ((<|>), many)
 import Text.Parsec.String
 import Text.Parsec.Expr
-import AST
+import ASTUntyped
 import Data.Functor
 import Data.Functor.Identity
 import Control.Applicative
