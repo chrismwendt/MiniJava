@@ -69,9 +69,7 @@ data Type =
       BooleanType
     | IntType
     | IntArrayType
-    | ObjectType
-        { _tObject :: String
-        }
+    | ObjectType String
     deriving (Show, Eq)
 
 makeLenses ''Program
