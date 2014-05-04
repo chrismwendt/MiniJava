@@ -55,26 +55,11 @@ parameter = Parameter <$> typeSpecifier <*> identifier
 
 statement :: Parser Statement
 statement =
-        blockStatement
-    <|> ifStatement
-    <|> whileStatement
-    <|> printStatement
-    <|> expressionStatement
-
-blockStatement :: Parser Statement
-blockStatement = BlockStatement <$> braces (many statement)
-
-ifStatement :: Parser Statement
-ifStatement = IfStatement <$> (reserved "if" *> parens expression) <*> statement <*> optionMaybe (reserved "else" >> statement)
-
-whileStatement :: Parser Statement
-whileStatement = WhileStatement <$> (reserved "while" *> parens expression) <*> statement
-
-printStatement :: Parser Statement
-printStatement = PrintStatement <$> (reserved "System.out.println" *> parens expression <* semi)
-
-expressionStatement :: Parser Statement
-expressionStatement = ExpressionStatement <$> expression <* semi
+        BlockStatement <$> braces (many statement)
+    <|> IfStatement <$> (reserved "if" *> parens expression) <*> statement <*> optionMaybe (reserved "else" >> statement)
+    <|> WhileStatement <$> (reserved "while" *> parens expression) <*> statement
+    <|> PrintStatement <$> (reserved "System.out.println" *> parens expression <* semi)
+    <|> ExpressionStatement <$> expression <* semi
 
 expression :: Parser Exp
 expression = buildExpressionParser operatorTable primaryExpression
@@ -99,21 +84,14 @@ binaryOps ss = (\s e1 e2 -> BinaryExpression e1 s e2) <$> foldr1 (<|>) (map (try
 
 primaryExpression :: Parser Exp
 primaryExpression =
-        intLiteral
-    <|> booleanLiteral
+        IntLiteral . fromIntegral <$> integer
+    <|> BooleanLiteral False <$ reserved "false"
+    <|> BooleanLiteral True <$ reserved "true"
     <|> VarExp <$> identifier
     <|> ThisExp <$ reserved "this"
     <|> try (NewIntArrayExp <$> (reserved "new" *> reserved "int" *> brackets expression))
     <|> NewObjectExp <$> (reserved "new" *> identifier <* parens nothing)
     <|> parens expression
-
-intLiteral :: Parser Exp
-intLiteral = IntLiteral . fromIntegral <$> integer
-
-booleanLiteral :: Parser Exp
-booleanLiteral =
-        BooleanLiteral False <$ reserved "false"
-    <|> BooleanLiteral True <$ reserved "true"
 
 nothing :: Parser ()
 nothing = return ()
