@@ -15,7 +15,7 @@ parseString str = case parse program "" str of
     Right r -> r
 
 program :: Parser Program
-program = Program <$> (whiteSpace *> mainClass) <*> many normalClass
+program = Program <$> (whiteSpace *> mainClass) <*> many normalClass <* eof
 
 mainClass :: Parser Statement
 mainClass = reserved "class" >> identifier >> braces (do
