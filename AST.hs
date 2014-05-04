@@ -6,13 +6,13 @@ import Text.Printf
 import Data.List
 import Control.Lens
 
-data Program = Program 
+data Program = Program
     { _pMain :: Statement
     , _pClassDecls :: [ClassDecl]
     }
     deriving (Show, Eq)
 
-data ClassDecl = ClassDecl 
+data ClassDecl = ClassDecl
     { _cName :: String
     , _cParent :: Maybe String
     , _cVarDecls :: [VarDecl]
