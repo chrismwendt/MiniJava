@@ -1,8 +1,9 @@
 -- TODO try using Parsec's operator table
 module Parser where
 
-import Text.ParserCombinators.Parsec hiding ((<|>), many, try)
+import Text.Parsec hiding ((<|>), many, try)
 import Text.Parsec.Prim hiding ((<|>), many)
+import Text.Parsec.String
 import AST
 import Data.Functor
 import Control.Applicative
