@@ -86,14 +86,16 @@ operatorTable =
       , Postfix (flip MemberExp <$ symbol "." <*> identifier)
       ]
     , [ Prefix (NotExp <$ symbol "!") ]
-    , [ Infix ((\op e1 e2 -> BinaryExpression e1 op e2) <$> (symbol "*" <|> symbol "/" <|> symbol "%")) AssocLeft ]
-    , [ Infix ((\op e1 e2 -> BinaryExpression e1 op e2) <$> (symbol "+" <|> symbol "-")) AssocLeft ]
-    , [ Infix ((\op e1 e2 -> BinaryExpression e1 op e2) <$> (foldr1 (<|>) (map (try . symbol) $ words "< <= >= >"))) AssocLeft ]
-    , [ Infix ((\op e1 e2 -> BinaryExpression e1 op e2) <$> (try (symbol "==") <|> symbol "!=")) AssocLeft ]
-    , [ Infix ((\op e1 e2 -> BinaryExpression e1 op e2) <$> symbol "&&") AssocLeft ]
-    , [ Infix ((\op e1 e2 -> BinaryExpression e1 op e2) <$> symbol "||") AssocLeft ]
+    , [ Infix (binaryOps ["*", "/", "%"]) AssocLeft ]
+    , [ Infix (binaryOps ["+", "-"]) AssocLeft ]
+    , [ Infix (binaryOps ["<=", "<", ">=", ">"]) AssocLeft ]
+    , [ Infix (binaryOps ["==", "!="]) AssocLeft ]
+    , [ Infix (binaryOps ["&&"]) AssocLeft ]
+    , [ Infix (binaryOps ["||"]) AssocLeft ]
     , [ Infix (AssignExpression <$ symbol "=") AssocRight ]
     ]
+
+binaryOps ss = (\s e1 e2 -> BinaryExpression e1 s e2) <$> foldr1 (<|>) (map (try . symbol) ss)
 
 primaryExpression :: Parser Exp
 primaryExpression =
