@@ -25,72 +25,73 @@ mainClass = reserved "class" >> identifier >> braces (do
     parens $ symbol "String" >> brackets nothing >> identifier
     braces statement)
 
-normalClass :: Parser ClassDecl
+normalClass :: Parser Class
 normalClass = do
     reserved "class"
     name <- identifier
     extends <- optionMaybe (reserved "extends" >> identifier)
-    braces $ ClassDecl name extends <$> many variable <*> many method
+    braces $ Class name extends <$> many variable <*> many method
 
 typeSpecifier :: Parser Type
 typeSpecifier =
-        try (IntArrayType <$ reserved "int" <* brackets nothing)
-    <|> BooleanType <$ reserved "boolean"
-    <|> IntType <$ reserved "int"
-    <|> ObjectType <$> identifier
+        try (TypeIntArray <$ reserved "int" <* brackets nothing)
+    <|> TypeBoolean <$ reserved "boolean"
+    <|> TypeInt <$ reserved "int"
+    <|> TypeObject <$> identifier
 
-variable :: Parser variable
-variable = variable <$> typeSpecifier <*> identifier <* semi
+variable :: Parser Variable
+variable = Variable <$> typeSpecifier <*> identifier <* semi
 
-method :: Parser method
+method :: Parser Method
 method = do
     reserved "public"
     t <- typeSpecifier
     name <- identifier
     params <- parens $ parameter `sepBy` comma
-    braces $ method t name params <$> many (try variable) <*> many statement <*> (reserved "return" *> expression) <* semi
+    braces $ Method t name params <$> many (try variable) <*> many statement <*> (reserved "return" *> expression) <* semi
 
 parameter :: Parser Parameter
 parameter = Parameter <$> typeSpecifier <*> identifier
 
 statement :: Parser Statement
 statement =
-        BlockStatement <$> braces (many statement)
-    <|> IfStatement <$> (reserved "if" *> parens expression) <*> statement <*> optionMaybe (reserved "else" >> statement)
-    <|> WhileStatement <$> (reserved "while" *> parens expression) <*> statement
-    <|> PrintStatement <$> (reserved "System.out.println" *> parens expression <* semi)
+        Block <$> braces (many statement)
+    <|> If <$> (reserved "if" *> parens expression) <*> statement <*> optionMaybe (reserved "else" >> statement)
+    <|> While <$> (reserved "while" *> parens expression) <*> statement
+    <|> Print <$> (reserved "System.out.println" *> parens expression <* semi)
     <|> ExpressionStatement <$> expression <* semi
 
-expression :: Parser Exp
-expression = buildExpressionParser operatorTable primaryExpression
+expression :: Parser Expression
+expression = buildExpressionParser operatorTable primary
 
-operatorTable :: OperatorTable String () Identity Exp
+operatorTable :: OperatorTable String () Identity Expression
 operatorTable =
-    [ [ Postfix (flip IndexExp <$> brackets expression)
-      , Postfix (try $ (\m as o -> CallExp o m as) <$ symbol "." <*> identifier <*> parens (expression `sepBy` comma))
-      , Postfix (flip MemberExp <$ symbol "." <*> identifier)
+    [ [ Postfix (flip Index <$> brackets expression)
+      , Postfix (try $ (\m as o -> Call o m as) <$ symbol "." <*> identifier <*> parens (expression `sepBy` comma))
+      , Postfix (flip MemberGet <$ symbol "." <*> identifier)
       ]
-    , [ Prefix (NotExp <$ symbol "!") ]
-    , [ Infix (binaryOps ["*", "/", "%"]) AssocLeft ]
-    , [ Infix (binaryOps ["+", "-"]) AssocLeft ]
-    , [ Infix (binaryOps ["<=", "<", ">=", ">"]) AssocLeft ]
-    , [ Infix (binaryOps ["==", "!="]) AssocLeft ]
-    , [ Infix (binaryOps ["&&"]) AssocLeft ]
-    , [ Infix (binaryOps ["||"]) AssocLeft ]
-    , [ Infix (AssignExpression <$ symbol "=") AssocRight ]
+    , [ Prefix (Not <$ symbol "!") ]
+    , [ Infix (binaryOps [("*", Mul), ("/", Div), ("%", Mod)]) AssocLeft ]
+    , [ Infix (binaryOps [("+", Plus), ("-", Minus)]) AssocLeft ]
+    , [ Infix (binaryOps [("<=", Le), ("<", Lt), (">=", Ge), (">", Gt)]) AssocLeft ]
+    , [ Infix (binaryOps [("==", Eq), ("!=", Ne)]) AssocLeft ]
+    , [ Infix (binaryOps [("&&", And)]) AssocLeft ]
+    , [ Infix (binaryOps [("||", Or)]) AssocLeft ]
+    , [ Infix (Assignment <$ symbol "=") AssocRight ]
     ]
 
-binaryOps ss = (\s e1 e2 -> BinaryExpression e1 s e2) <$> foldr1 (<|>) (map (try . symbol) ss)
+binaryOps :: [(String, BinaryOperator)] -> Parser (Expression -> Expression -> Expression)
+binaryOps ops = foldr1 (<|>) $ map (\(s, op) -> (\e1 e2 -> Binary e1 op e2) <$ try (symbol s)) ops
 
-primaryExpression :: Parser Exp
-primaryExpression =
-        IntLiteral . fromIntegral <$> integer
-    <|> BooleanLiteral False <$ reserved "false"
-    <|> BooleanLiteral True <$ reserved "true"
-    <|> VarExp <$> identifier
-    <|> ThisExp <$ reserved "this"
-    <|> try (NewIntArrayExp <$> (reserved "new" *> reserved "int" *> brackets expression))
-    <|> NewObjectExp <$> (reserved "new" *> identifier <* parens nothing)
+primary :: Parser Expression
+primary =
+        LiteralInt . fromIntegral <$> integer
+    <|> LiteralBoolean False <$ reserved "false"
+    <|> LiteralBoolean True <$ reserved "true"
+    <|> VariableGet <$> identifier
+    <|> This <$ reserved "this"
+    <|> try (NewIntArray <$> (reserved "new" *> reserved "int" *> brackets expression))
+    <|> NewObject <$> (reserved "new" *> identifier <* parens nothing)
     <|> parens expression
 
 nothing :: Parser ()
