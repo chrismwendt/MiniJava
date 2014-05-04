@@ -57,7 +57,7 @@ data Expression =
     | Assignment Expression Expression
     | Binary Expression BinaryOperator Expression
     | Not Expression
-    | Index Expression Expression
+    | IndexGet Expression Expression
     | Call Expression String [Expression]
     | MemberGet Expression String
     | VariableGet String
@@ -136,7 +136,7 @@ sExp (Binary e1 op e2) = printf "(%s %s %s)" (fromJust $ lookup op ops) (sExp e1
         , (Mod, "%")
         ]
 sExp (Not e1) = printf "(%s %s)" "NotExp" (sExp e1) :: String
-sExp (Index e1 e2) = printf "(%s %s %s)" "IndexExp" (sExp e1) (sExp e2) :: String
+sExp (IndexGet e1 e2) = printf "(%s %s %s)" "IndexExp" (sExp e1) (sExp e2) :: String
 sExp (Call e1 name args) = printf "(%s %s %s%s)" "CallExp" (sExp e1) (show name) (soMany sExp args) :: String
 sExp (MemberGet e1 name) = printf "(%s %s %s)" "MemberGet" (sExp e1) (show name) :: String
 sExp (VariableGet name) = printf "(%s %s)" "VarExp" (show name) :: String

@@ -83,7 +83,7 @@ data SSAOp ref =
     | Print ref
     | Return ref
     | MemberGet ref String
-    | Index ref ref
+    | IndexGet ref ref
     | Store ref Int
     | Load Int
     | VarAssg ref String
@@ -169,7 +169,7 @@ instance Show ref => Show (SSAOp ref) where
     show (Print s) = printf "Print %s" (show s)
     show (Return s) = printf "Return %s" (show s)
     show (MemberGet s name) = printf "Member %s *%s" (show s) name
-    show (Index a i) = printf "Index %s %s" (show a) (show i)
+    show (IndexGet a i) = printf "IndexGet %s %s" (show a) (show i)
     show (Store s i) = printf "Store %s *%s" (show s) (show i)
     show (Load i) = printf "Load *%s" (show i)
     show (VarAssg s name) = printf "VarAssg %s *%s" (show s) name
@@ -305,7 +305,7 @@ sc (ASTUntyped.Assignment var val) = case var of
         object <- sc object
         r <- sc val
         buildStatement (MemberAssg object r fieldName)
-    ASTUntyped.Index array index -> do
+    ASTUntyped.IndexGet array index -> do
         array <- sc array
         index <- sc index
         r <- sc val
@@ -320,10 +320,10 @@ sc (ASTUntyped.Binary l op r) = do
 sc (ASTUntyped.Not e) = do
     r <- sc e
     buildStatement (Not r)
-sc (ASTUntyped.Index array index) = do
+sc (ASTUntyped.IndexGet array index) = do
     array <- sc array
     index <- sc index
-    buildStatement (Index array index)
+    buildStatement (IndexGet array index)
 sc (ASTUntyped.Call object methodName argExps) = do
     object <- sc object
     let makeArg arg i = do

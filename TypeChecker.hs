@@ -189,7 +189,7 @@ tcStatement' method (SSAStatement op ()) = do
             TypeObject c@(StaticTypeObject "int[]" parent) -> if field == "length" then TypeInt else error "Bad field on int[]"
             TypeObject c@(StaticTypeObject name parent) -> toStaticType $ getField c field
             _ -> error "Type mismatch7"
-        Index a i                    -> assertType (getType a == getClass "int[]" && getType i == TypeInt) TypeInt
+        IndexGet a i                    -> assertType (getType a == getClass "int[]" && getType i == TypeInt) TypeInt
         Store s i                    -> error "Store instruction found in type checking"
         Load i                       -> error "Load instruction found in type checking"
         VarAssg id name              ->

@@ -65,7 +65,7 @@ expression = buildExpressionParser operatorTable primary
 
 operatorTable :: OperatorTable String () Identity Expression
 operatorTable =
-    [ [ Postfix (flip Index <$> brackets expression)
+    [ [ Postfix (flip IndexGet <$> brackets expression)
       , Postfix (try $ (\m as o -> Call o m as) <$ symbol "." <*> identifier <*> parens (expression `sepBy` comma))
       , Postfix (flip MemberGet <$ symbol "." <*> identifier)
       ]
