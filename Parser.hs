@@ -130,8 +130,8 @@ intLiteral = IntLiteral . fromIntegral <$> integer
 
 booleanLiteral :: Parser Exp
 booleanLiteral =
-        reserved "false" *> return (BooleanLiteral False)
-    <|> reserved "true" *> return (BooleanLiteral True)
+        BooleanLiteral False <$ reserved "false"
+    <|> BooleanLiteral True <$ reserved "true"
 
 nothing :: Parser ()
 nothing = return ()
