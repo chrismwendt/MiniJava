@@ -110,13 +110,10 @@ indexPostfixOp :: Parser (Exp -> Exp)
 indexPostfixOp = flip IndexExp <$> brackets expression
 
 callPostfixOp :: Parser (Exp -> Exp)
-callPostfixOp = try $ (\m as o -> CallExp o m as) <$ symbol "." <*> identifier <*> parens args
+callPostfixOp = try $ (\m as o -> CallExp o m as) <$ symbol "." <*> identifier <*> parens (expression `sepBy` comma)
 
 memberPostfixOp :: Parser (Exp -> Exp)
 memberPostfixOp = flip MemberExp <$ symbol "." <*> identifier
-
-args :: Parser [Exp]
-args = expression `sepBy` comma
 
 primaryExpression :: Parser Exp
 primaryExpression =
