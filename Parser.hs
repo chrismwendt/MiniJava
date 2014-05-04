@@ -30,7 +30,7 @@ normalClass = do
     reserved "class"
     name <- identifier
     extends <- optionMaybe (reserved "extends" >> identifier)
-    braces $ ClassDecl name extends <$> many varDecl <*> many methodDecl
+    braces $ ClassDecl name extends <$> many variable <*> many method
 
 typeSpecifier :: Parser Type
 typeSpecifier =
@@ -39,16 +39,16 @@ typeSpecifier =
     <|> IntType <$ reserved "int"
     <|> ObjectType <$> identifier
 
-varDecl :: Parser VarDecl
-varDecl = VarDecl <$> typeSpecifier <*> identifier <* semi
+variable :: Parser variable
+variable = variable <$> typeSpecifier <*> identifier <* semi
 
-methodDecl :: Parser MethodDecl
-methodDecl = do
+method :: Parser method
+method = do
     reserved "public"
     t <- typeSpecifier
     name <- identifier
     params <- parens $ parameter `sepBy` comma
-    braces $ MethodDecl t name params <$> many (try varDecl) <*> many statement <*> (reserved "return" *> expression) <* semi
+    braces $ method t name params <$> many (try variable) <*> many statement <*> (reserved "return" *> expression) <* semi
 
 parameter :: Parser Parameter
 parameter = Parameter <$> typeSpecifier <*> identifier
