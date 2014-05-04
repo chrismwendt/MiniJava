@@ -3,7 +3,6 @@ module Lexer where
 import qualified Text.ParserCombinators.Parsec.Token as Token
 import Text.ParserCombinators.Parsec.Language
 import Text.ParserCombinators.Parsec
-import Text.Parsec.Prim
 
 lexer = Token.makeTokenParser emptyDef
     { Token.commentStart    = "/*"

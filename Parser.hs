@@ -1,14 +1,8 @@
 -- TODO try using Parsec's operator table
 module Parser where
 
-import System.Environment
-import System.IO
-import Control.Monad
 import Text.ParserCombinators.Parsec hiding ((<|>))
-import Text.ParserCombinators.Parsec.Expr
-import Text.ParserCombinators.Parsec.Language
 import qualified Text.Parsec.Prim as P
-import qualified Text.ParserCombinators.Parsec.Token as Token
 import AST
 import Data.Functor
 import Control.Applicative
