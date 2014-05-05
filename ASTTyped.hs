@@ -31,7 +31,7 @@ data Method = Method
     { _mReturnType :: Type
     , _mName :: String
     , _mParameters :: [Variable]
-    , _mVariables :: [Variable]
+    , _mLocals :: [Variable]
     , _mStatements :: [Statement]
     , _mReturn :: Expression
     }
