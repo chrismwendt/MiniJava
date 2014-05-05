@@ -68,7 +68,7 @@ data SSAOp ref =
       Unify ref ref
     | Alias ref
     | This
-    | Parameter ASTUntyped.Parameter Int
+    | Variable ASTUntyped.Variable Int
     | Arg ref Int
     | Null ASTUntyped.Type
     | SInt Int
@@ -151,7 +151,7 @@ instance Show ref => Show (SSAOp ref) where
     show (Unify l r) = printf "Unify %s %s" (show l) (show r)
     show (Alias s) = printf "Alias %s" (show s)
     show This = printf "This"
-    show (Parameter _ index) = printf "Parameter *%s" (show index)
+    show (Variable _ index) = printf "Variable *%s" (show index)
     show (Arg arg index) = printf "Arg %s *%s" (show arg) (show index)
     show (Null ASTUntyped.TypeBoolean) = printf "Null *Type(boolean)"
     show (Null ASTUntyped.TypeInt) = printf "Null *Type(int)"
@@ -358,9 +358,9 @@ scVariableAsField v i = return $ SSAField v i ()
 scMethod :: ASTUntyped.Method -> State (SSAState () ID) (SSAMethod () ID)
 scMethod ast@(ASTUntyped.Method t name ps vs ss ret) = do
     modify $ stIDList .~ []
-    ssaParams <- mapM buildStatement (zipWith Parameter ps [0 .. ])
-    ssaVarAssgs <- mapM buildStatement $ zipWith VarAssg ssaParams (map (^. ASTUntyped.parName) ps)
-    sequence $ zipWith insertVarToID (map (^. ASTUntyped.parName) ps) ssaVarAssgs
+    ssaParams <- mapM buildStatement (zipWith Variable ps [0 .. ])
+    ssaVarAssgs <- mapM buildStatement $ zipWith VarAssg ssaParams (map (^. ASTUntyped.vName) ps)
+    sequence $ zipWith insertVarToID (map (^. ASTUntyped.vName) ps) ssaVarAssgs
     mapM scVariable vs
     mapM scStatement ss
     ret' <- sc ret

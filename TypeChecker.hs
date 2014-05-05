@@ -164,7 +164,7 @@ tcStatement' method (SSAStatement op ()) = do
         Unify l r                    -> subtype (getType l) (getType r)
         Alias s                      -> getType s
         This                         -> this
-        SSA.Parameter (ASTUntyped.Parameter t _) _ -> toStaticType t
+        SSA.Variable (ASTUntyped.Variable t _) _ -> toStaticType t
         Arg arg _                    -> getType arg
         Null ASTUntyped.TypeBoolean         -> TypeBoolean
         Null ASTUntyped.TypeInt             -> TypeInt
@@ -181,7 +181,7 @@ tcStatement' method (SSAStatement op ()) = do
         Call method object args      -> case getType object of
             TypeObject c@(StaticTypeObject name parent) ->
                 let (ASTUntyped.Method t _ ps _ _ _) = getMethod c method
-                in assertType (length ps == length args && (and $ zipWith isSubtype (map getType args) (map (\(ASTUntyped.Parameter t _) -> toStaticType t) ps))) (toStaticType t)
+                in assertType (length ps == length args && (and $ zipWith isSubtype (map getType args) (map (\(ASTUntyped.Variable t _) -> toStaticType t) ps))) (toStaticType t)
             _ -> error "Type mismatch6"
         Print s                      -> TypeVoid
         Return s                     -> TypeVoid
@@ -195,7 +195,7 @@ tcStatement' method (SSAStatement op ()) = do
         VarAssg id name              ->
             let (ASTUntyped.Method _ _ ps vs _ _) = method
                 vars = map (\(ASTUntyped.Variable t n) -> (n, t)) vs
-                pars = map (\(ASTUntyped.Parameter t n) -> (n, t)) ps
+                pars = map (\(ASTUntyped.Variable t n) -> (n, t)) ps
                 fields = let (ASTUntyped.Class _ _ fs _) = getClassDecl (let (TypeObject (StaticTypeObject n _)) = this in n) in map (\(ASTUntyped.Variable t n) -> (n, t)) fs
                 t = toStaticType $ fromJust $ lookup name (vars ++ pars ++ fields)
                 in if isSubtype (getType id) t then t else error "VarAssg not to subtype"

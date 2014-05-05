@@ -49,8 +49,8 @@ method = do
     params <- parens $ parameter `sepBy` comma
     braces $ Method t name params <$> many (try variable) <*> many statement <*> (reserved "return" *> expression) <* semi
 
-parameter :: Parser Parameter
-parameter = Parameter <$> typeSpecifier <*> identifier
+parameter :: Parser Variable
+parameter = Variable <$> typeSpecifier <*> identifier
 
 statement :: Parser Statement
 statement =

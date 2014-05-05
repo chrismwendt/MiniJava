@@ -30,16 +30,10 @@ data Variable = Variable
 data Method = Method
     { _mReturnType :: Type
     , _mName :: String
-    , _mParameters :: [Parameter]
+    , _mParameters :: [Variable]
     , _mVariables :: [Variable]
     , _mStatements :: [Statement]
     , _mReturn :: Expression
-    }
-    deriving (Show, Eq)
-
-data Parameter = Parameter
-    { _parType :: Type
-    , _parName :: String
     }
     deriving (Show, Eq)
 
@@ -96,7 +90,6 @@ makeLenses ''Program
 makeLenses ''Class
 makeLenses ''Variable
 makeLenses ''Method
-makeLenses ''Parameter
 makeLenses ''Type
 
 -- TODO use Show instances instead of explicit string functions
@@ -105,8 +98,7 @@ soMany f as = concatMap (" " ++) $ map f as
 sExpProgram (Program m cs) = printf "(%s (Main %s)%s)" "Program" (sExpStatement m) (soMany sExpClass cs) :: String
 sExpClass (Class name extends vs ms) = printf "(%s %s %s%s%s)" "ClassDecl" (show name) (show extends) (soMany sExpVariablearation vs) (soMany sExpMethodaration ms) :: String
 sExpVariablearation (Variable t name) = printf "(%s %s %s)" "VarDecl" (sExpType t) (show name) :: String
-sExpMethodaration (Method t name ps vs ss ret) = printf "(%s %s %s (Parameters%s) (VarDecls%s) (Statements%s) (Return %s))" "MethodDecl" (sExpType t) (show name) (soMany sExpParameter ps) (soMany sExpVariablearation vs) (soMany sExpStatement ss) (sExp ret) :: String
-sExpParameter (Parameter t name) = printf "(%s %s %s)" "Parameter" (sExpType t) (show name) :: String
+sExpMethodaration (Method t name ps vs ss ret) = printf "(%s %s %s (Parameters%s) (VarDecls%s) (Statements%s) (Return %s))" "MethodDecl" (sExpType t) (show name) (soMany sExpVariablearation ps) (soMany sExpVariablearation vs) (soMany sExpStatement ss) (sExp ret) :: String
 sExpType TypeBoolean = printf "(%s)" "TypeBoolean" :: String
 sExpType TypeInt = printf "(%s)" "TypeInt" :: String
 sExpType TypeIntArray = printf "(%s)" "TypeIntArray" :: String
