@@ -145,7 +145,10 @@ typeCheckExpression program c method expression = case expression of
             T.TypeObject className -> case find ((== className) . (^. U.cName)) (program ^. U.pClasses) >>= find ((== field) . (^. U.vName)) . (^. U.cFields) of
                 Just f -> (T.MemberGet className objecte field, toTyped (f ^. U.vType))
                 Nothing -> error "Field not found"
-            _ -> error "Member access must be performed on an object"
+            T.TypeIntArray -> if field == "length"
+                then (T.IntArrayLength objecte, T.TypeInt)
+                else error "Int arrays only have a length field"
+            _ -> error "Member access must be performed on an object, or length of array"
     U.VariableGet name -> case find ((== name) . (^. U.vName)) (method ^. U.mLocals ++ method ^. U.mParameters) of
         Just v -> (T.VariableGet name, toTyped (v ^. U.vType))
         Nothing -> case find ((== name) . (^. U.vName)) (c ^. U.cFields) of

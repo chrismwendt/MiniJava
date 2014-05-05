@@ -57,7 +57,7 @@ data Expression =
     | VariableAssignment String Expression
     | IndexGet Expression Expression
     | IndexAssignment Expression Expression Expression
-    | IndexLength Expression
+    | IntArrayLength Expression
     | This
     | NewIntArray Expression
     | NewObject String
