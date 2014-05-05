@@ -135,9 +135,9 @@ typeCheckExpression program c method expression = case expression of
         let (objecte, objectt) = ex object
             args' = map ex args
         in case objectt of
-            T.TypeObject className -> case find ((== className) . (^. U.cName)) (program ^. U.pClasses) >>= find ((== method) . (^. U.mName)) . (^. U.cMethods) of
-                Just m -> if length args == length (m ^. U.mParameters) && and (zipWith subtype (map snd args') (map (toTyped . (^. U.vType)) (m ^. U.mParameters)))
-                    then (T.Call className objecte method (map ex_ args), toTyped (m ^. U.mReturnType))
+            T.TypeObject className -> case msum [find ((== className) . (^. U.cName)) (program ^. U.pClasses) >>= find ((== method) . (^. U.mName)) . (^. U.cMethods) >>= (\a -> Just (className, a)) . id, findMethod className method] of
+                Just (implementor, m) -> if length args == length (m ^. U.mParameters) && and (zipWith subtype (map snd args') (map (toTyped . (^. U.vType)) (m ^. U.mParameters)))
+                    then (T.Call implementor objecte method (map ex_ args), toTyped (m ^. U.mReturnType))
                     else error "Number and types of arguments to method call must match definition"
                 Nothing -> error "Method not found"
             _ -> error "Method call must be performed on an object"
@@ -165,6 +165,11 @@ typeCheckExpression program c method expression = case expression of
     ex = typeCheckExpression program c method
     st_ = fst . st
     ex_ = fst . ex
+    findMethod thisClass methodName = case find ((== thisClass) . (^. U.cName)) (program ^. U.pClasses) >>= find ((== methodName) . (^. U.mName)) . (^. U.cMethods) of
+        Just m -> Just (thisClass, m)
+        Nothing -> case parentClassMaybe thisClass of
+            Just parentClass -> findMethod (parentClass ^. U.cName) methodName
+            Nothing -> Nothing
     findField thisClass field = case find ((== thisClass) . (^. U.cName)) (program ^. U.pClasses) >>= find ((== field) . (^. U.vName)) . (^. U.cFields) of
         Just f -> Just (thisClass, f ^. U.vType)
         Nothing -> case parentClassMaybe thisClass of
