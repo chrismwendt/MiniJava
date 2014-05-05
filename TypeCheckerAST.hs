@@ -51,15 +51,17 @@ typeCheckVariable :: U.Variable -> (T.Variable, T.Type)
 typeCheckVariable v = (T.Variable { T._vType = toTyped (v ^. U.vType), T._vName = v ^. U.vName }, toTyped (v ^. U.vType))
 
 typeCheckMethod :: U.Program -> U.Class -> U.Method -> T.Method
-typeCheckMethod program c method = T.Method
-    { T._mReturnType = toTyped (method ^. U.mReturnType)
-    , T._mName = method ^. U.mName
-    , T._mParameters = map (fst . typeCheckVariable) (method ^. U.mParameters)
-    , T._mLocals = map (fst . typeCheckVariable) (method ^. U.mLocals)
+typeCheckMethod program c method = if toTyped (method ^. U.mReturnType) == snd (typeCheckExpression program c method (method ^. U.mReturn))
+    then T.Method
+        { T._mReturnType = toTyped (method ^. U.mReturnType)
+        , T._mName = method ^. U.mName
+        , T._mParameters = map (fst . typeCheckVariable) (method ^. U.mParameters)
+        , T._mLocals = map (fst . typeCheckVariable) (method ^. U.mLocals)
 
-    , T._mStatements = map (fst . typeCheckStatement program c method) (method ^. U.mStatements)
-    , T._mReturn = (fst . typeCheckExpression program c method) (method ^. U.mReturn)
-    }
+        , T._mStatements = map (fst . typeCheckStatement program c method) (method ^. U.mStatements)
+        , T._mReturn = (fst . typeCheckExpression program c method) (method ^. U.mReturn)
+        }
+    else error "Return type of method must match declaration"
 
 typeCheckStatement :: U.Program -> U.Class -> U.Method -> U.Statement -> (T.Statement, T.Type)
 typeCheckStatement program c method statement = (t, T.TypeVoid)
