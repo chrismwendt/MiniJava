@@ -88,7 +88,7 @@ typeCheckExpression program c method expression = case expression of
     U.Assignment target expression ->
         let (te, tt) = ex target
             (ee, et) = ex expression
-        in if et `subType` tt
+        in if et `subtype` tt
             then case te of
                 T.VariableGet name -> (T.VariableAssignment name ee, tt)
                 T.MemberGet className object field -> (T.MemberAssignment className object field ee, tt)
@@ -129,29 +129,49 @@ typeCheckExpression program c method expression = case expression of
         in if arrayt == T.TypeIntArray && indext == T.TypeInt
             then (T.IndexGet arraye indexe, T.TypeInt)
             else error "Array must be int[] and index must be int"
-    -- U.Call object method args ->
-    --     let (objecte, objectt) = ex object
-    --         args' = map ex args
-    --     in case objectt of
-    --         T.TypeObject className -> case find
-    --         _ -> error "Method call must be performed on an object"
-    -- U.MemberGet Expression String
-    -- U.VariableGet String
-    -- case find (== name) (map (^. U.vName) (method ^. U.mLocals ++ method ^. U.mParameters)) of
-            -- Just v -> (typeCheckVariable v, toTyped (v ^. U.vType))
-            -- Nothing -> ex (U.MemberGet name)
-        -- might actually be memberget, might fail, check locals, params, this class fields 
-    -- U.MemberGet -> -- might fail, check superclasses
-    -- U.IndexGet -> -- lhs must be array of ints, index must be int, result int
-    -- U.This
-    -- U.NewIntArray Expression
-    -- U.NewObject String
+    U.Call object method args ->
+        let (objecte, objectt) = ex object
+            args' = map ex args
+        in case objectt of
+            T.TypeObject className -> case find ((== className) . (^. U.cName)) (program ^. U.pClasses) >>= find ((== method) . (^. U.mName)) . (^. U.cMethods) of
+                Just m -> if length args == length (m ^. U.mParameters) && and (zipWith subtype (map snd args') (map (toTyped . (^. U.vType)) (m ^. U.mParameters)))
+                    then (T.Call className objecte method (map ex_ args), toTyped (m ^. U.mReturnType))
+                    else error "Number and types of arguments to method call must match definition"
+                Nothing -> error "Method not found"
+            _ -> error "Method call must be performed on an object"
+    U.MemberGet object field ->
+        let (objecte, objectt) = ex object
+        in case objectt of
+            T.TypeObject className -> case find ((== className) . (^. U.cName)) (program ^. U.pClasses) >>= find ((== field) . (^. U.vName)) . (^. U.cFields) of
+                Just f -> (T.MemberGet className objecte field, toTyped (f ^. U.vType))
+                Nothing -> error "Field not found"
+            _ -> error "Member access must be performed on an object"
+    U.VariableGet name -> case find ((== name) . (^. U.vName)) (method ^. U.mLocals ++ method ^. U.mParameters) of
+        Just v -> (T.VariableGet name, toTyped (v ^. U.vType))
+        Nothing -> case find ((== name) . (^. U.vName)) (c ^. U.cFields) of
+            Just f -> (T.MemberGet (c ^. U.cName) T.This name, toTyped (f ^. U.vType))
+            Nothing -> error "Variable not found"
+    U.This -> (T.This, T.TypeObject (c ^. U.cName))
+    U.NewIntArray size -> case ex size of
+        (size', T.TypeInt) -> (T.NewIntArray size', T.TypeIntArray)
+    U.NewObject className -> if className `elem` map (^. U.cName) (program ^. U.pClasses)
+        then (T.NewObject className, T.TypeObject className)
+        else error "Class not found"
     where
     st = typeCheckStatement program c method
     ex = typeCheckExpression program c method
     st_ = fst . st
     ex_ = fst . ex
-    subType a b = undefined
+    subtype (T.TypeObject name) b@(T.TypeObject name') = if name == name'
+        then True
+        else
+            let parentClassMaybe = do
+                thisClass <- find ((== name) . (^. U.cName)) (program ^. U.pClasses)
+                find ((== (fromMaybe "Object" (thisClass ^. U.cParent))) . (^. U.cName)) (program ^. U.pClasses)
+            in case parentClassMaybe of
+                Just parentClass -> subtype (T.TypeObject (parentClass ^. U.cName)) b
+                Nothing -> False
+    subtype a b = a == b
 
 validClassHierarchy classes = allUnique names && all (pathTo "Object") names
     where
