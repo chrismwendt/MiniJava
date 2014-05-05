@@ -52,9 +52,9 @@ data Expression =
     | Not Expression
     | Call String Expression String [Expression]
     | MemberGet String Expression String
-    | MemberAssignment String Expression String
+    | MemberAssignment String Expression String Expression
     | VariableGet String
-    | VariableAssignment Expression String
+    | VariableAssignment String Expression
     | IndexGet Expression Expression
     | IndexAssignment Expression Expression Expression
     | IndexLength Expression
