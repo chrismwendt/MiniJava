@@ -144,8 +144,8 @@ typeCheckExpression program c method expression = case expression of
     U.MemberGet object field ->
         let (objecte, objectt) = ex object
         in case objectt of
-            T.TypeObject className -> case find ((== className) . (^. U.cName)) (program ^. U.pClasses) >>= find ((== field) . (^. U.vName)) . (^. U.cFields) of
-                Just f -> (T.MemberGet className objecte field, toTyped (f ^. U.vType))
+            T.TypeObject className -> case findField className field of
+                Just (className', t) -> (T.MemberGet className' objecte field, toTyped t)
                 Nothing -> error "Field not found"
             T.TypeIntArray -> if field == "length"
                 then (T.IntArrayLength objecte, T.TypeInt)
@@ -153,9 +153,7 @@ typeCheckExpression program c method expression = case expression of
             _ -> error "Member access must be performed on an object, or length of array"
     U.VariableGet name -> case find ((== name) . (^. U.vName)) (method ^. U.mLocals ++ method ^. U.mParameters) of
         Just v -> (T.VariableGet name, toTyped (v ^. U.vType))
-        Nothing -> case find ((== name) . (^. U.vName)) (c ^. U.cFields) of
-            Just f -> (T.MemberGet (c ^. U.cName) T.This name, toTyped (f ^. U.vType))
-            Nothing -> error "Variable not found"
+        Nothing -> ex (U.MemberGet U.This name)
     U.This -> (T.This, T.TypeObject (c ^. U.cName))
     U.NewIntArray size -> case ex size of
         (size', T.TypeInt) -> (T.NewIntArray size', T.TypeIntArray)
@@ -167,16 +165,20 @@ typeCheckExpression program c method expression = case expression of
     ex = typeCheckExpression program c method
     st_ = fst . st
     ex_ = fst . ex
+    findField thisClass field = case find ((== thisClass) . (^. U.cName)) (program ^. U.pClasses) >>= find ((== field) . (^. U.vName)) . (^. U.cFields) of
+        Just f -> Just (thisClass, f ^. U.vType)
+        Nothing -> case parentClassMaybe thisClass of
+            Just parentClass -> findField (parentClass ^. U.cName) field
+            Nothing -> Nothing
     subtype (T.TypeObject name) b@(T.TypeObject name') = if name == name'
         then True
-        else
-            let parentClassMaybe = do
-                thisClass <- find ((== name) . (^. U.cName)) (program ^. U.pClasses)
-                find ((== (fromMaybe "Object" (thisClass ^. U.cParent))) . (^. U.cName)) (program ^. U.pClasses)
-            in case parentClassMaybe of
-                Just parentClass -> subtype (T.TypeObject (parentClass ^. U.cName)) b
-                Nothing -> False
+        else case parentClassMaybe name of
+            Just parentClass -> subtype (T.TypeObject (parentClass ^. U.cName)) b
+            Nothing -> False
     subtype a b = a == b
+    parentClassMaybe name = do
+        thisClass <- find ((== name) . (^. U.cName)) (program ^. U.pClasses)
+        find ((== (fromMaybe "Object" (thisClass ^. U.cParent))) . (^. U.cName)) (program ^. U.pClasses)
 
 validClassHierarchy classes = allUnique names && all (pathTo "Object") names
     where
