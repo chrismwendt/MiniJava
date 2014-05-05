@@ -15,38 +15,40 @@ import Control.Applicative
 import Control.Monad.Reader
 import Debug.Trace
 
-data TypeView = TypeView
-    { _ast :: U.Program
-    , _environment :: M.Map String T.Type
-    }
-    deriving (Show)
-
-makeLenses ''TypeView
-
 typeCheck :: U.Program -> T.Program
 typeCheck program = if validClassHierarchy (program ^. U.pClasses)
-    then runReader (typeCheckProgram program) TypeView
-        { _ast = program
-        , _environment = M.empty
-        }
+    then typeCheckProgram program
     else error "Invalid class hierarchy"
 
-typeCheckProgram :: U.Program -> Reader TypeView T.Program
-typeCheckProgram program = do
-    main <- typeCheckStatement (program ^. U.pMain)
-    classes <- mapM typeCheckClass (program ^. U.pClasses)
-    return $ T.Program main classes
+typeCheckProgram :: U.Program -> T.Program
+typeCheckProgram program = T.Program main' classes'
+    where
+    main' = typeCheckStatement program pseudoClass pseudoMethod (program ^. U.pMain)
+    classes' = map typeCheckClass (program ^. U.pClasses)
+    pseudoClass = U.Class
+        { U._cName = ""
+        , U._cParent = Nothing
+        , U._cFields = []
+        , U._cMethods = []
+        }
+    pseudoMethod = U.Method
+        { U._mReturnType = U.TypeObject ""
+        , U._mName = ""
+        , U._mParameters = []
+        , U._mLocals = []
+        , U._mStatements = []
+        , U._mReturn = U.This
+        }
 
-typeCheckClass :: U.Class -> Reader TypeView T.Class
-typeCheckClass c = do
-    let fields = undefined
-    let methods = undefined
-    return $ T.Class (c ^. U.cName) (fromMaybe "Object" $ c ^. U.cParent) fields methods
+typeCheckClass :: U.Class -> T.Class
+-- typeCheckClass c = T.Class (c ^. U.cName) (fromMaybe "Object" $ c ^. U.cParent) fields methods
+typeCheckClass c = undefined
+    where
+    fields = undefined
+    methods = undefined
 
-typeCheckStatement :: U.Statement -> Reader TypeView T.Statement
-typeCheckStatement s = do
-    a <- ask
-    return $ traceShow a undefined
+typeCheckStatement :: U.Program -> U.Class -> U.Method -> U.Statement -> T.Statement
+typeCheckStatement = undefined
 
 validClassHierarchy classes = allUnique names && all (pathTo "Object") names
     where
