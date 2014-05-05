@@ -23,8 +23,8 @@ typeCheck program = if validClassHierarchy (program ^. U.pClasses)
 typeCheckProgram :: U.Program -> T.Program
 typeCheckProgram program = T.Program main' classes'
     where
-    main' = typeCheckStatement program pseudoClass pseudoMethod (program ^. U.pMain)
-    classes' = map typeCheckClass (program ^. U.pClasses)
+    (main', _) = typeCheckStatement program pseudoClass pseudoMethod (program ^. U.pMain)
+    classes' = map (typeCheckClass program) (program ^. U.pClasses)
     pseudoClass = U.Class
         { U._cName = ""
         , U._cParent = Nothing
@@ -40,15 +40,118 @@ typeCheckProgram program = T.Program main' classes'
         , U._mReturn = U.This
         }
 
-typeCheckClass :: U.Class -> T.Class
--- typeCheckClass c = T.Class (c ^. U.cName) (fromMaybe "Object" $ c ^. U.cParent) fields methods
-typeCheckClass c = undefined
+-- TODO disallow duplicate methods
+typeCheckClass :: U.Program -> U.Class -> T.Class
+typeCheckClass program c = T.Class (c ^. U.cName) (fromMaybe "Object" $ c ^. U.cParent) fields methods
     where
-    fields = undefined
-    methods = undefined
+    fields = map (fst . typeCheckVariable) (c ^. U.cFields)
+    methods = map (typeCheckMethod program c) (c ^. U.cMethods)
 
-typeCheckStatement :: U.Program -> U.Class -> U.Method -> U.Statement -> T.Statement
-typeCheckStatement = undefined
+typeCheckVariable :: U.Variable -> (T.Variable, T.Type)
+typeCheckVariable v = (T.Variable { T._vType = toTyped (v ^. U.vType), T._vName = v ^. U.vName }, toTyped (v ^. U.vType))
+
+typeCheckMethod :: U.Program -> U.Class -> U.Method -> T.Method
+typeCheckMethod program c method = T.Method
+    { T._mReturnType = toTyped (method ^. U.mReturnType)
+    , T._mName = method ^. U.mName
+    , T._mParameters = map (fst . typeCheckVariable) (method ^. U.mParameters)
+    , T._mLocals = map (fst . typeCheckVariable) (method ^. U.mLocals)
+
+    , T._mStatements = map (fst . typeCheckStatement program c method) (method ^. U.mStatements)
+    , T._mReturn = (fst . typeCheckExpression program c method) (method ^. U.mReturn)
+    }
+
+typeCheckStatement :: U.Program -> U.Class -> U.Method -> U.Statement -> (T.Statement, T.Type)
+typeCheckStatement program c method statement = (t, T.TypeVoid)
+    where
+    t = case statement of
+        U.Block ss -> T.Block $ map st_ ss
+        U.If condition true falseMaybe -> case ex condition of
+            (e, T.TypeBoolean) -> T.If e (st_ true) (st_ <$> falseMaybe)
+            _ -> error "Type of if condition must be boolean"
+        U.While condition body -> case ex condition of
+            (e, T.TypeBoolean) -> T.While e (st_ body)
+            _ -> error "Type of while condition must be boolean"
+        U.Print expression -> case ex expression of
+            (e, T.TypeInt) -> T.Print e
+            _ -> error "Type of print must be int"
+        U.ExpressionStatement expression -> T.ExpressionStatement (ex_ expression)
+    st = typeCheckStatement program c method
+    ex = typeCheckExpression program c method
+    st_ = fst . st
+    ex_ = fst . ex
+
+typeCheckExpression :: U.Program -> U.Class -> U.Method -> U.Expression -> (T.Expression, T.Type)
+typeCheckExpression program c method expression = case expression of
+    U.LiteralInt value -> (T.LiteralInt value, T.TypeInt)
+    U.LiteralBoolean value -> (T.LiteralBoolean value, T.TypeBoolean)
+    U.Assignment target expression ->
+        let (te, tt) = ex target
+            (ee, et) = ex expression
+        in if et `subType` tt
+            then case te of
+                T.VariableGet name -> (T.VariableAssignment name ee, tt)
+                T.MemberGet className object field -> (T.MemberAssignment className object field ee, tt)
+                T.IndexGet array index -> (T.IndexAssignment array index ee, tt)
+            else error "Assignment value must be a subtype"
+    U.Binary l op r ->
+        let (le, lt) = ex l
+            (re, rt) = ex r
+            logicOp = if (lt == T.TypeBoolean && rt == T.TypeBoolean)
+                then (T.Binary le (toTypedOp op) re, T.TypeBoolean)
+                else error "Logic operands must be booleans"
+            compareOp = if (lt == T.TypeInt && rt == T.TypeInt)
+                then (T.Binary le (toTypedOp op) re, T.TypeBoolean)
+                else error "Comparison operands must be ints"
+            arithOp = if (lt == T.TypeInt && rt == T.TypeInt)
+                then (T.Binary le (toTypedOp op) re, T.TypeInt)
+                else error "Arithmetic operands must be ints"
+        in case op of
+            U.Lt -> compareOp
+            U.Le -> compareOp
+            U.Eq -> compareOp
+            U.Ne -> compareOp
+            U.Gt -> compareOp
+            U.Ge -> compareOp
+            U.And -> logicOp
+            U.Or -> logicOp
+            U.Plus -> arithOp
+            U.Minus -> arithOp
+            U.Mul -> arithOp
+            U.Div -> arithOp
+            U.Mod -> arithOp
+    U.Not e -> case ex e of
+        (e', T.TypeBoolean) -> (e', T.TypeBoolean)
+        _ -> error "Not operand must be boolean"
+    U.IndexGet array index ->
+        let (arraye, arrayt) = ex array
+            (indexe, indext) = ex index
+        in if arrayt == T.TypeIntArray && indext == T.TypeInt
+            then (T.IndexGet arraye indexe, T.TypeInt)
+            else error "Array must be int[] and index must be int"
+    -- U.Call object method args ->
+    --     let (objecte, objectt) = ex object
+    --         args' = map ex args
+    --     in case objectt of
+    --         T.TypeObject className -> case find
+    --         _ -> error "Method call must be performed on an object"
+    -- U.MemberGet Expression String
+    -- U.VariableGet String
+    -- case find (== name) (map (^. U.vName) (method ^. U.mLocals ++ method ^. U.mParameters)) of
+            -- Just v -> (typeCheckVariable v, toTyped (v ^. U.vType))
+            -- Nothing -> ex (U.MemberGet name)
+        -- might actually be memberget, might fail, check locals, params, this class fields 
+    -- U.MemberGet -> -- might fail, check superclasses
+    -- U.IndexGet -> -- lhs must be array of ints, index must be int, result int
+    -- U.This
+    -- U.NewIntArray Expression
+    -- U.NewObject String
+    where
+    st = typeCheckStatement program c method
+    ex = typeCheckExpression program c method
+    st_ = fst . st
+    ex_ = fst . ex
+    subType a b = undefined
 
 validClassHierarchy classes = allUnique names && all (pathTo "Object") names
     where
@@ -64,3 +167,24 @@ validClassHierarchy classes = allUnique names && all (pathTo "Object") names
             return (child, parent)
         vertex = flip M.lookup m
         m = M.fromList $ zip names [0 .. ]
+
+toTyped :: U.Type -> T.Type
+toTyped U.TypeBoolean = T.TypeBoolean
+toTyped U.TypeInt = T.TypeInt
+toTyped U.TypeIntArray = T.TypeIntArray
+toTyped (U.TypeObject name) = T.TypeObject name
+
+toTypedOp :: U.BinaryOperator -> T.BinaryOperator
+toTypedOp U.Lt = T.Lt
+toTypedOp U.Le = T.Le
+toTypedOp U.Eq = T.Eq
+toTypedOp U.Ne = T.Ne
+toTypedOp U.Gt = T.Gt
+toTypedOp U.Ge = T.Ge
+toTypedOp U.And = T.And
+toTypedOp U.Or = T.Or
+toTypedOp U.Plus = T.Plus
+toTypedOp U.Minus = T.Minus
+toTypedOp U.Mul = T.Mul
+toTypedOp U.Div = T.Div
+toTypedOp U.Mod = T.Mod
