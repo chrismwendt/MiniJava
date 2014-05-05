@@ -50,9 +50,9 @@ data Expression =
     | LiteralBoolean Bool
     | Binary Expression BinaryOperator Expression
     | Not Expression
-    | Call Expression String [Expression]
-    | MemberGet Expression String
-    | MemberAssignment Expression String
+    | Call String Expression String [Expression]
+    | MemberGet String Expression String
+    | MemberAssignment String Expression String
     | VariableGet String
     | VariableAssignment Expression String
     | IndexGet Expression Expression
@@ -131,8 +131,8 @@ sExp (Binary e1 op e2) = printf "(%s %s %s)" (fromJust $ lookup op ops) (sExp e1
         ]
 sExp (Not e1) = printf "(%s %s)" "NotExp" (sExp e1) :: String
 sExp (IndexGet e1 e2) = printf "(%s %s %s)" "IndexExp" (sExp e1) (sExp e2) :: String
-sExp (Call e1 name args) = printf "(%s %s %s%s)" "CallExp" (sExp e1) (show name) (soMany sExp args) :: String
-sExp (MemberGet e1 name) = printf "(%s %s %s)" "MemberGet" (sExp e1) (show name) :: String
+sExp (Call _ e1 name args) = printf "(%s %s %s%s)" "CallExp" (sExp e1) (show name) (soMany sExp args) :: String
+sExp (MemberGet _ e1 name) = printf "(%s %s %s)" "MemberGet" (sExp e1) (show name) :: String
 sExp (VariableGet name) = printf "(%s %s)" "VarExp" (show name) :: String
 sExp This = printf "(%s)" "ThisExp" :: String
 sExp (NewIntArray e1) = printf "(%s %s)" "NewIntArray" (sExp e1) :: String
