@@ -80,7 +80,8 @@ data BinaryOperator =
     deriving (Show, Eq)
 
 data Type =
-      TypeBoolean
+      TypeVoid
+    | TypeBoolean
     | TypeInt
     | TypeIntArray
     | TypeObject String
