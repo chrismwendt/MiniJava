@@ -3,6 +3,7 @@
 
 module SSACompiler where
 
+import qualified AST
 import qualified ASTUntyped
 import Text.Printf
 import Data.List
@@ -377,21 +378,21 @@ scVariable (ASTUntyped.Variable t name) = do
 singleton :: a -> [a]
 singleton a = [a]
 
-binaryOps :: [(ASTUntyped.BinaryOperator, ref -> ref -> SSAOp ref)]
+binaryOps :: [(AST.BinaryOperator, ref -> ref -> SSAOp ref)]
 binaryOps =
-    [ (ASTUntyped.Lt, Lt)
-    , (ASTUntyped.Le, Le)
-    , (ASTUntyped.Eq, Eq)
-    , (ASTUntyped.Ne, Ne)
-    , (ASTUntyped.Gt, Gt)
-    , (ASTUntyped.Ge, Ge)
-    , (ASTUntyped.And, And)
-    , (ASTUntyped.Or, Or)
-    , (ASTUntyped.Plus, Plus)
-    , (ASTUntyped.Minus, Minus)
-    , (ASTUntyped.Mul, Mul)
-    , (ASTUntyped.Div, Div)
-    , (ASTUntyped.Mod, Mod)
+    [ (AST.Lt, Lt)
+    , (AST.Le, Le)
+    , (AST.Eq, Eq)
+    , (AST.Ne, Ne)
+    , (AST.Gt, Gt)
+    , (AST.Ge, Ge)
+    , (AST.And, And)
+    , (AST.Or, Or)
+    , (AST.Plus, Plus)
+    , (AST.Minus, Minus)
+    , (AST.Mul, Mul)
+    , (AST.Div, Div)
+    , (AST.Mod, Mod)
     ]
 
 nextID :: State (SSAState () ID) ID

@@ -6,6 +6,7 @@ import Text.Printf
 import Data.List
 import Control.Lens
 import Data.Maybe
+import AST
 
 data Program = Program
     { _pMain :: Statement
@@ -48,7 +49,7 @@ data Statement =
 data Expression =
       LiteralInt Int
     | LiteralBoolean Bool
-    | Binary Expression BinaryOperator Expression
+    | Binary Expression AST.BinaryOperator Expression
     | Not Expression
     | Call String Expression String [Expression]
     | MemberGet String Expression String
@@ -61,22 +62,6 @@ data Expression =
     | This
     | NewIntArray Expression
     | NewObject String
-    deriving (Show, Eq)
-
-data BinaryOperator =
-      Lt
-    | Le
-    | Eq
-    | Ne
-    | Gt
-    | Ge
-    | And
-    | Or
-    | Plus
-    | Minus
-    | Mul
-    | Div
-    | Mod
     deriving (Show, Eq)
 
 data Type =

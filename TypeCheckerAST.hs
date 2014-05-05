@@ -2,6 +2,7 @@
 
 module TypeCheckerAST where
 
+import qualified AST
 import qualified ASTUntyped as U
 import qualified ASTTyped as T
 import qualified Data.Map as M
@@ -100,28 +101,28 @@ typeCheckExpression program c method expression = case expression of
         let (le, lt) = ex l
             (re, rt) = ex r
             logicOp = if (lt == T.TypeBoolean && rt == T.TypeBoolean)
-                then (T.Binary le (toTypedOp op) re, T.TypeBoolean)
+                then (T.Binary le op re, T.TypeBoolean)
                 else error "Logic operands must be booleans"
             compareOp = if (lt == T.TypeInt && rt == T.TypeInt)
-                then (T.Binary le (toTypedOp op) re, T.TypeBoolean)
+                then (T.Binary le op re, T.TypeBoolean)
                 else error "Comparison operands must be ints"
             arithOp = if (lt == T.TypeInt && rt == T.TypeInt)
-                then (T.Binary le (toTypedOp op) re, T.TypeInt)
+                then (T.Binary le op re, T.TypeInt)
                 else error "Arithmetic operands must be ints"
         in case op of
-            U.Lt -> compareOp
-            U.Le -> compareOp
-            U.Eq -> compareOp
-            U.Ne -> compareOp
-            U.Gt -> compareOp
-            U.Ge -> compareOp
-            U.And -> logicOp
-            U.Or -> logicOp
-            U.Plus -> arithOp
-            U.Minus -> arithOp
-            U.Mul -> arithOp
-            U.Div -> arithOp
-            U.Mod -> arithOp
+            AST.Lt -> compareOp
+            AST.Le -> compareOp
+            AST.Eq -> compareOp
+            AST.Ne -> compareOp
+            AST.Gt -> compareOp
+            AST.Ge -> compareOp
+            AST.And -> logicOp
+            AST.Or -> logicOp
+            AST.Plus -> arithOp
+            AST.Minus -> arithOp
+            AST.Mul -> arithOp
+            AST.Div -> arithOp
+            AST.Mod -> arithOp
     U.Not e -> case ex e of
         (e', T.TypeBoolean) -> (e', T.TypeBoolean)
         _ -> error "Not operand must be boolean"
@@ -205,18 +206,3 @@ toTyped U.TypeBoolean = T.TypeBoolean
 toTyped U.TypeInt = T.TypeInt
 toTyped U.TypeIntArray = T.TypeIntArray
 toTyped (U.TypeObject name) = T.TypeObject name
-
-toTypedOp :: U.BinaryOperator -> T.BinaryOperator
-toTypedOp U.Lt = T.Lt
-toTypedOp U.Le = T.Le
-toTypedOp U.Eq = T.Eq
-toTypedOp U.Ne = T.Ne
-toTypedOp U.Gt = T.Gt
-toTypedOp U.Ge = T.Ge
-toTypedOp U.And = T.And
-toTypedOp U.Or = T.Or
-toTypedOp U.Plus = T.Plus
-toTypedOp U.Minus = T.Minus
-toTypedOp U.Mul = T.Mul
-toTypedOp U.Div = T.Div
-toTypedOp U.Mod = T.Mod
