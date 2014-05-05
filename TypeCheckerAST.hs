@@ -41,9 +41,10 @@ typeCheckProgram program = T.Program main' classes'
         , U._mReturn = U.This
         }
 
--- TODO disallow duplicate methods
 typeCheckClass :: U.Program -> U.Class -> T.Class
-typeCheckClass program c = T.Class (c ^. U.cName) (fromMaybe "Object" $ c ^. U.cParent) fields methods
+typeCheckClass program c = if length (nub $ map (^. U.mName) (c ^. U.cMethods)) == length (c ^. U.cMethods)
+    then T.Class (c ^. U.cName) (fromMaybe "Object" $ c ^. U.cParent) fields methods
+    else error "Duplicate method"
     where
     fields = map (fst . typeCheckVariable) (c ^. U.cFields)
     methods = map (typeCheckMethod program c) (c ^. U.cMethods)
