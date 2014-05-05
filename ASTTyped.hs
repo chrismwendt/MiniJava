@@ -96,9 +96,9 @@ makeLenses ''Type
 
 soMany f as = concatMap (" " ++) $ map f as
 sExpProgram (Program m cs) = printf "(%s (Main %s)%s)" "Program" (sExpStatement m) (soMany sExpClass cs) :: String
-sExpClass (Class name extends vs ms) = printf "(%s %s %s%s%s)" "ClassDecl" (show name) (show extends) (soMany sExpVariablearation vs) (soMany sExpMethodaration ms) :: String
-sExpVariablearation (Variable t name) = printf "(%s %s %s)" "VarDecl" (sExpType t) (show name) :: String
-sExpMethodaration (Method t name ps vs ss ret) = printf "(%s %s %s (Parameters%s) (VarDecls%s) (Statements%s) (Return %s))" "MethodDecl" (sExpType t) (show name) (soMany sExpVariablearation ps) (soMany sExpVariablearation vs) (soMany sExpStatement ss) (sExp ret) :: String
+sExpClass (Class name extends vs ms) = printf "(%s %s %s%s%s)" "ClassDecl" (show name) (show extends) (soMany sExpVariable vs) (soMany sExpMethod ms) :: String
+sExpVariable (Variable t name) = printf "(%s %s %s)" "VarDecl" (sExpType t) (show name) :: String
+sExpMethod (Method t name ps vs ss ret) = printf "(%s %s %s (Parameters%s) (VarDecls%s) (Statements%s) (Return %s))" "MethodDecl" (sExpType t) (show name) (soMany sExpVariable ps) (soMany sExpVariable vs) (soMany sExpStatement ss) (sExp ret) :: String
 sExpType TypeBoolean = printf "(%s)" "TypeBoolean" :: String
 sExpType TypeInt = printf "(%s)" "TypeInt" :: String
 sExpType TypeIntArray = printf "(%s)" "TypeIntArray" :: String
