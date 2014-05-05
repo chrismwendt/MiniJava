@@ -16,7 +16,7 @@ data Program = Program
 data Class = Class
     { _cName :: String
     , _cParent :: String
-    , _cVariables :: [Variable]
+    , _cFields :: [Variable]
     , _cMethods :: [Method]
     }
     deriving (Show, Eq)
