@@ -1,5 +1,6 @@
 module TypeChecker where
 
+import qualified AST
 import qualified ASTUntyped as ASTUntyped
 import SSACompiler as SSA
 import qualified Data.Map as M
@@ -73,7 +74,7 @@ typeCheck program@(SSAProgram ast _ _) ids m = (a, ids, getMap' s)
 tcProgram :: SSAProgram () ID -> State (TypeState ID) (SSAProgram StaticType ID)
 tcProgram (SSAProgram ast@(ASTUntyped.Program s cs) sIDs classes) = do
     TypeState { getMap = m } <- get
-    let mainMethod = ASTUntyped.Method (ASTUntyped.TypeObject "") "" [] [] [s] ASTUntyped.This
+    let mainMethod = ASTUntyped.Method (AST.TypeObject "") "" [] [] [s] ASTUntyped.This
     mapM (tcStatement mainMethod) sIDs
     classes' <- mapM tcClass classes
     return (SSAProgram ast sIDs classes')
@@ -87,18 +88,18 @@ tcClass (SSAClass classDecl@(ASTUntyped.Class c _ _ _) fields methods) = do
     return $ SSAClass classDecl fields' methods'
 
 tcField :: SSAField () -> State (TypeState ID) (SSAField StaticType)
-tcField (SSAField (ASTUntyped.Variable ASTUntyped.TypeBoolean name) index info) = return $ SSAField (ASTUntyped.Variable ASTUntyped.TypeBoolean name) index TypeBoolean
-tcField (SSAField (ASTUntyped.Variable ASTUntyped.TypeInt name) index info) = return $ SSAField (ASTUntyped.Variable ASTUntyped.TypeInt name) index TypeInt
-tcField (SSAField (ASTUntyped.Variable ASTUntyped.TypeIntArray name) index info) = do
+tcField (SSAField (ASTUntyped.Variable AST.TypeBoolean name) index info) = return $ SSAField (ASTUntyped.Variable AST.TypeBoolean name) index TypeBoolean
+tcField (SSAField (ASTUntyped.Variable AST.TypeInt name) index info) = return $ SSAField (ASTUntyped.Variable AST.TypeInt name) index TypeInt
+tcField (SSAField (ASTUntyped.Variable AST.TypeIntArray name) index info) = do
     TypeState { getClassMap = cm } <- get
-    return $ (SSAField (ASTUntyped.Variable ASTUntyped.TypeIntArray name) index (unsafeFind cm "int[]"))
-tcField (SSAField (ASTUntyped.Variable (ASTUntyped.TypeObject super) name) index info) = do
+    return $ (SSAField (ASTUntyped.Variable AST.TypeIntArray name) index (unsafeFind cm "int[]"))
+tcField (SSAField (ASTUntyped.Variable (AST.TypeObject super) name) index info) = do
     TypeState { getClassMap = cm } <- get
-    let toStaticType ASTUntyped.TypeBoolean = TypeBoolean
-        toStaticType ASTUntyped.TypeInt = TypeInt
-        toStaticType ASTUntyped.TypeIntArray = unsafeFind cm "int[]"
-        toStaticType (ASTUntyped.TypeObject name) = unsafeFind cm name
-    return $ (SSAField (ASTUntyped.Variable (ASTUntyped.TypeObject super) name) index (unsafeFind cm name))
+    let toStaticType AST.TypeBoolean = TypeBoolean
+        toStaticType AST.TypeInt = TypeInt
+        toStaticType AST.TypeIntArray = unsafeFind cm "int[]"
+        toStaticType (AST.TypeObject name) = unsafeFind cm name
+    return $ (SSAField (ASTUntyped.Variable (AST.TypeObject super) name) index (unsafeFind cm name))
 
 tcMethod :: SSAMethod () ID -> State (TypeState ID) (SSAMethod StaticType ID)
 tcMethod (SSAMethod methodDecl varIDs sIDs retID) = do
@@ -107,10 +108,10 @@ tcMethod (SSAMethod methodDecl varIDs sIDs retID) = do
     TypeState { getClassMap = cm, getMap = m, getMap' = m' } <- get
     tcStatement methodDecl retID
     let getType id = _sInfo $ unsafeFind m' id
-    let toStaticType ASTUntyped.TypeBoolean = TypeBoolean
-        toStaticType ASTUntyped.TypeInt = TypeInt
-        toStaticType ASTUntyped.TypeIntArray = unsafeFind cm "int[]"
-        toStaticType (ASTUntyped.TypeObject name) = unsafeFind cm name
+    let toStaticType AST.TypeBoolean = TypeBoolean
+        toStaticType AST.TypeInt = TypeInt
+        toStaticType AST.TypeIntArray = unsafeFind cm "int[]"
+        toStaticType (AST.TypeObject name) = unsafeFind cm name
     let isSubtype a@(TypeObject (StaticTypeObject _ (Just super))) b@(TypeObject (StaticTypeObject _ _)) = if a == b then True else isSubtype (TypeObject super) b
         isSubtype a@(TypeObject (StaticTypeObject _ Nothing)) b@(TypeObject (StaticTypeObject _ _)) = if a == b then True else False
         isSubtype a b = a == b
@@ -132,10 +133,10 @@ tcStatement method sID = do
 tcStatement' :: ASTUntyped.Method -> SSAStatement () ID -> State (TypeState ID) StaticType
 tcStatement' method (SSAStatement op ()) = do
     TypeState { getASTUntyped = ast, getClassMap = cm, getMap' = m, getThis = this } <- get
-    let toStaticType ASTUntyped.TypeBoolean = TypeBoolean
-        toStaticType ASTUntyped.TypeInt = TypeInt
-        toStaticType ASTUntyped.TypeIntArray = unsafeFind cm "int[]"
-        toStaticType (ASTUntyped.TypeObject name) = unsafeFind cm name
+    let toStaticType AST.TypeBoolean = TypeBoolean
+        toStaticType AST.TypeInt = TypeInt
+        toStaticType AST.TypeIntArray = unsafeFind cm "int[]"
+        toStaticType (AST.TypeObject name) = unsafeFind cm name
     let getType id = _sInfo $ unsafeFind m id
     let getClass = unsafeFind cm
     let getClassDecl name = case find (\(ASTUntyped.Class cname _ _ _) -> cname == name) (let (ASTUntyped.Program _ cs) = ast in cs) of
@@ -166,10 +167,10 @@ tcStatement' method (SSAStatement op ()) = do
         This                         -> this
         SSA.Variable (ASTUntyped.Variable t _) _ -> toStaticType t
         Arg arg _                    -> getType arg
-        Null ASTUntyped.TypeBoolean         -> TypeBoolean
-        Null ASTUntyped.TypeInt             -> TypeInt
-        Null ASTUntyped.TypeIntArray        -> getClass "int[]"
-        Null (ASTUntyped.TypeObject name)   -> getClass name
+        Null AST.TypeBoolean         -> TypeBoolean
+        Null AST.TypeInt             -> TypeInt
+        Null AST.TypeIntArray        -> getClass "int[]"
+        Null (AST.TypeObject name)   -> getClass name
         SInt v                       -> TypeInt
         SBoolean v                   -> TypeBoolean
         NewObj name                  -> unsafeFind cm name

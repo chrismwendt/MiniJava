@@ -61,18 +61,10 @@ data Expression =
     | NewObject String
     deriving (Show, Eq)
 
-data Type =
-      TypeBoolean
-    | TypeInt
-    | TypeIntArray
-    | TypeObject String
-    deriving (Show, Eq)
-
 makeLenses ''Program
 makeLenses ''Class
 makeLenses ''Variable
 makeLenses ''Method
-makeLenses ''Type
 
 -- TODO use Show instances instead of explicit string functions
 

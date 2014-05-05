@@ -71,7 +71,7 @@ data SSAOp ref =
     | This
     | Variable ASTUntyped.Variable Int
     | Arg ref Int
-    | Null ASTUntyped.Type
+    | Null AST.Type
     | SInt Int
     | SBoolean Bool
     | NewObj String
@@ -154,10 +154,10 @@ instance Show ref => Show (SSAOp ref) where
     show This = printf "This"
     show (Variable _ index) = printf "Variable *%s" (show index)
     show (Arg arg index) = printf "Arg %s *%s" (show arg) (show index)
-    show (Null ASTUntyped.TypeBoolean) = printf "Null *Type(boolean)"
-    show (Null ASTUntyped.TypeInt) = printf "Null *Type(int)"
-    show (Null ASTUntyped.TypeIntArray) = printf "Null *Type(int[])"
-    show (Null (ASTUntyped.TypeObject name)) = printf "Null *Type(%s)" name
+    show (Null AST.TypeBoolean) = printf "Null *Type(boolean)"
+    show (Null AST.TypeInt) = printf "Null *Type(int)"
+    show (Null AST.TypeIntArray) = printf "Null *Type(int[])"
+    show (Null (AST.TypeObject name)) = printf "Null *Type(%s)" name
     show (SInt v) = printf "Int *%s" (show v)
     show (SBoolean v) = printf "Boolean *%s" (if v then "true" else "false")
     show (NewObj name) = printf "NewObj *%s" name
