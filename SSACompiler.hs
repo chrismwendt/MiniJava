@@ -46,7 +46,7 @@ scProgram = do
     let program = state ^. stProgram
     let main = state ^. stProgram . T.pMain
     let classes = state ^. stProgram . T.pClasses
-    S.Program program <$> (scStatement main >> (^. stIDList) <$> get) <*> mapM scClass classes
+    S.Program program <$> scClass main <*> mapM scClass classes
 
 scStatement :: T.Statement -> State CState ()
 scStatement (T.Block ss) = void (mapM scStatement ss)

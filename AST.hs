@@ -5,7 +5,7 @@ module AST where
 import Control.Lens
 
 data Program = Program
-    { _pMain :: Statement
+    { _pMain :: Class
     , _pClasses :: [Class]
     }
     deriving (Show, Eq)

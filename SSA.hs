@@ -18,7 +18,7 @@ type Offset = Int
 
 data Program = Program
     { _pProgram :: T.Program
-    , _pMain :: [ID]
+    , _pMain :: Class
     , _pClasses :: [Class]
     }
 
@@ -98,7 +98,7 @@ makeLenses ''Method
 makeLenses ''Statement
 
 instance Show Program where
-    show (Program _ ss cs) = printf "program:\n  main:\n    method main:\n%s%s" (concatMap show ss) (concatMap show cs)
+    show (Program _ m cs) = printf "program:\n  main:\n    method main:\n%s%s" (show m) (concatMap show cs)
 
 instance Show Method where
     show (Method (T.Method _ name _ _ _ _) ps ss _) = printf "    method %s:\n%s" name (unlines $ map show ss)

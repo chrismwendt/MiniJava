@@ -9,7 +9,7 @@ import Data.Maybe
 import qualified AST as U
 
 data Program = Program
-    { _pMain :: Statement
+    { _pMain :: Class
     , _pClasses :: [Class]
     }
     deriving (Show, Eq)

@@ -19,11 +19,16 @@ parseString str = case parse program "" str of
 program :: Parser Program
 program = Program <$> (whiteSpace *> mainClass) <*> many normalClass <* eof
 
-mainClass :: Parser Statement
-mainClass = reserved "class" >> identifier >> braces (do
-    reserved "public" >> reserved "static" >> reserved "void" >> reserved "main"
-    parens $ symbol "String" >> brackets nothing >> identifier
-    braces statement)
+mainClass :: Parser Class
+mainClass = do
+    reserved "class"
+    name <- identifier
+    braces $ do
+        reserved "public" >> reserved "static" >> reserved "void" >> reserved "main"
+        parens $ symbol "String" >> brackets nothing >> identifier
+        braces $ do
+            s <- statement
+            return $ Class name "Object" [] [Method TypeInt "main" [] [] [s] (LiteralInt 0)]
 
 normalClass :: Parser Class
 normalClass = do

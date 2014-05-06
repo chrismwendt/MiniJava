@@ -19,10 +19,8 @@ typeCheck program = if validClassHierarchy (program ^. U.pClasses)
 typeCheckProgram :: U.Program -> T.Program
 typeCheckProgram program = T.Program main' classes'
     where
-    (main', _) = typeCheckStatement program pseudoClass pseudoMethod (program ^. U.pMain)
+    main' = typeCheckClass program (program ^. U.pMain)
     classes' = map (typeCheckClass program) (program ^. U.pClasses)
-    pseudoClass = U.Class "" "" [] []
-    pseudoMethod = U.Method (U.TypeObject "") "" [] [] [] U.This
 
 typeCheckClass :: U.Program -> U.Class -> T.Class
 typeCheckClass p c@(U.Class name parent fields methods)
