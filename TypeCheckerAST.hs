@@ -28,7 +28,7 @@ typeCheckProgram program = T.Program main' classes'
     classes' = map (typeCheckClass program) (program ^. U.pClasses)
     pseudoClass = U.Class
         { U._cName = ""
-        , U._cParent = Nothing
+        , U._cParent = ""
         , U._cFields = []
         , U._cMethods = []
         }
@@ -45,7 +45,7 @@ typeCheckClass :: U.Program -> U.Class -> T.Class
 typeCheckClass p c
     | length (nub $ map (^. U.mName) (c ^. U.cMethods)) == length (c ^. U.cMethods) = T.Class
         { T._cName = c ^. U.cName
-        , T._cParent = fromMaybe "Object" $ c ^. U.cParent
+        , T._cParent = c ^. U.cParent
         , T._cFields = c ^. U.cFields
         , T._cMethods = map (typeCheckMethod p c) (c ^. U.cMethods)
         }
@@ -183,7 +183,7 @@ typeCheckExpression p c m e = case e of
     subtype a b = a == b
     parentClassMaybe name = do
         thisClass <- find ((== name) . (^. U.cName)) (p ^. U.pClasses)
-        find ((== (fromMaybe "Object" (thisClass ^. U.cParent))) . (^. U.cName)) (p ^. U.pClasses)
+        find ((== (thisClass ^. U.cParent)) . (^. U.cName)) (p ^. U.pClasses)
 
 validClassHierarchy classes = allUnique names && all (pathTo "Object") names
     where
@@ -195,7 +195,7 @@ validClassHierarchy classes = allUnique names && all (pathTo "Object") names
         edges = mapMaybe edgeMaybe classes
         edgeMaybe c = do
             child <- vertex $ c ^. U.cName
-            parent <- vertex $ fromMaybe "Object" $ c ^. U.cParent
+            parent <- vertex $ c ^. U.cParent
             return (child, parent)
         vertex = flip M.lookup m
         m = M.fromList $ zip names [0 .. ]

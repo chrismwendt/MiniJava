@@ -10,6 +10,7 @@ import Data.Functor
 import Data.Functor.Identity
 import Control.Applicative
 import Lexer
+import Data.Maybe
 
 parseString :: String -> Program
 parseString str = case parse program "" str of
@@ -30,7 +31,7 @@ normalClass = do
     reserved "class"
     name <- identifier
     extends <- optionMaybe (reserved "extends" >> identifier)
-    braces $ Class name extends <$> many variable <*> many method
+    braces $ Class name (fromMaybe "Object" extends) <$> many variable <*> many method
 
 typeSpecifier :: Parser Type
 typeSpecifier =

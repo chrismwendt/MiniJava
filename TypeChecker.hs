@@ -50,7 +50,7 @@ augment :: M.Map String StaticType -> ASTUntyped.Program -> M.Map String StaticT
 augment types (ASTUntyped.Program _ classDecls) = moreTypes
     where
     pair (ASTUntyped.Class name super _ _) = (name, super)
-    orphans = map (mapSnd (fromJustDef "Object") . pair) $ classDecls
+    orphans = map pair classDecls
     fail a b = error "Duplicate"
     insertOrphan ([], m) = ([], m)
     insertOrphan (os, m) = case extract (flip M.lookup m . snd) os of
