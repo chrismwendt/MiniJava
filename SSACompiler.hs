@@ -31,7 +31,7 @@ data SSAClass info ref = SSAClass
     }
 
 data SSAField info = SSAField
-    { _fVariable :: ASTUntyped.Variable
+    { _fVariable :: AST.Variable
     , _fPosition :: Int
     , _fInfo :: info
     }
@@ -69,7 +69,7 @@ data SSAOp ref =
       Unify ref ref
     | Alias ref
     | This
-    | Variable ASTUntyped.Variable Int
+    | Variable AST.Variable Int
     | Arg ref Int
     | Null AST.Type
     | SInt Int
@@ -143,7 +143,7 @@ instance (Show ref, Show info) => Show (SSAClass info ref) where
     show (SSAClass (ASTUntyped.Class name _ _ _) _ ms) = printf "  class %s:\n%s" name (concatMap show ms)
 
 instance Show info => Show (SSAField info) where
-    show (SSAField (ASTUntyped.Variable _ name) _ _) = name
+    show (SSAField (AST.Variable _ name) _ _) = name
 
 instance (Show ref, Show info) => Show (SSAStatement info ref) where
     show (SSAStatement op info) = printf "      ?: %s :%s\n" (show op) (show info)
@@ -353,15 +353,15 @@ scClass :: ASTUntyped.Class -> State (SSAState () ID) (SSAClass () ID)
 scClass ast@(ASTUntyped.Class name extends vs ms) =
     SSAClass ast <$> zipWithM scVariableAsField vs [0 .. ] <*> mapM scMethod ms
 
-scVariableAsField :: ASTUntyped.Variable -> Int -> State (SSAState () ID) (SSAField ())
+scVariableAsField :: AST.Variable -> Int -> State (SSAState () ID) (SSAField ())
 scVariableAsField v i = return $ SSAField v i ()
 
 scMethod :: ASTUntyped.Method -> State (SSAState () ID) (SSAMethod () ID)
 scMethod ast@(ASTUntyped.Method t name ps vs ss ret) = do
     modify $ stIDList .~ []
     ssaParams <- mapM buildStatement (zipWith Variable ps [0 .. ])
-    ssaVarAssgs <- mapM buildStatement $ zipWith VarAssg ssaParams (map (^. ASTUntyped.vName) ps)
-    sequence $ zipWith insertVarToID (map (^. ASTUntyped.vName) ps) ssaVarAssgs
+    ssaVarAssgs <- mapM buildStatement $ zipWith VarAssg ssaParams (map (^. AST.vName) ps)
+    sequence $ zipWith insertVarToID (map (^. AST.vName) ps) ssaVarAssgs
     mapM scVariable vs
     mapM scStatement ss
     ret' <- sc ret
@@ -369,8 +369,8 @@ scMethod ast@(ASTUntyped.Method t name ps vs ss ret) = do
     allStatements <- (^. stIDList) <$> get
     return $ SSAMethod ast ssaParams allStatements ret'
 
-scVariable :: ASTUntyped.Variable -> State (SSAState () ID) ID
-scVariable (ASTUntyped.Variable t name) = do
+scVariable :: AST.Variable -> State (SSAState () ID) ID
+scVariable (AST.Variable t name) = do
     r <- buildStatement (Null t)
     modify $ stVarToID %~ M.insert name r
     return r

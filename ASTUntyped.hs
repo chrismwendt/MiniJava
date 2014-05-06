@@ -22,12 +22,6 @@ data Class = Class
     }
     deriving (Show, Eq)
 
-data Variable = Variable
-    { _vType :: Type
-    , _vName :: String
-    }
-    deriving (Show, Eq)
-
 data Method = Method
     { _mReturnType :: Type
     , _mName :: String

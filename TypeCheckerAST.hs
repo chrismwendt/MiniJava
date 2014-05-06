@@ -43,22 +43,21 @@ typeCheckProgram program = T.Program main' classes'
 
 typeCheckClass :: U.Program -> U.Class -> T.Class
 typeCheckClass program c = if length (nub $ map (^. U.mName) (c ^. U.cMethods)) == length (c ^. U.cMethods)
-    then T.Class (c ^. U.cName) (fromMaybe "Object" $ c ^. U.cParent) fields methods
+    then T.Class (c ^. U.cName) (fromMaybe "Object" $ c ^. U.cParent) (c ^. U.cFields) methods
     else error "Duplicate method"
     where
-    fields = map (fst . typeCheckVariable) (c ^. U.cFields)
     methods = map (typeCheckMethod program c) (c ^. U.cMethods)
 
-typeCheckVariable :: U.Variable -> (T.Variable, AST.Type)
-typeCheckVariable v = (T.Variable { T._vType = v ^. U.vType, T._vName = v ^. U.vName }, v ^. U.vType)
+typeCheckVariable :: AST.Variable -> (AST.Variable, AST.Type)
+typeCheckVariable v = (AST.Variable { AST._vType = v ^. U.vType, AST._vName = v ^. U.vName }, v ^. U.vType)
 
 typeCheckMethod :: U.Program -> U.Class -> U.Method -> T.Method
 typeCheckMethod program c method = if method ^. U.mReturnType == snd (typeCheckExpression program c method (method ^. U.mReturn))
     then T.Method
         { T._mReturnType = method ^. U.mReturnType
         , T._mName = method ^. U.mName
-        , T._mParameters = map (fst . typeCheckVariable) (method ^. U.mParameters)
-        , T._mLocals = map (fst . typeCheckVariable) (method ^. U.mLocals)
+        , T._mParameters = method ^. U.mParameters
+        , T._mLocals = method ^. U.mLocals
 
         , T._mStatements = map (fst . typeCheckStatement program c method) (method ^. U.mStatements)
         , T._mReturn = (fst . typeCheckExpression program c method) (method ^. U.mReturn)

@@ -1,4 +1,14 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module AST where
+
+import Control.Lens
+
+data Variable = Variable
+    { _vType :: Type
+    , _vName :: String
+    }
+    deriving (Show, Eq)
 
 data BinaryOperator =
       Lt
@@ -23,3 +33,5 @@ data Type =
     | TypeIntArray
     | TypeObject String
     deriving (Show, Eq)
+
+makeLenses ''Variable
