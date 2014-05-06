@@ -17,19 +17,19 @@ import Data.Maybe
 import Data.Bifunctor
 import Control.Lens
 
-data CState info ref = CState
+data CState = CState
     { _stProgram :: T.Program
     , _stNextID :: S.ID
     , _stVarToID :: M.Map String S.ID
-    , _stIDToS :: M.Map S.ID (S.Statement info ref)
+    , _stIDToS :: M.Map S.ID S.Statement
     , _stIDList :: [S.ID]
     , _stNextLabel :: Int
     }
 
 makeLenses ''CState
 
-ssaCompile :: T.Program -> (S.Program () S.ID, [S.ID], M.Map S.ID (S.Statement () S.ID))
-ssaCompile program = let (a, s) = runState scProgram state in (a, _stIDList s, _stIDToS s)
+ssaCompile :: T.Program -> (S.Program, M.Map S.ID S.Statement)
+ssaCompile program = let (a, s) = runState scProgram state in (a, _stIDToS s)
     where
     state = CState
         { _stProgram = program
@@ -40,7 +40,7 @@ ssaCompile program = let (a, s) = runState scProgram state in (a, _stIDList s, _
         , _stNextLabel = 0
         }
 
-scProgram :: State (CState () S.ID) (S.Program () S.ID)
+scProgram :: State CState S.Program
 scProgram = do
     state <- get
     let program = state ^. stProgram
@@ -48,7 +48,7 @@ scProgram = do
     let classes = state ^. stProgram . T.pClasses
     S.Program program <$> (scStatement main >> (^. stIDList) <$> get) <*> mapM scClass classes
 
-scStatement :: T.Statement -> State (CState () S.ID) ()
+scStatement :: T.Statement -> State CState ()
 scStatement (T.Block ss) = void (mapM scStatement ss)
 scStatement axe@(T.If cond branchTrue branchFalse) = do
     cond' <- sc cond
@@ -111,7 +111,7 @@ scStatement (T.Print e) = do
     return ()
 scStatement (T.ExpressionStatement e) = singleton <$> sc e >> return ()
 
-sc :: T.Expression -> State (CState () S.ID) S.ID
+sc :: T.Expression -> State CState S.ID
 sc (T.LiteralInt v) = buildStatement (S.SInt v)
 sc (T.LiteralBoolean v) = buildStatement (S.SBoolean v)
 sc (T.MemberAssignment cName object fName value) = do
@@ -166,14 +166,14 @@ sc (T.NewIntArray size) = do
 sc (T.NewObject name) = buildStatement (S.NewObj name)
 sc (T.This) = buildStatement S.This
 
-scClass :: T.Class -> State (CState () S.ID) (S.Class () S.ID)
+scClass :: T.Class -> State CState S.Class
 scClass ast@(T.Class name extends vs ms) =
     S.Class ast <$> zipWithM scVariableAsField vs [0 .. ] <*> mapM scMethod ms
 
-scVariableAsField :: AST.Variable -> Int -> State (CState () S.ID) (S.Field ())
-scVariableAsField v i = return $ S.Field v i ()
+scVariableAsField :: AST.Variable -> Int -> State CState S.Field
+scVariableAsField v i = return $ S.Field v i
 
-scMethod :: T.Method -> State (CState () S.ID) (S.Method () S.ID)
+scMethod :: T.Method -> State CState (S.Method)
 scMethod ast@(T.Method t name ps vs ss ret) = do
     modify $ stIDList .~ []
     ssaParams <- mapM buildStatement (zipWith S.Variable (map (^. AST.vName) ps) [0 .. ])
@@ -186,7 +186,7 @@ scMethod ast@(T.Method t name ps vs ss ret) = do
     allStatements <- (^. stIDList) <$> get
     return $ S.Method ast ssaParams allStatements ret'
 
-scVariable :: AST.Variable -> State (CState () S.ID) S.ID
+scVariable :: AST.Variable -> State CState S.ID
 scVariable (AST.Variable t name) = do
     r <- buildStatement (S.Null t)
     modify $ stVarToID %~ M.insert name r
@@ -195,7 +195,7 @@ scVariable (AST.Variable t name) = do
 singleton :: a -> [a]
 singleton a = [a]
 
-binaryOps :: [(AST.BinaryOperator, ref -> ref -> S.Op ref)]
+binaryOps :: [(AST.BinaryOperator, S.ID -> S.ID -> S.Statement)]
 binaryOps =
     [ (AST.Lt, S.Lt)
     , (AST.Le, S.Le)
@@ -212,18 +212,18 @@ binaryOps =
     , (AST.Mod, S.Mod)
     ]
 
-nextID :: State (CState () S.ID) S.ID
+nextID :: State CState S.ID
 nextID = state $ \s -> (s ^. stNextID, stNextID %~ succ $ s)
 
-nextLabel :: State (CState () S.ID) Int
+nextLabel :: State CState Int
 nextLabel = state $ \s -> (s ^. stNextLabel, stNextLabel %~ succ $ s)
 
-buildStatement :: S.Op S.ID -> State (CState () S.ID) S.ID
+buildStatement :: S.Statement -> State CState S.ID
 buildStatement op = do
     id <- nextID
     modify $ stIDList %~ (++ [id])
-    modify $ stIDToS %~ M.insert id (S.Statement op ())
+    modify $ stIDToS %~ M.insert id op
     return id
 
-insertVarToID :: String -> S.ID -> State (CState info S.ID) ()
+insertVarToID :: String -> S.ID -> State CState ()
 insertVarToID name id = modify $ stVarToID %~ M.insert name id

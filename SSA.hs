@@ -5,8 +5,6 @@ module SSA where
 
 import qualified AST as AST
 import qualified ASTTyped as T
-import Data.Functor
-import Data.Bifunctor
 import qualified Data.Map as M
 import Control.Lens
 import Text.Printf
@@ -14,78 +12,70 @@ import Data.List
 
 type ID = Int
 
-data Program info ref = Program
+data Program = Program
     { _pProgram :: T.Program
-    , _pMain :: [ref]
-    , _pClasses :: [Class info ref]
+    , _pMain :: [ID]
+    , _pClasses :: [Class]
     }
 
-data Class info ref = Class
+data Class = Class
     { _cClass :: T.Class
-    , _cFields :: [Field info]
-    , _cMethod :: [Method info ref]
+    , _cFields :: [Field]
+    , _cMethod :: [Method]
     }
 
-data Field info = Field
+data Field = Field
     { _fVariable :: AST.Variable
     , _fPosition :: Int
-    , _fInfo :: info
     }
-    deriving (Functor)
 
-data Method info ref = Method
+data Method = Method
     { _mMethod :: T.Method
-    , _mParameters :: [ref]
-    , _mStatements :: [ref]
-    , _mReturn :: ref
+    , _mParameters :: [ID]
+    , _mStatements :: [ID]
+    , _mReturn :: ID
     }
 
-data Statement info ref = Statement
-    { _sOp :: Op ref
-    , _sInfo :: info
-    }
-    deriving (Eq)
-
-data Op ref =
-      Unify ref ref
-    | Alias ref
+data Statement =
+      Unify ID ID
+    | Alias ID
     | This
     | Variable String Int
-    | Arg ref Int
+    | Arg ID Int
     | Null AST.Type
     | SInt Int
     | SBoolean Bool
     | NewObj String
-    | NewIntArray ref
+    | NewIntArray ID
     | Label String
     | Goto String
-    | Branch ref String
-    | NBranch ref String
-    | Call String ref String [ref]
-    | Print ref
-    | Return ref
-    | MemberGet String ref String
-    | IndexGet ref ref
-    | Store ref Int
+    | Branch ID String
+    | NBranch ID String
+    | Call String ID String [ID]
+    | Print ID
+    | Return ID
+    | MemberGet String ID String
+    | IndexGet ID ID
+    | Store ID Int
     | Load Int
-    | VarAssg String ref
-    | MemberAssg String ref String ref
-    | IndexAssg ref ref ref
-    | Not ref
-    | Lt ref ref
-    | Le ref ref
-    | Eq ref ref
-    | Ne ref ref
-    | Gt ref ref
-    | Ge ref ref
-    | And ref ref
-    | Or ref ref
-    | Plus ref ref
-    | Minus ref ref
-    | Mul ref ref
-    | Div ref ref
-    | Mod ref ref
-    deriving (Eq, Functor)
+    | VarAssg String ID
+    | MemberAssg String ID String ID
+    | IndexAssg ID ID ID
+    | Not ID
+    | Lt ID ID
+    | Le ID ID
+    | Eq ID ID
+    | Ne ID ID
+    | Gt ID ID
+    | Ge ID ID
+    | And ID ID
+    | Or ID ID
+    | Plus ID ID
+    | Minus ID ID
+    | Mul ID ID
+    | Div ID ID
+    | Mod ID ID
+    deriving (Eq)
 
 makeLenses ''Program
 makeLenses ''Class
@@ -93,22 +83,19 @@ makeLenses ''Field
 makeLenses ''Method
 makeLenses ''Statement
 
-instance (Show ref, Show info) => Show (Program info ref) where
+instance Show Program where
     show (Program _ ss cs) = printf "program:\n  main:\n    method main:\n%s%s" (concatMap show ss) (concatMap show cs)
 
-instance (Show ref, Show info) => Show (Method info ref) where
-    show (Method (T.Method _ name _ _ _ _) ps ss _) = printf "    method %s:\n%s" name (concatMap show ss)
+instance Show Method where
+    show (Method (T.Method _ name _ _ _ _) ps ss _) = printf "    method %s:\n%s" name (unlines $ map show ss)
 
-instance (Show ref, Show info) => Show (Class info ref) where
+instance Show Class where
     show (Class (T.Class name _ _ _) _ ms) = printf "  class %s:\n%s" name (concatMap show ms)
 
-instance Show info => Show (Field info) where
-    show (Field (AST.Variable _ name) _ _) = name
+instance Show Field where
+    show (Field (AST.Variable _ name) _) = name
 
-instance (Show ref, Show info) => Show (Statement info ref) where
-    show (Statement op info) = printf "      ?: %s :%s\n" (show op) (show info)
-
-instance Show ref => Show (Op ref) where
+instance Show Statement where
     show (Unify l r) = printf "Unify %s %s" (show l) (show r)
     show (Alias s) = printf "Alias %s" (show s)
     show This = printf "This"
@@ -150,17 +137,3 @@ instance Show ref => Show (Op ref) where
     show (Mul sl sr) = printf "Mul %s %s" (show sl) (show sr)
     show (Div sl sr) = printf "Div %s %s" (show sl) (show sr)
     show (Mod sl sr) = printf "Mod %s %s" (show sl) (show sr)
-
-instance Bifunctor Program where
-    bimap f g (Program ast rs cs) = Program ast (map g rs) (map (bimap f g) cs)
-
-instance Bifunctor Class where
-    bimap f g (Class cd fs ms) = Class cd (map (fmap f) fs) (map (bimap f g) ms)
-
-instance Bifunctor Method where
-    bimap f g (Method md ps ss r) = Method md (map g ps) (map g ss) (g r)
-
-instance Bifunctor Statement where
-    bimap f g (Statement op info) = Statement (fmap g op) (f info)
-
-
