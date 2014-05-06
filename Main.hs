@@ -1,5 +1,4 @@
 import System.Environment
-import Data.List
 import Options.Applicative
 import Parser
 import qualified TypeChecker as TC
