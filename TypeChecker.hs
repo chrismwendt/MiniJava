@@ -2,8 +2,7 @@
 
 module TypeChecker where
 
-import qualified AST
-import qualified ASTUntyped as U
+import qualified AST as U
 import qualified ASTTyped as T
 import qualified Data.Map as M
 import Data.Maybe
@@ -23,7 +22,7 @@ typeCheckProgram program = T.Program main' classes'
     (main', _) = typeCheckStatement program pseudoClass pseudoMethod (program ^. U.pMain)
     classes' = map (typeCheckClass program) (program ^. U.pClasses)
     pseudoClass = U.Class "" "" [] []
-    pseudoMethod = U.Method (AST.TypeObject "") "" [] [] [] U.This
+    pseudoMethod = U.Method (U.TypeObject "") "" [] [] [] U.This
 
 typeCheckClass :: U.Program -> U.Class -> T.Class
 typeCheckClass p c@(U.Class name parent fields methods)
@@ -39,19 +38,19 @@ typeCheckMethod p c m@(U.Method retType name ps ls ss ret)
         in T.Method retType name ps ls (map tcS_ ss) (tcE_ ret)
     | otherwise =  error "Return type of method must match declaration"
 
-typeCheckStatement :: U.Program -> U.Class -> U.Method -> U.Statement -> (T.Statement, AST.Type)
-typeCheckStatement p c m s = (s', AST.TypeVoid)
+typeCheckStatement :: U.Program -> U.Class -> U.Method -> U.Statement -> (T.Statement, U.Type)
+typeCheckStatement p c m s = (s', U.TypeVoid)
     where
     s' = case s of
         U.Block ss -> T.Block $ map tcS_ ss
         U.If condition true falseMaybe -> case tcE condition of
-            (e, AST.TypeBoolean) -> T.If e (tcS_ true) (tcS_ <$> falseMaybe)
+            (e, U.TypeBoolean) -> T.If e (tcS_ true) (tcS_ <$> falseMaybe)
             _ -> error "Type of if condition must be boolean"
         U.While condition body -> case tcE condition of
-            (e, AST.TypeBoolean) -> T.While e (tcS_ body)
+            (e, U.TypeBoolean) -> T.While e (tcS_ body)
             _ -> error "Type of while condition must be boolean"
         U.Print expression -> case tcE expression of
-            (e, AST.TypeInt) -> T.Print e
+            (e, U.TypeInt) -> T.Print e
             _ -> error "Type of print must be int"
         U.ExpressionStatement expression -> T.ExpressionStatement (tcE_ expression)
     tcS = typeCheckStatement p c m
@@ -59,10 +58,10 @@ typeCheckStatement p c m s = (s', AST.TypeVoid)
     tcS_ = fst . tcS
     tcE_ = fst . tcE
 
-typeCheckExpression :: U.Program -> U.Class -> U.Method -> U.Expression -> (T.Expression, AST.Type)
+typeCheckExpression :: U.Program -> U.Class -> U.Method -> U.Expression -> (T.Expression, U.Type)
 typeCheckExpression p c m e = case e of
-    U.LiteralInt value -> (T.LiteralInt value, AST.TypeInt)
-    U.LiteralBoolean value -> (T.LiteralBoolean value, AST.TypeBoolean)
+    U.LiteralInt value -> (T.LiteralInt value, U.TypeInt)
+    U.LiteralBoolean value -> (T.LiteralBoolean value, U.TypeBoolean)
     U.Assignment target value ->
         let (t', t'Type) = tcE target
             (v', v'Type) = tcE value
@@ -81,37 +80,37 @@ typeCheckExpression p c m e = case e of
             checkOp lExpect rExpect resultType = if l't == lExpect && r't == rExpect
                 then (e', resultType)
                 else error "Incorrect types to binary operator"
-            logicOp   = checkOp AST.TypeBoolean AST.TypeBoolean AST.TypeBoolean
-            compareOp = checkOp AST.TypeInt     AST.TypeInt     AST.TypeBoolean
-            arithOp   = checkOp AST.TypeInt     AST.TypeInt     AST.TypeInt
+            logicOp   = checkOp U.TypeBoolean U.TypeBoolean U.TypeBoolean
+            compareOp = checkOp U.TypeInt     U.TypeInt     U.TypeBoolean
+            arithOp   = checkOp U.TypeInt     U.TypeInt     U.TypeInt
         in case op of
-            AST.Lt    -> compareOp
-            AST.Le    -> compareOp
-            AST.Eq    -> compareOp
-            AST.Ne    -> compareOp
-            AST.Gt    -> compareOp
-            AST.Ge    -> compareOp
-            AST.And   -> logicOp
-            AST.Or    -> logicOp
-            AST.Plus  -> arithOp
-            AST.Minus -> arithOp
-            AST.Mul   -> arithOp
-            AST.Div   -> arithOp
-            AST.Mod   -> arithOp
+            U.Lt    -> compareOp
+            U.Le    -> compareOp
+            U.Eq    -> compareOp
+            U.Ne    -> compareOp
+            U.Gt    -> compareOp
+            U.Ge    -> compareOp
+            U.And   -> logicOp
+            U.Or    -> logicOp
+            U.Plus  -> arithOp
+            U.Minus -> arithOp
+            U.Mul   -> arithOp
+            U.Div   -> arithOp
+            U.Mod   -> arithOp
     U.Not e -> case tcE e of
-        (e', AST.TypeBoolean) -> (T.Not e', AST.TypeBoolean)
+        (e', U.TypeBoolean) -> (T.Not e', U.TypeBoolean)
         _ -> error "Not operand must be boolean"
     U.IndexGet array index ->
         let (array', array't) = tcE array
             (index', index't) = tcE index
-        in if array't == AST.TypeIntArray && index't == AST.TypeInt
-            then (T.IndexGet array' index', AST.TypeInt)
+        in if array't == U.TypeIntArray && index't == U.TypeInt
+            then (T.IndexGet array' index', U.TypeInt)
             else error "Array must be int[] and index must be int"
     U.Call object method args ->
         let (object', object't) = tcE object
             args' = map tcE args
         in case object't of
-            AST.TypeObject cName -> case findClassMethod (M.lookup cName classMap) method of
+            U.TypeObject cName -> case findClassMethod (M.lookup cName classMap) method of
                 Just (implementor, m) ->
                     let ps = m ^. U.mParameters
                         argCountCorrect = length args == length ps
@@ -124,22 +123,22 @@ typeCheckExpression p c m e = case e of
     U.MemberGet object fName ->
         let (object', object't) = tcE object
         in case object't of
-            AST.TypeObject cName -> case findClassField (M.lookup cName classMap) fName of
+            U.TypeObject cName -> case findClassField (M.lookup cName classMap) fName of
                 Just (c, field) -> (T.MemberGet (c ^. U.cName) object' fName, field ^. U.vType)
                 Nothing -> error "Field not found"
-            AST.TypeIntArray -> if fName == "length"
-                then (T.IntArrayLength object', AST.TypeInt)
+            U.TypeIntArray -> if fName == "length"
+                then (T.IntArrayLength object', U.TypeInt)
                 else error "Int arrays only have a length field"
             _ -> error "Member access must be performed on an object or length of array"
     U.VariableGet name -> case find (\v -> v ^. U.vName == name) (m ^. U.mLocals ++ m ^. U.mParameters) of
         Just v -> (T.VariableGet name, v ^. U.vType)
         Nothing -> tcE (U.MemberGet U.This name)
-    U.This -> (T.This, AST.TypeObject (c ^. U.cName))
+    U.This -> (T.This, U.TypeObject (c ^. U.cName))
     U.NewIntArray size -> case tcE size of
-        (size', AST.TypeInt) -> (T.NewIntArray size', AST.TypeIntArray)
+        (size', U.TypeInt) -> (T.NewIntArray size', U.TypeIntArray)
         _ -> error "Size of new int array must be int"
     U.NewObject cName -> if M.member cName classMap
-        then (T.NewObject cName, AST.TypeObject cName)
+        then (T.NewObject cName, U.TypeObject cName)
         else error "Class not found"
     where
     tcE = typeCheckExpression p c m
@@ -153,10 +152,10 @@ typeCheckExpression p c m e = case e of
         Just m -> Just (c, m)
         Nothing -> findClassMethod (M.lookup (c ^. U.cParent) classMap) mName
     classMap = M.fromList $ map (\c -> (c ^. U.cName, c)) (p ^. U.pClasses)
-    subtype (AST.TypeObject name) b@(AST.TypeObject name') = if name == name'
+    subtype (U.TypeObject name) b@(U.TypeObject name') = if name == name'
         then True
         else case M.lookup name classMap of
-            Just parentClass -> subtype (AST.TypeObject (parentClass ^. U.cName)) b
+            Just parentClass -> subtype (U.TypeObject (parentClass ^. U.cName)) b
             Nothing -> False
     subtype a b = a == b
 

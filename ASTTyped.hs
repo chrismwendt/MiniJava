@@ -6,7 +6,7 @@ import Text.Printf
 import Data.List
 import Control.Lens
 import Data.Maybe
-import AST
+import qualified AST as U
 
 data Program = Program
     { _pMain :: Statement
@@ -17,16 +17,16 @@ data Program = Program
 data Class = Class
     { _cName :: String
     , _cParent :: String
-    , _cFields :: [Variable]
+    , _cFields :: [U.Variable]
     , _cMethods :: [Method]
     }
     deriving (Show, Eq)
 
 data Method = Method
-    { _mReturnType :: Type
+    { _mReturnType :: U.Type
     , _mName :: String
-    , _mParameters :: [Variable]
-    , _mLocals :: [Variable]
+    , _mParameters :: [U.Variable]
+    , _mLocals :: [U.Variable]
     , _mStatements :: [Statement]
     , _mReturn :: Expression
     }
@@ -43,7 +43,7 @@ data Statement =
 data Expression =
       LiteralInt Int
     | LiteralBoolean Bool
-    | Binary Expression AST.BinaryOperator Expression
+    | Binary Expression U.BinaryOperator Expression
     | Not Expression
     | Call String Expression String [Expression]
     | MemberGet String Expression String
@@ -60,5 +60,4 @@ data Expression =
 
 makeLenses ''Program
 makeLenses ''Class
-makeLenses ''Variable
 makeLenses ''Method
