@@ -88,70 +88,69 @@ typeCheckExpression :: U.Program -> U.Class -> U.Method -> U.Expression -> (T.Ex
 typeCheckExpression p c m e = case e of
     U.LiteralInt value -> (T.LiteralInt value, AST.TypeInt)
     U.LiteralBoolean value -> (T.LiteralBoolean value, AST.TypeBoolean)
-    U.Assignment target expression ->
-        let (te, tt) = tcE target
-            (ee, et) = tcE expression
-        in if et `subtype` tt
-            then case te of
-                T.VariableGet name -> (T.VariableAssignment name ee, tt)
-                T.MemberGet className object field -> (T.MemberAssignment className object field ee, tt)
-                T.IndexGet array index -> (T.IndexAssignment array index ee, tt)
+    U.Assignment target value ->
+        let (t', t'Type) = tcE target
+            (v', v'Type) = tcE value
+            e' = case t' of
+                T.VariableGet name -> T.VariableAssignment name v'
+                T.MemberGet className object field -> T.MemberAssignment className object field v'
+                T.IndexGet array index -> T.IndexAssignment array index v'
+        in if v'Type `subtype` t'Type
+            then (t', t'Type)
             else error "Assignment value must be a subtype"
     U.Binary l op r ->
-        let (le, lt) = tcE l
-            (re, rt) = tcE r
-            logicOp = if (lt == AST.TypeBoolean && rt == AST.TypeBoolean)
-                then (T.Binary le op re, AST.TypeBoolean)
-                else error "Logic operands must be booleans"
-            compareOp = if (lt == AST.TypeInt && rt == AST.TypeInt)
-                then (T.Binary le op re, AST.TypeBoolean)
-                else error "Comparison operands must be ints"
-            arithOp = if (lt == AST.TypeInt && rt == AST.TypeInt)
-                then (T.Binary le op re, AST.TypeInt)
-                else error "Arithmetic operands must be ints"
+        let (l', l't) = tcE l
+            (r', r't) = tcE r
+            e' = T.Binary l' op r'
+            checkOp lExpect rExpect resultType = if l't == lExpect && r't == rExpect
+                then (e', resultType)
+                else error "Incorrect types to binary operator"
+            logicOp   = checkOp AST.TypeBoolean AST.TypeBoolean AST.TypeBoolean
+            compareOp = checkOp AST.TypeInt     AST.TypeInt     AST.TypeBoolean
+            arithOp   = checkOp AST.TypeInt     AST.TypeInt     AST.TypeInt
         in case op of
-            AST.Lt -> compareOp
-            AST.Le -> compareOp
-            AST.Eq -> compareOp
-            AST.Ne -> compareOp
-            AST.Gt -> compareOp
-            AST.Ge -> compareOp
-            AST.And -> logicOp
-            AST.Or -> logicOp
-            AST.Plus -> arithOp
+            AST.Lt    -> compareOp
+            AST.Le    -> compareOp
+            AST.Eq    -> compareOp
+            AST.Ne    -> compareOp
+            AST.Gt    -> compareOp
+            AST.Ge    -> compareOp
+            AST.And   -> logicOp
+            AST.Or    -> logicOp
+            AST.Plus  -> arithOp
             AST.Minus -> arithOp
-            AST.Mul -> arithOp
-            AST.Div -> arithOp
-            AST.Mod -> arithOp
+            AST.Mul   -> arithOp
+            AST.Div   -> arithOp
+            AST.Mod   -> arithOp
     U.Not e -> case tcE e of
         (e', AST.TypeBoolean) -> (e', AST.TypeBoolean)
         _ -> error "Not operand must be boolean"
     U.IndexGet array index ->
-        let (arraye, arrayt) = tcE array
-            (indexe, indext) = tcE index
-        in if arrayt == AST.TypeIntArray && indext == AST.TypeInt
-            then (T.IndexGet arraye indexe, AST.TypeInt)
+        let (array', array't) = tcE array
+            (index', index't) = tcE index
+        in if array't == AST.TypeIntArray && index't == AST.TypeInt
+            then (T.IndexGet array' index', AST.TypeInt)
             else error "Array must be int[] and index must be int"
     U.Call object method args ->
-        let (objecte, objectt) = tcE object
+        let (object', object't) = tcE object
             args' = map tcE args
-        in case objectt of
+        in case object't of
             AST.TypeObject className -> case msum [find ((== className) . (^. U.cName)) (p ^. U.pClasses) >>= find ((== method) . (^. U.mName)) . (^. U.cMethods) >>= (\a -> Just (className, a)) . id, findMethod className method] of
                 Just (implementor, m) -> if length args == length (m ^. U.mParameters) && and (zipWith subtype (map snd args') (map (^. U.vType) (m ^. U.mParameters)))
-                    then (T.Call implementor objecte method (map tcE_ args), m ^. U.mReturnType)
+                    then (T.Call implementor object' method (map tcE_ args), m ^. U.mReturnType)
                     else error "Number and types of arguments to method call must match definition"
                 Nothing -> error "Method not found"
             _ -> error "Method call must be performed on an object"
     U.MemberGet object field ->
-        let (objecte, objectt) = tcE object
-        in case objectt of
+        let (object', object't) = tcE object
+        in case object't of
             AST.TypeObject className -> case findField className field of
-                Just (className', t) -> (T.MemberGet className' objecte field, t)
+                Just (className', t) -> (T.MemberGet className' object' field, t)
                 Nothing -> error "Field not found"
             AST.TypeIntArray -> if field == "length"
-                then (T.IntArrayLength objecte, AST.TypeInt)
+                then (T.IntArrayLength object', AST.TypeInt)
                 else error "Int arrays only have a length field"
-            _ -> error "Member access must be performed on an object, or length of array"
+            _ -> error "Member access must be performed on an object or length of array"
     U.VariableGet name -> case find ((== name) . (^. U.vName)) (m ^. U.mLocals ++ m ^. U.mParameters) of
         Just v -> (T.VariableGet name, v ^. U.vType)
         Nothing -> tcE (U.MemberGet U.This name)
