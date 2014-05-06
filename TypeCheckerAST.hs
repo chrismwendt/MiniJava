@@ -163,9 +163,7 @@ typeCheckExpression p c m e = case e of
         then (T.NewObject cName, AST.TypeObject cName)
         else error "Class not found"
     where
-    tcS = typeCheckStatement p c m
     tcE = typeCheckExpression p c m
-    tcS_ = fst . tcS
     tcE_ = fst . tcE
     findClassField Nothing _ = Nothing
     findClassField (Just c) fName = case find (\f -> f ^. U.vName == fName) (c ^. U.cFields) of
