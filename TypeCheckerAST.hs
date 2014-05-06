@@ -193,9 +193,6 @@ validClassHierarchy classes = allUnique names && all (pathTo "Object") names
         where
         graph = buildG (0, length names - 1) edges
         edges = mapMaybe edgeMaybe classes
-        edgeMaybe c = do
-            child <- vertex $ c ^. U.cName
-            parent <- vertex $ c ^. U.cParent
-            return (child, parent)
+        edgeMaybe c = (,) <$> vertex (c ^. U.cName) <*> vertex (c ^. U.cParent)
         vertex = flip M.lookup m
         m = M.fromList $ zip names [0 .. ]
