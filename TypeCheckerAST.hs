@@ -22,42 +22,21 @@ typeCheckProgram program = T.Program main' classes'
     where
     (main', _) = typeCheckStatement program pseudoClass pseudoMethod (program ^. U.pMain)
     classes' = map (typeCheckClass program) (program ^. U.pClasses)
-    pseudoClass = U.Class
-        { U._cName = ""
-        , U._cParent = ""
-        , U._cFields = []
-        , U._cMethods = []
-        }
-    pseudoMethod = U.Method
-        { U._mReturnType = AST.TypeObject ""
-        , U._mName = ""
-        , U._mParameters = []
-        , U._mLocals = []
-        , U._mStatements = []
-        , U._mReturn = U.This
-        }
+    pseudoClass = U.Class "" "" [] []
+    pseudoMethod = U.Method (AST.TypeObject "") "" [] [] [] U.This
 
 typeCheckClass :: U.Program -> U.Class -> T.Class
-typeCheckClass p c
-    | length (nub $ map (^. U.mName) (c ^. U.cMethods)) == length (c ^. U.cMethods) = T.Class
-        { T._cName = c ^. U.cName
-        , T._cParent = c ^. U.cParent
-        , T._cFields = c ^. U.cFields
-        , T._cMethods = map (typeCheckMethod p c) (c ^. U.cMethods)
-        }
+typeCheckClass p c@(U.Class name parent fields methods)
+    | length (nub $ map (^. U.mName) methods) == length methods =
+        T.Class name parent fields (map (typeCheckMethod p c) methods)
     | otherwise =  error "Duplicate method"
 
 typeCheckMethod :: U.Program -> U.Class -> U.Method -> T.Method
-typeCheckMethod p c m
-    | m ^. U.mReturnType == snd (typeCheckExpression p c m (m ^. U.mReturn)) = T.Method
-        { T._mReturnType = m ^. U.mReturnType
-        , T._mName = m ^. U.mName
-        , T._mParameters = m ^. U.mParameters
-        , T._mLocals = m ^. U.mLocals
-
-        , T._mStatements = map (fst . typeCheckStatement p c m) (m ^. U.mStatements)
-        , T._mReturn = (fst . typeCheckExpression p c m) (m ^. U.mReturn)
-        }
+typeCheckMethod p c m@(U.Method retType name ps ls ss ret)
+    | retType == snd (typeCheckExpression p c m ret) =
+        let tcS_ = fst . typeCheckStatement p c m
+            tcE_ = fst . typeCheckExpression p c m
+        in T.Method retType name ps ls (map tcS_ ss) (tcE_ ret)
     | otherwise =  error "Return type of method must match declaration"
 
 typeCheckStatement :: U.Program -> U.Class -> U.Method -> U.Statement -> (T.Statement, AST.Type)
