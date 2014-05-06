@@ -176,7 +176,7 @@ scVariableAsField v i = return $ S.Field v i ()
 scMethod :: T.Method -> State (CState () S.ID) (S.Method () S.ID)
 scMethod ast@(T.Method t name ps vs ss ret) = do
     modify $ stIDList .~ []
-    ssaParams <- mapM buildStatement (zipWith S.Variable ps [0 .. ])
+    ssaParams <- mapM buildStatement (zipWith S.Variable (map (^. AST.vName) ps) [0 .. ])
     ssaVarAssgs <- mapM buildStatement $ zipWith S.VarAssg (map (^. AST.vName) ps) ssaParams
     zipWithM insertVarToID (map (^. AST.vName) ps) ssaVarAssgs
     mapM scVariable vs

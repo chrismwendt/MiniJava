@@ -50,7 +50,7 @@ data Op ref =
       Unify ref ref
     | Alias ref
     | This
-    | Variable AST.Variable Int
+    | Variable String Int
     | Arg ref Int
     | Null AST.Type
     | SInt Int
