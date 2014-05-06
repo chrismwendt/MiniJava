@@ -11,16 +11,16 @@ import qualified ASTUntyped
 main = do
     args <- getArgs
     case args of
-        ["SSA", "golden", golden, file] -> ensureGolden (readProcess "runhaskell" ["Main.hs", "--stopAt", "SSA", file] "") (readProcess "cat" [golden] "")
-        -- ["type", "golden", golden, file] -> ensureGolden golden file
-        ["SSA"] -> allM testSSA successExamples >> return ()
-        ("SSA":files) -> allM testSSA files >> return ()
         ["type"] -> do
             (_, stdout, _) <- readProcessWithExitCode "find" ["examples"] ""
             let files = filter ("java" `isSuffixOf`) $ lines stdout
             allM testType files >> return ()
         ("type":files) -> allM testType files >> return ()
         ("reg":files) -> allM testReg files >> return ()
+        ["SSA", "golden", golden, file] -> ensureGolden (readProcess "runhaskell" ["Main.hs", "--stopAt", "SSA", file] "") (readProcess "cat" [golden] "")
+        -- ["type", "golden", golden, file] -> ensureGolden golden file
+        ["SSA"] -> allM testSSA successExamples >> return ()
+        ("SSA":files) -> allM testSSA files >> return ()
 
 ensureGolden a b = do
     outA <- a
