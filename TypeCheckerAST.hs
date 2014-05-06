@@ -181,6 +181,7 @@ typeCheckExpression p c m e = case e of
             Nothing -> False
     subtype a b = a == b
 
+validClassHierarchy :: [U.Class] -> Bool
 validClassHierarchy classes = allUnique names && all (pathTo "Object") names
     where
     allUnique as = length (nub as) == length as
