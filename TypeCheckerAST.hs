@@ -52,22 +52,22 @@ typeCheckClass p c
     | otherwise =  error "Duplicate method"
 
 typeCheckMethod :: U.Program -> U.Class -> U.Method -> T.Method
-typeCheckMethod program c method
-    | method ^. U.mReturnType == snd (typeCheckExpression program c method (method ^. U.mReturn)) = T.Method
-        { T._mReturnType = method ^. U.mReturnType
-        , T._mName = method ^. U.mName
-        , T._mParameters = method ^. U.mParameters
-        , T._mLocals = method ^. U.mLocals
+typeCheckMethod p c m
+    | m ^. U.mReturnType == snd (typeCheckExpression p c m (m ^. U.mReturn)) = T.Method
+        { T._mReturnType = m ^. U.mReturnType
+        , T._mName = m ^. U.mName
+        , T._mParameters = m ^. U.mParameters
+        , T._mLocals = m ^. U.mLocals
 
-        , T._mStatements = map (fst . typeCheckStatement program c method) (method ^. U.mStatements)
-        , T._mReturn = (fst . typeCheckExpression program c method) (method ^. U.mReturn)
+        , T._mStatements = map (fst . typeCheckStatement p c m) (m ^. U.mStatements)
+        , T._mReturn = (fst . typeCheckExpression p c m) (m ^. U.mReturn)
         }
     | otherwise =  error "Return type of method must match declaration"
 
 typeCheckStatement :: U.Program -> U.Class -> U.Method -> U.Statement -> (T.Statement, AST.Type)
-typeCheckStatement program c method statement = (t, AST.TypeVoid)
+typeCheckStatement p c m s = (t, AST.TypeVoid)
     where
-    t = case statement of
+    t = case s of
         U.Block ss -> T.Block $ map st_ ss
         U.If condition true falseMaybe -> case ex condition of
             (e, AST.TypeBoolean) -> T.If e (st_ true) (st_ <$> falseMaybe)
@@ -79,13 +79,13 @@ typeCheckStatement program c method statement = (t, AST.TypeVoid)
             (e, AST.TypeInt) -> T.Print e
             _ -> error "Type of print must be int"
         U.ExpressionStatement expression -> T.ExpressionStatement (ex_ expression)
-    st = typeCheckStatement program c method
-    ex = typeCheckExpression program c method
+    st = typeCheckStatement p c m
+    ex = typeCheckExpression p c m
     st_ = fst . st
     ex_ = fst . ex
 
 typeCheckExpression :: U.Program -> U.Class -> U.Method -> U.Expression -> (T.Expression, AST.Type)
-typeCheckExpression program c method expression = case expression of
+typeCheckExpression p c m e = case e of
     U.LiteralInt value -> (T.LiteralInt value, AST.TypeInt)
     U.LiteralBoolean value -> (T.LiteralBoolean value, AST.TypeBoolean)
     U.Assignment target expression ->
@@ -136,7 +136,7 @@ typeCheckExpression program c method expression = case expression of
         let (objecte, objectt) = ex object
             args' = map ex args
         in case objectt of
-            AST.TypeObject className -> case msum [find ((== className) . (^. U.cName)) (program ^. U.pClasses) >>= find ((== method) . (^. U.mName)) . (^. U.cMethods) >>= (\a -> Just (className, a)) . id, findMethod className method] of
+            AST.TypeObject className -> case msum [find ((== className) . (^. U.cName)) (p ^. U.pClasses) >>= find ((== method) . (^. U.mName)) . (^. U.cMethods) >>= (\a -> Just (className, a)) . id, findMethod className method] of
                 Just (implementor, m) -> if length args == length (m ^. U.mParameters) && and (zipWith subtype (map snd args') (map (^. U.vType) (m ^. U.mParameters)))
                     then (T.Call implementor objecte method (map ex_ args), m ^. U.mReturnType)
                     else error "Number and types of arguments to method call must match definition"
@@ -152,26 +152,26 @@ typeCheckExpression program c method expression = case expression of
                 then (T.IntArrayLength objecte, AST.TypeInt)
                 else error "Int arrays only have a length field"
             _ -> error "Member access must be performed on an object, or length of array"
-    U.VariableGet name -> case find ((== name) . (^. U.vName)) (method ^. U.mLocals ++ method ^. U.mParameters) of
+    U.VariableGet name -> case find ((== name) . (^. U.vName)) (m ^. U.mLocals ++ m ^. U.mParameters) of
         Just v -> (T.VariableGet name, v ^. U.vType)
         Nothing -> ex (U.MemberGet U.This name)
     U.This -> (T.This, AST.TypeObject (c ^. U.cName))
     U.NewIntArray size -> case ex size of
         (size', AST.TypeInt) -> (T.NewIntArray size', AST.TypeIntArray)
-    U.NewObject className -> if className `elem` map (^. U.cName) (program ^. U.pClasses)
+    U.NewObject className -> if className `elem` map (^. U.cName) (p ^. U.pClasses)
         then (T.NewObject className, AST.TypeObject className)
         else error "Class not found"
     where
-    st = typeCheckStatement program c method
-    ex = typeCheckExpression program c method
+    st = typeCheckStatement p c m
+    ex = typeCheckExpression p c m
     st_ = fst . st
     ex_ = fst . ex
-    findMethod thisClass methodName = case find ((== thisClass) . (^. U.cName)) (program ^. U.pClasses) >>= find ((== methodName) . (^. U.mName)) . (^. U.cMethods) of
+    findMethod thisClass methodName = case find ((== thisClass) . (^. U.cName)) (p ^. U.pClasses) >>= find ((== methodName) . (^. U.mName)) . (^. U.cMethods) of
         Just m -> Just (thisClass, m)
         Nothing -> case parentClassMaybe thisClass of
             Just parentClass -> findMethod (parentClass ^. U.cName) methodName
             Nothing -> Nothing
-    findField thisClass field = case find ((== thisClass) . (^. U.cName)) (program ^. U.pClasses) >>= find ((== field) . (^. U.vName)) . (^. U.cFields) of
+    findField thisClass field = case find ((== thisClass) . (^. U.cName)) (p ^. U.pClasses) >>= find ((== field) . (^. U.vName)) . (^. U.cFields) of
         Just f -> Just (thisClass, f ^. U.vType)
         Nothing -> case parentClassMaybe thisClass of
             Just parentClass -> findField (parentClass ^. U.cName) field
@@ -183,8 +183,8 @@ typeCheckExpression program c method expression = case expression of
             Nothing -> False
     subtype a b = a == b
     parentClassMaybe name = do
-        thisClass <- find ((== name) . (^. U.cName)) (program ^. U.pClasses)
-        find ((== (fromMaybe "Object" (thisClass ^. U.cParent))) . (^. U.cName)) (program ^. U.pClasses)
+        thisClass <- find ((== name) . (^. U.cName)) (p ^. U.pClasses)
+        find ((== (fromMaybe "Object" (thisClass ^. U.cParent))) . (^. U.cName)) (p ^. U.pClasses)
 
 validClassHierarchy classes = allUnique names && all (pathTo "Object") names
     where
