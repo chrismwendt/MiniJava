@@ -12,6 +12,10 @@ import Data.List
 
 type ID = Int
 
+type Position = Int
+
+type Offset = Int
+
 data Program = Program
     { _pProgram :: T.Program
     , _pMain :: [ID]
@@ -26,7 +30,7 @@ data Class = Class
 
 data Field = Field
     { _fVariable :: AST.Variable
-    , _fPosition :: Int
+    , _fPosition :: Position
     }
 
 data Method = Method
@@ -40,8 +44,8 @@ data Statement =
       Unify ID ID
     | Alias ID
     | This
-    | Variable String Int
-    | Arg ID Int
+    | Parameter ID
+    | Arg ID Position
     | Null AST.Type
     | SInt Int
     | SBoolean Bool
@@ -56,8 +60,8 @@ data Statement =
     | Return ID
     | MemberGet String ID String
     | IndexGet ID ID
-    | Store ID Int
-    | Load Int
+    | Store ID Offset
+    | Load Offset
     | VarAssg String ID
     | MemberAssg String ID String ID
     | IndexAssg ID ID ID
@@ -99,7 +103,7 @@ instance Show Statement where
     show (Unify l r) = printf "Unify %s %s" (show l) (show r)
     show (Alias s) = printf "Alias %s" (show s)
     show This = printf "This"
-    show (Variable _ index) = printf "Variable *%s" (show index)
+    show (Parameter index) = printf "Variable *%s" (show index)
     show (Arg arg index) = printf "Arg %s *%s" (show arg) (show index)
     show (Null AST.TypeBoolean) = printf "Null *Type(boolean)"
     show (Null AST.TypeInt) = printf "Null *Type(int)"

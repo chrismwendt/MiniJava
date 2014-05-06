@@ -170,13 +170,13 @@ scClass :: T.Class -> State CState S.Class
 scClass ast@(T.Class name extends vs ms) =
     S.Class ast <$> zipWithM scVariableAsField vs [0 .. ] <*> mapM scMethod ms
 
-scVariableAsField :: AST.Variable -> Int -> State CState S.Field
+scVariableAsField :: AST.Variable -> S.Position -> State CState S.Field
 scVariableAsField v i = return $ S.Field v i
 
 scMethod :: T.Method -> State CState (S.Method)
 scMethod ast@(T.Method t name ps vs ss ret) = do
     modify $ stIDList .~ []
-    ssaParams <- mapM buildStatement (zipWith S.Variable (map (^. AST.vName) ps) [0 .. ])
+    ssaParams <- mapM (buildStatement . S.Parameter) [0 .. ]
     ssaVarAssgs <- mapM buildStatement $ zipWith S.VarAssg (map (^. AST.vName) ps) ssaParams
     zipWithM insertVarToID (map (^. AST.vName) ps) ssaVarAssgs
     mapM scVariable vs
