@@ -42,14 +42,14 @@ typeCheckProgram program = T.Program main' classes'
         }
 
 typeCheckClass :: U.Program -> U.Class -> T.Class
-typeCheckClass program c = if length (nub $ map (^. U.mName) (c ^. U.cMethods)) == length (c ^. U.cMethods)
-    then T.Class (c ^. U.cName) (fromMaybe "Object" $ c ^. U.cParent) (c ^. U.cFields) methods
+typeCheckClass p c = if length (nub $ map (^. U.mName) (c ^. U.cMethods)) == length (c ^. U.cMethods)
+    then T.Class
+        { T._cName = c ^. U.cName
+        , T._cParent = fromMaybe "Object" $ c ^. U.cParent
+        , T._cFields = c ^. U.cFields
+        , T._cMethods = map (typeCheckMethod p c) (c ^. U.cMethods)
+        }
     else error "Duplicate method"
-    where
-    methods = map (typeCheckMethod program c) (c ^. U.cMethods)
-
-typeCheckVariable :: AST.Variable -> (AST.Variable, AST.Type)
-typeCheckVariable v = (AST.Variable { AST._vType = v ^. U.vType, AST._vName = v ^. U.vName }, v ^. U.vType)
 
 typeCheckMethod :: U.Program -> U.Class -> U.Method -> T.Method
 typeCheckMethod program c method = if method ^. U.mReturnType == snd (typeCheckExpression program c method (method ^. U.mReturn))
