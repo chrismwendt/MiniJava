@@ -43,29 +43,39 @@ data Method = Method
 data Statement =
       Unify ID ID
     | Alias ID
-    | This
-    | Parameter ID
-    | Arg ID Position
+
+    | Store ID Offset
+    | Load Offset
+
     | Null AST.Type
-    | SInt Int
-    | SBoolean Bool
     | NewObj String
     | NewIntArray ID
+    | This
+    | SInt Int
+    | SBoolean Bool
+
     | Label String
     | Goto String
     | Branch ID String
     | NBranch ID String
+
+    | Parameter ID
+    | Arg ID Position
     | Call String ID String [ID]
-    | Print ID
     | Return ID
+
+    | Print ID
+
     | MemberGet String ID String
-    | IndexGet ID ID
-    | Store ID Offset
-    | Load Offset
-    | VarAssg String ID
     | MemberAssg String ID String ID
+
+    | VarAssg String ID
+
+    | IndexGet ID ID
     | IndexAssg ID ID ID
+
     | Not ID
+
     | Lt ID ID
     | Le ID ID
     | Eq ID ID
