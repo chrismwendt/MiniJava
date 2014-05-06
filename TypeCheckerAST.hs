@@ -42,18 +42,18 @@ typeCheckProgram program = T.Program main' classes'
         }
 
 typeCheckClass :: U.Program -> U.Class -> T.Class
-typeCheckClass p c = if length (nub $ map (^. U.mName) (c ^. U.cMethods)) == length (c ^. U.cMethods)
-    then T.Class
+typeCheckClass p c
+    | length (nub $ map (^. U.mName) (c ^. U.cMethods)) == length (c ^. U.cMethods) = T.Class
         { T._cName = c ^. U.cName
         , T._cParent = fromMaybe "Object" $ c ^. U.cParent
         , T._cFields = c ^. U.cFields
         , T._cMethods = map (typeCheckMethod p c) (c ^. U.cMethods)
         }
-    else error "Duplicate method"
+    | otherwise =  error "Duplicate method"
 
 typeCheckMethod :: U.Program -> U.Class -> U.Method -> T.Method
-typeCheckMethod program c method = if method ^. U.mReturnType == snd (typeCheckExpression program c method (method ^. U.mReturn))
-    then T.Method
+typeCheckMethod program c method
+    | method ^. U.mReturnType == snd (typeCheckExpression program c method (method ^. U.mReturn)) = T.Method
         { T._mReturnType = method ^. U.mReturnType
         , T._mName = method ^. U.mName
         , T._mParameters = method ^. U.mParameters
@@ -62,7 +62,7 @@ typeCheckMethod program c method = if method ^. U.mReturnType == snd (typeCheckE
         , T._mStatements = map (fst . typeCheckStatement program c method) (method ^. U.mStatements)
         , T._mReturn = (fst . typeCheckExpression program c method) (method ^. U.mReturn)
         }
-    else error "Return type of method must match declaration"
+    | otherwise =  error "Return type of method must match declaration"
 
 typeCheckStatement :: U.Program -> U.Class -> U.Method -> U.Statement -> (T.Statement, AST.Type)
 typeCheckStatement program c method statement = (t, AST.TypeVoid)
