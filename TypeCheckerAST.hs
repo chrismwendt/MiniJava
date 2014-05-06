@@ -96,7 +96,7 @@ typeCheckExpression p c m e = case e of
                 T.MemberGet cName object fName -> T.MemberAssignment cName object fName v'
                 T.IndexGet array index -> T.IndexAssignment array index v'
         in if v'Type `subtype` t'Type
-            then (t', t'Type)
+            then (e', t'Type)
             else error "Assignment value must be a subtype"
     U.Binary l op r ->
         let (l', l't) = tcE l
