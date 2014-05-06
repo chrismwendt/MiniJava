@@ -95,6 +95,7 @@ typeCheckExpression p c m e = case e of
                 T.VariableGet name -> T.VariableAssignment name v'
                 T.MemberGet cName object fName -> T.MemberAssignment cName object fName v'
                 T.IndexGet array index -> T.IndexAssignment array index v'
+                _ -> error "Invalid target of assignment"
         in if v'Type `subtype` t'Type
             then (e', t'Type)
             else error "Assignment value must be a subtype"
@@ -161,6 +162,7 @@ typeCheckExpression p c m e = case e of
     U.This -> (T.This, AST.TypeObject (c ^. U.cName))
     U.NewIntArray size -> case tcE size of
         (size', AST.TypeInt) -> (T.NewIntArray size', AST.TypeIntArray)
+        _ -> error "Size of new int array must be int"
     U.NewObject cName -> if M.member cName classMap
         then (T.NewObject cName, AST.TypeObject cName)
         else error "Class not found"
