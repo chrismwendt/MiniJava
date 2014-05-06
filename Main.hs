@@ -4,11 +4,8 @@ import Options.Applicative
 import Parser
 import qualified ASTUntyped
 import qualified ASTTyped
-import qualified SSACompiler
-import qualified TypeChecker as TC
 import qualified TypeCheckerAST as TCAST
 import qualified SSACompilerTyped as SSAT
-import qualified RegisterAllocator as Reg
 import Control.Monad.State
 import Data.Maybe
 import qualified Data.Map as M
@@ -25,8 +22,7 @@ compile :: Options -> String -> String
 compile (Options "parse" _) source = show $ parseString source
 compile (Options "type" _) source = (++ "\n") $ show $ TCAST.typeCheck $ parseString source
 compile (Options "SSA" _) source = (++ "\n") $ show $ fst $ freeze $ SSAT.ssaCompile $ TCAST.typeCheck $ parseString source
--- compile (Options "type" _) source = (++ "\n") $ show $ fst $ freeze $ uncurry3 TC.typeCheck $ ssaCompile $ parseString source
--- compile (Options "reg" _) source = (++ "\n") $ show $ fst $ freeze $ uncurry3 (Reg.allocate 22) $ uncurry3 TC.typeCheck $ ssaCompile $ parseString source
+compile (Options "reg" _) source = error "unimplemented target: reg"
 compile (Options "code" _) source = error "unimplemented target: code"
 compile (Options target _) _ = error $ "unknown target: " ++ target
 
