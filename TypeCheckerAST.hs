@@ -93,7 +93,7 @@ typeCheckExpression p c m e = case e of
             (v', v'Type) = tcE value
             e' = case t' of
                 T.VariableGet name -> T.VariableAssignment name v'
-                T.MemberGet className object field -> T.MemberAssignment className object field v'
+                T.MemberGet className object fName -> T.MemberAssignment className object fName v'
                 T.IndexGet array index -> T.IndexAssignment array index v'
         in if v'Type `subtype` t'Type
             then (t', t'Type)
@@ -135,19 +135,23 @@ typeCheckExpression p c m e = case e of
         let (object', object't) = tcE object
             args' = map tcE args
         in case object't of
-            AST.TypeObject className -> case msum [find ((== className) . (^. U.cName)) (p ^. U.pClasses) >>= find ((== method) . (^. U.mName)) . (^. U.cMethods) >>= (\a -> Just (className, a)) . id, findMethod className method] of
-                Just (implementor, m) -> if length args == length (m ^. U.mParameters) && and (zipWith subtype (map snd args') (map (^. U.vType) (m ^. U.mParameters)))
-                    then (T.Call implementor object' method (map tcE_ args), m ^. U.mReturnType)
-                    else error "Number and types of arguments to method call must match definition"
+            AST.TypeObject className -> case findClassMethod (M.lookup className classMap) method of
+                Just (implementor, m) ->
+                    let ps = m ^. U.mParameters
+                        argCountCorrect = length args == length ps
+                        argTypesCorrect = and $ zipWith subtype (map snd args') (map (^. U.vType) ps)
+                    in if argCountCorrect && argTypesCorrect
+                        then (T.Call (implementor ^. U.cName) object' method (map tcE_ args), m ^. U.mReturnType)
+                        else error "Number and types of arguments to method call must match definition"
                 Nothing -> error "Method not found"
             _ -> error "Method call must be performed on an object"
-    U.MemberGet object field ->
+    U.MemberGet object fName ->
         let (object', object't) = tcE object
         in case object't of
-            AST.TypeObject className -> case findField className field of
-                Just (className', t) -> (T.MemberGet className' object' field, t)
+            AST.TypeObject className -> case findClassField (M.lookup className classMap) fName of
+                Just (c, field) -> (T.MemberGet (c ^. U.cName) object' fName, field ^. U.vType)
                 Nothing -> error "Field not found"
-            AST.TypeIntArray -> if field == "length"
+            AST.TypeIntArray -> if fName == "length"
                 then (T.IntArrayLength object', AST.TypeInt)
                 else error "Int arrays only have a length field"
             _ -> error "Member access must be performed on an object or length of array"
@@ -165,16 +169,15 @@ typeCheckExpression p c m e = case e of
     tcE = typeCheckExpression p c m
     tcS_ = fst . tcS
     tcE_ = fst . tcE
-    findMethod thisClass methodName = case find ((== thisClass) . (^. U.cName)) (p ^. U.pClasses) >>= find ((== methodName) . (^. U.mName)) . (^. U.cMethods) of
-        Just m -> Just (thisClass, m)
-        Nothing -> case parentClassMaybe thisClass of
-            Just parentClass -> findMethod (parentClass ^. U.cName) methodName
-            Nothing -> Nothing
-    findField thisClass field = case find ((== thisClass) . (^. U.cName)) (p ^. U.pClasses) >>= find ((== field) . (^. U.vName)) . (^. U.cFields) of
-        Just f -> Just (thisClass, f ^. U.vType)
-        Nothing -> case parentClassMaybe thisClass of
-            Just parentClass -> findField (parentClass ^. U.cName) field
-            Nothing -> Nothing
+    findClassField (Just c) fName = case find (\f -> f ^. U.vName == fName) (c ^. U.cFields) of
+        Just f -> Just (c, f)
+        Nothing -> findClassField (M.lookup (c ^. U.cParent) classMap) fName
+    findClassField Nothing _ = Nothing
+    findClassMethod (Just c) mName = case find (\m -> m ^. U.mName == mName) (c ^. U.cMethods) of
+        Just m -> Just (c, m)
+        Nothing -> findClassMethod (M.lookup (c ^. U.cParent) classMap) mName
+    findClassMethod Nothing _ = Nothing
+    classMap = M.fromList $ map (\c -> (c ^. U.cName, c)) (p ^. U.pClasses)
     subtype (AST.TypeObject name) b@(AST.TypeObject name') = if name == name'
         then True
         else case parentClassMaybe name of
@@ -182,8 +185,8 @@ typeCheckExpression p c m e = case e of
             Nothing -> False
     subtype a b = a == b
     parentClassMaybe name = do
-        thisClass <- find ((== name) . (^. U.cName)) (p ^. U.pClasses)
-        find ((== (thisClass ^. U.cParent)) . (^. U.cName)) (p ^. U.pClasses)
+        cName <- find ((== name) . (^. U.cName)) (p ^. U.pClasses)
+        find ((== (cName ^. U.cParent)) . (^. U.cName)) (p ^. U.pClasses)
 
 validClassHierarchy classes = allUnique names && all (pathTo "Object") names
     where
