@@ -123,7 +123,7 @@ sc (T.VariableAssignment name value) = do
     case M.lookup name bs of
         Just s -> do
             value' <- sc value
-            v <- buildStatement (S.VarAssg name value')
+            v <- buildStatement (S.VarAssg value')
             insertVarToID name value'
             return v
         Nothing -> error "Varible not found"

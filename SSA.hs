@@ -69,7 +69,7 @@ data Statement =
     | MemberGet String ID String
     | MemberAssg String ID String ID
 
-    | VarAssg String ID
+    | VarAssg ID
 
     | IndexGet ID ID
     | IndexAssg ID ID ID
@@ -134,7 +134,7 @@ instance Show Statement where
     show (IndexGet a i) = printf "IndexGet %s %s" (show a) (show i)
     show (Store s i) = printf "Store %s *%s" (show s) (show i)
     show (Load i) = printf "Load *%s" (show i)
-    show (VarAssg name s) = printf "VarAssg %s *%s" (show s) name
+    show (VarAssg s) = printf "VarAssg %s *<name elided>" (show s)
     show (MemberAssg cName object fName value) = printf "MemberAssg %s %s *%s" (show object) (show value) fName
     show (IndexAssg array value index) = printf "IndexAssg %s %s *%s" (show array) (show value) (show index)
     show (Not s) = printf "Not %s" (show s)
