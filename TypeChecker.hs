@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module TypeCheckerAST where
+module TypeChecker where
 
 import qualified AST
 import qualified ASTUntyped as U

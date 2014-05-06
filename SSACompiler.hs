@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module SSACompilerTyped where
+module SSACompiler where
 
 import qualified ASTTyped as T
 import qualified AST
