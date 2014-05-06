@@ -6,15 +6,11 @@ import qualified AST
 import qualified ASTUntyped as U
 import qualified ASTTyped as T
 import qualified Data.Map as M
-import Safe
 import Data.Maybe
 import Data.List
 import Data.Graph
 import Control.Lens
-import Data.Function
 import Control.Applicative
-import Control.Monad.Reader
-import Debug.Trace
 
 typeCheck :: U.Program -> T.Program
 typeCheck program = if validClassHierarchy (program ^. U.pClasses)
