@@ -44,21 +44,6 @@ data SSAMethod info ref = SSAMethod
     , _mReturn :: ref
     }
 
-data StaticType =
-      TypeInt
-    | TypeBoolean
-    | TypeVoid
-    | TypeObject
-        { _tObject :: StaticTypeObject
-        }
-    deriving (Eq)
-
-data StaticTypeObject = StaticTypeObject
-    { toName :: String
-    , toParent :: (Maybe StaticTypeObject)
-    }
-    deriving (Eq)
-
 data SSAStatement info ref = SSAStatement
     { _sOp :: SSAOp ref
     , _sInfo :: info
@@ -119,19 +104,8 @@ makeLenses ''SSAProgram
 makeLenses ''SSAClass
 makeLenses ''SSAField
 makeLenses ''SSAMethod
-makeLenses ''StaticType
-makeLenses ''StaticTypeObject
 makeLenses ''SSAStatement
 makeLenses ''SSAState
-
-instance Show StaticTypeObject where
-    show (StaticTypeObject name _) = name
-
-instance Show StaticType where
-    show TypeBoolean = "boolean"
-    show TypeInt = "int"
-    show TypeVoid = "void"
-    show (TypeObject o) = show o
 
 instance (Show ref, Show info) => Show (SSAProgram info ref) where
     show (SSAProgram _ ss cs) = printf "program:\n  main:\n    method main:\n%s%s" (concatMap show ss) (concatMap show cs)
@@ -221,10 +195,10 @@ scProgram = do
     let program = state ^. stProgram
     let main = state ^. stProgram . T.pMain
     let classes = state ^. stProgram . T.pClasses
-    SSAProgram program <$> (scStatement main >> get >>= return . (^. stIDList)) <*> (mapM scClass classes)
+    SSAProgram program <$> (scStatement main >> (^. stIDList) <$> get) <*> mapM scClass classes
 
 scStatement :: T.Statement -> State (SSAState () ID) ()
-scStatement (T.Block ss) = mapM scStatement ss >> return ()
+scStatement (T.Block ss) = void (mapM scStatement ss)
 scStatement axe@(T.If cond branchTrue branchFalse) = do
     condSSA <- sc cond
 
@@ -260,7 +234,7 @@ scStatement (T.While cond body) = do
 
     buildStatement (Label labelStart)
 
-    preBranchState <- get >>= return
+    preBranchState <- get
     let preBranchBindings = preBranchState ^. stVarToID
 
     condSSA <- sc cond
@@ -294,7 +268,7 @@ sc (T.MemberAssignment cName object fName value) = do
     value' <- sc value
     buildStatement (MemberAssg cName object' fName value')
 sc (T.VariableAssignment name value) = do
-    bs <- get >>= return . _stVarToID
+    bs <- _stVarToID <$> get
     case M.lookup name bs of
         Just s -> do
             value' <- sc value
@@ -331,7 +305,7 @@ sc (T.MemberGet cName object fName) = do
     object' <- sc object
     buildStatement (MemberGet cName object' fName)
 sc (T.VariableGet name) = do
-    bs <- get >>= return . _stVarToID
+    bs <- _stVarToID <$> get
     case M.lookup name bs of
         Just s -> return s
         Nothing -> error "Varible not found"
@@ -353,7 +327,7 @@ scMethod ast@(T.Method t name ps vs ss ret) = do
     modify $ stIDList .~ []
     ssaParams <- mapM buildStatement (zipWith Variable ps [0 .. ])
     ssaVarAssgs <- mapM buildStatement $ zipWith VarAssg (map (^. AST.vName) ps) ssaParams
-    sequence $ zipWith insertVarToID (map (^. AST.vName) ps) ssaVarAssgs
+    zipWithM insertVarToID (map (^. AST.vName) ps) ssaVarAssgs
     mapM scVariable vs
     mapM scStatement ss
     ret' <- sc ret
