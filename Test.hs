@@ -37,7 +37,7 @@ testSSA file = do
     ecCanonical <- system $ "canonical/bin/mjcompile-ssa -s " ++ file ++ " > canonical.out"
     ecMine <- system $ "runhaskell Main.hs --stopAt SSA " ++ file ++ " > mine.out"
 
-    comp file ecCanonical ecMine
+    compDiff file ecCanonical ecMine
 
     -- system $ "canonical/bin/mjparse-ast " ++ file ++ " | runhaskell PrettySExp.hs > canonical.out"
     -- system $ "runhaskell Main.hs --stopAt parse " ++ file ++ " | runhaskell PrettySExp.hs > mine.out"
