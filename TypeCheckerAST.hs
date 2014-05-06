@@ -123,7 +123,7 @@ typeCheckExpression p c m e = case e of
             AST.Div   -> arithOp
             AST.Mod   -> arithOp
     U.Not e -> case tcE e of
-        (e', AST.TypeBoolean) -> (e', AST.TypeBoolean)
+        (e', AST.TypeBoolean) -> (T.Not e', AST.TypeBoolean)
         _ -> error "Not operand must be boolean"
     U.IndexGet array index ->
         let (array', array't) = tcE array
