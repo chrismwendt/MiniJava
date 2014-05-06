@@ -65,32 +65,32 @@ typeCheckMethod p c m
     | otherwise =  error "Return type of method must match declaration"
 
 typeCheckStatement :: U.Program -> U.Class -> U.Method -> U.Statement -> (T.Statement, AST.Type)
-typeCheckStatement p c m s = (t, AST.TypeVoid)
+typeCheckStatement p c m s = (s', AST.TypeVoid)
     where
-    t = case s of
-        U.Block ss -> T.Block $ map st_ ss
-        U.If condition true falseMaybe -> case ex condition of
-            (e, AST.TypeBoolean) -> T.If e (st_ true) (st_ <$> falseMaybe)
+    s' = case s of
+        U.Block ss -> T.Block $ map tcS_ ss
+        U.If condition true falseMaybe -> case tcE condition of
+            (e, AST.TypeBoolean) -> T.If e (tcS_ true) (tcS_ <$> falseMaybe)
             _ -> error "Type of if condition must be boolean"
-        U.While condition body -> case ex condition of
-            (e, AST.TypeBoolean) -> T.While e (st_ body)
+        U.While condition body -> case tcE condition of
+            (e, AST.TypeBoolean) -> T.While e (tcS_ body)
             _ -> error "Type of while condition must be boolean"
-        U.Print expression -> case ex expression of
+        U.Print expression -> case tcE expression of
             (e, AST.TypeInt) -> T.Print e
             _ -> error "Type of print must be int"
-        U.ExpressionStatement expression -> T.ExpressionStatement (ex_ expression)
-    st = typeCheckStatement p c m
-    ex = typeCheckExpression p c m
-    st_ = fst . st
-    ex_ = fst . ex
+        U.ExpressionStatement expression -> T.ExpressionStatement (tcE_ expression)
+    tcS = typeCheckStatement p c m
+    tcE = typeCheckExpression p c m
+    tcS_ = fst . tcS
+    tcE_ = fst . tcE
 
 typeCheckExpression :: U.Program -> U.Class -> U.Method -> U.Expression -> (T.Expression, AST.Type)
 typeCheckExpression p c m e = case e of
     U.LiteralInt value -> (T.LiteralInt value, AST.TypeInt)
     U.LiteralBoolean value -> (T.LiteralBoolean value, AST.TypeBoolean)
     U.Assignment target expression ->
-        let (te, tt) = ex target
-            (ee, et) = ex expression
+        let (te, tt) = tcE target
+            (ee, et) = tcE expression
         in if et `subtype` tt
             then case te of
                 T.VariableGet name -> (T.VariableAssignment name ee, tt)
@@ -98,8 +98,8 @@ typeCheckExpression p c m e = case e of
                 T.IndexGet array index -> (T.IndexAssignment array index ee, tt)
             else error "Assignment value must be a subtype"
     U.Binary l op r ->
-        let (le, lt) = ex l
-            (re, rt) = ex r
+        let (le, lt) = tcE l
+            (re, rt) = tcE r
             logicOp = if (lt == AST.TypeBoolean && rt == AST.TypeBoolean)
                 then (T.Binary le op re, AST.TypeBoolean)
                 else error "Logic operands must be booleans"
@@ -123,27 +123,27 @@ typeCheckExpression p c m e = case e of
             AST.Mul -> arithOp
             AST.Div -> arithOp
             AST.Mod -> arithOp
-    U.Not e -> case ex e of
+    U.Not e -> case tcE e of
         (e', AST.TypeBoolean) -> (e', AST.TypeBoolean)
         _ -> error "Not operand must be boolean"
     U.IndexGet array index ->
-        let (arraye, arrayt) = ex array
-            (indexe, indext) = ex index
+        let (arraye, arrayt) = tcE array
+            (indexe, indext) = tcE index
         in if arrayt == AST.TypeIntArray && indext == AST.TypeInt
             then (T.IndexGet arraye indexe, AST.TypeInt)
             else error "Array must be int[] and index must be int"
     U.Call object method args ->
-        let (objecte, objectt) = ex object
-            args' = map ex args
+        let (objecte, objectt) = tcE object
+            args' = map tcE args
         in case objectt of
             AST.TypeObject className -> case msum [find ((== className) . (^. U.cName)) (p ^. U.pClasses) >>= find ((== method) . (^. U.mName)) . (^. U.cMethods) >>= (\a -> Just (className, a)) . id, findMethod className method] of
                 Just (implementor, m) -> if length args == length (m ^. U.mParameters) && and (zipWith subtype (map snd args') (map (^. U.vType) (m ^. U.mParameters)))
-                    then (T.Call implementor objecte method (map ex_ args), m ^. U.mReturnType)
+                    then (T.Call implementor objecte method (map tcE_ args), m ^. U.mReturnType)
                     else error "Number and types of arguments to method call must match definition"
                 Nothing -> error "Method not found"
             _ -> error "Method call must be performed on an object"
     U.MemberGet object field ->
-        let (objecte, objectt) = ex object
+        let (objecte, objectt) = tcE object
         in case objectt of
             AST.TypeObject className -> case findField className field of
                 Just (className', t) -> (T.MemberGet className' objecte field, t)
@@ -154,18 +154,18 @@ typeCheckExpression p c m e = case e of
             _ -> error "Member access must be performed on an object, or length of array"
     U.VariableGet name -> case find ((== name) . (^. U.vName)) (m ^. U.mLocals ++ m ^. U.mParameters) of
         Just v -> (T.VariableGet name, v ^. U.vType)
-        Nothing -> ex (U.MemberGet U.This name)
+        Nothing -> tcE (U.MemberGet U.This name)
     U.This -> (T.This, AST.TypeObject (c ^. U.cName))
-    U.NewIntArray size -> case ex size of
+    U.NewIntArray size -> case tcE size of
         (size', AST.TypeInt) -> (T.NewIntArray size', AST.TypeIntArray)
     U.NewObject className -> if className `elem` map (^. U.cName) (p ^. U.pClasses)
         then (T.NewObject className, AST.TypeObject className)
         else error "Class not found"
     where
-    st = typeCheckStatement p c m
-    ex = typeCheckExpression p c m
-    st_ = fst . st
-    ex_ = fst . ex
+    tcS = typeCheckStatement p c m
+    tcE = typeCheckExpression p c m
+    tcS_ = fst . tcS
+    tcE_ = fst . tcE
     findMethod thisClass methodName = case find ((== thisClass) . (^. U.cName)) (p ^. U.pClasses) >>= find ((== methodName) . (^. U.mName)) . (^. U.cMethods) of
         Just m -> Just (thisClass, m)
         Nothing -> case parentClassMaybe thisClass of
