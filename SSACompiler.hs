@@ -80,9 +80,7 @@ compileStatement axe@(T.If cond branchTrue branchFalse) = do
     postTrueBindings <- (^. stVarToID) <$> get
 
     modify $ stVarToID .~ preBranchBindings
-    case branchFalse of
-        Just b -> compileStatement b
-        Nothing -> return ()
+    fromMaybe (return ()) (compileStatement <$> branchFalse)
     postFalseBindings <- (^. stVarToID) <$> get
 
     buildStatement (S.Label labelDone)
