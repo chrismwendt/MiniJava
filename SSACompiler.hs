@@ -87,9 +87,7 @@ compileStatement axe@(T.If cond branchTrue branchFalse) = do
     let bindings = M.assocs $ M.intersectionWith (,) postTrueBindings postFalseBindings
     let mismatches = filter (uncurry (/=) . snd) bindings
     unifies <- mapM (buildStatement . uncurry S.Unify . snd) mismatches
-    lift $ zipWithM_ insertVarToID (map fst mismatches) unifies
-
-    return ()
+    void $ lift $ zipWithM_ insertVarToID (map fst mismatches) unifies
 compileStatement (T.While cond body) = do
     labelStart <- show <$> lift nextLabel
     labelEnd <- show <$> lift nextLabel
@@ -113,14 +111,11 @@ compileStatement (T.While cond body) = do
     let bindings = M.assocs $ M.intersectionWith (,) preBranchBindings postBranchBindings
     let mismatches = filter (uncurry (/=) . snd) bindings
     unifies <- mapM (buildStatement . uncurry S.Unify . snd) mismatches
-    lift $ zipWithM_ insertVarToID (map fst mismatches) unifies
-
-    return ()
+    void $ lift $ zipWithM_ insertVarToID (map fst mismatches) unifies
 compileStatement (T.Print e) = do
     value <- compileExpression e
-    buildStatement (S.Print value)
-    return ()
-compileStatement (T.ExpressionStatement e) = (: []) <$> compileExpression e >> return ()
+    void $ buildStatement (S.Print value)
+compileStatement (T.ExpressionStatement e) = void $ (: []) <$> compileExpression e
 
 compileExpression :: T.Expression -> WriterT [S.ID] (State CState) S.ID
 compileExpression (T.LiteralInt v) = buildStatement (S.SInt v)
