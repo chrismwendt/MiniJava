@@ -6,15 +6,12 @@ module SSACompiler where
 import qualified ASTTyped as T
 import qualified AST
 import qualified SSA as S
-import Data.List
 import Data.Functor
 import Control.Applicative
 import Control.Monad.State
 import Control.Monad.Writer
-import Control.Monad
 import qualified Data.Map as M
 import Data.Maybe
-import Data.Bifunctor
 import Control.Lens
 
 data CState = CState
@@ -33,10 +30,9 @@ compile program = _2 %~ _stIDToS $ runState compileProgram (CState program M.emp
 compileProgram :: State CState S.Program
 compileProgram = do
     state <- get
-    let program = state ^. stProgram
     let main = state ^. stProgram . T.pMain
     let classes = state ^. stProgram . T.pClasses
-    S.Program program <$> compileClass main <*> mapM compileClass classes
+    S.Program <$> compileClass main <*> mapM compileClass classes
 
 compileClass :: T.Class -> State CState S.Class
 compileClass ast@(T.Class name extends vs ms) =
