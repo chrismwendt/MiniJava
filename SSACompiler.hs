@@ -173,7 +173,7 @@ scClass ast@(T.Class name extends vs ms) =
 scVariableAsField :: AST.Variable -> S.Position -> State CState S.Field
 scVariableAsField v i = return $ S.Field v i
 
-scMethod :: T.Method -> State CState (S.Method)
+scMethod :: T.Method -> State CState S.Method
 scMethod ast@(T.Method t name ps vs ss ret) = do
     modify $ stIDList .~ []
     ssaParams <- zipWithM (curry $ buildStatement . S.Parameter . snd) ps [0 .. ]
