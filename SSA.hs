@@ -19,17 +19,20 @@ data Program = Program
     { _pMain :: Class
     , _pClasses :: [Class]
     }
+    deriving (Show)
 
 data Class = Class
     { _cName :: String
     , _cFields :: [String]
     , _cMethods :: [Method]
     }
+    deriving (Show)
 
 data Method = Method
     { _mName :: String
     , _mStatements :: [ID]
     }
+    deriving (Show)
 
 data Statement =
       Unify ID ID

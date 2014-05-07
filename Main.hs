@@ -18,7 +18,7 @@ options = Options
 compile :: Options -> String -> String
 compile (Options "parse" _) source = show $ parseString source
 compile (Options "type" _) source = show $ TC.typeCheck $ parseString source
-compile (Options "SSA" _) source = unlines $ map show $ M.assocs $ snd $ SSA.compile $ TC.typeCheck $ parseString source
+compile (Options "SSA" _) source = show $ SSA.compile $ TC.typeCheck $ parseString source
 compile (Options "reg" _) source = error "unimplemented target: reg"
 compile (Options "code" _) source = error "unimplemented target: code"
 compile (Options target _) _ = error $ "unknown target: " ++ target
