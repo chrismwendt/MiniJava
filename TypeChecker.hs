@@ -139,17 +139,21 @@ typeCheckExpression p c m e = case e of
         then (T.NewObject cName, U.TypeObject cName)
         else error "Class not found"
     where
+    classMap = M.fromList $ map (\c -> (c ^. U.cName, c)) (p ^. U.pClasses)
+
     tcE = typeCheckExpression p c m
     tcE_ = fst . tcE
+
     findClassField Nothing _ = Nothing
     findClassField (Just c) fName = case find (\f -> f ^. U.vName == fName) (c ^. U.cFields) of
         Just f -> Just (c, f)
         Nothing -> findClassField (M.lookup (c ^. U.cParent) classMap) fName
+
     findClassMethod Nothing _ = Nothing
     findClassMethod (Just c) mName = case find (\m -> m ^. U.mName == mName) (c ^. U.cMethods) of
         Just m -> Just (c, m)
         Nothing -> findClassMethod (M.lookup (c ^. U.cParent) classMap) mName
-    classMap = M.fromList $ map (\c -> (c ^. U.cName, c)) (p ^. U.pClasses)
+
     subtype (U.TypeObject name) b@(U.TypeObject name') = if name == name'
         then True
         else case M.lookup name classMap of
