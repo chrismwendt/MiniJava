@@ -29,15 +29,7 @@ data CState = CState
 makeLenses ''CState
 
 compile :: T.Program -> (S.Program, M.Map S.ID S.Statement)
-compile program = let (a, s) = runState compileProgram state in (a, _stIDToS s)
-    where
-    state = CState
-        { _stProgram = program
-        , _stNextID = 0
-        , _stVarToID = M.empty
-        , _stIDToS = M.empty
-        , _stNextLabel = 0
-        }
+compile program = _2 %~ _stIDToS $ runState compileProgram (CState program M.empty M.empty 0 0)
 
 compileProgram :: State CState S.Program
 compileProgram = do
