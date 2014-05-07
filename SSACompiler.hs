@@ -46,7 +46,7 @@ compileClass ast@(T.Class name extends vs ms) =
 compileMethod :: T.Method -> State CState S.Method
 compileMethod ast@(T.Method t name ps vs ss ret) = do
     modify $ stVarToID .~ M.empty
-    (a, w) <- runWriterT $ do
+    (_, w) <- runWriterT $ do
         ssaParams <- zipWithM (curry $ buildStatement . S.Parameter . snd) ps [0 .. ]
         ssaVarAssgs <- mapM (buildStatement . S.VarAssg) ssaParams
         lift $ zipWithM insertVarToID (map (^. AST.vName) ps) ssaVarAssgs
