@@ -167,10 +167,7 @@ compileExpression (T.This) = buildStatement S.This
 
 compileClass :: T.Class -> State CState S.Class
 compileClass ast@(T.Class name extends vs ms) =
-    S.Class ast <$> zipWithM compileVariableAsField vs [0 .. ] <*> mapM compileMethod ms
-
-compileVariableAsField :: AST.Variable -> S.Position -> State CState S.Field
-compileVariableAsField v i = return $ S.Field v i
+    S.Class ast (zipWith S.Field vs [0 .. ]) <$> mapM compileMethod ms
 
 compileMethod :: T.Method -> State CState S.Method
 compileMethod ast@(T.Method t name ps vs ss ret) = do
