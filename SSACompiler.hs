@@ -11,6 +11,7 @@ import Data.List
 import Data.Functor
 import Control.Applicative
 import Control.Monad.State
+import Control.Monad.Writer
 import Control.Monad
 import qualified Data.Map as M
 import Data.Maybe
@@ -22,7 +23,6 @@ data CState = CState
     , _stNextID :: S.ID
     , _stVarToID :: M.Map String S.ID
     , _stIDToS :: M.Map S.ID S.Statement
-    , _stIDList :: [S.ID]
     , _stNextLabel :: Int
     }
 
@@ -36,7 +36,6 @@ ssaCompile program = let (a, s) = runState scProgram state in (a, _stIDToS s)
         , _stNextID = 0
         , _stVarToID = M.empty
         , _stIDToS = M.empty
-        , _stIDList = []
         , _stNextLabel = 0
         }
 
@@ -48,13 +47,13 @@ scProgram = do
     let classes = state ^. stProgram . T.pClasses
     S.Program program <$> scClass main <*> mapM scClass classes
 
-scStatement :: T.Statement -> State CState ()
+scStatement :: T.Statement -> WriterT [S.ID] (State CState) ()
 scStatement (T.Block ss) = void (mapM scStatement ss)
 scStatement axe@(T.If cond branchTrue branchFalse) = do
     cond' <- sc cond
 
-    labelElse <- (printf "l_%d" :: Int -> String) <$> nextLabel
-    labelDone <- (printf "l_%d" :: Int -> String) <$> nextLabel
+    labelElse <- (printf "l_%d" :: Int -> String) <$> lift nextLabel
+    labelDone <- (printf "l_%d" :: Int -> String) <$> lift nextLabel
 
     buildStatement (S.NBranch cond' labelElse)
 
@@ -76,12 +75,12 @@ scStatement axe@(T.If cond branchTrue branchFalse) = do
     let bindings = M.assocs $ M.intersectionWith (,) postTrueBindings postFalseBindings
     let mismatches = filter (uncurry (/=) . snd) bindings
     unifies <- mapM (buildStatement . uncurry S.Unify . snd) mismatches
-    zipWithM_ insertVarToID (map fst mismatches) unifies
+    lift $ zipWithM_ insertVarToID (map fst mismatches) unifies
 
     return ()
 scStatement (T.While cond body) = do
-    labelStart <- (printf "l_%d" :: Int -> String) <$> nextLabel
-    labelEnd <- (printf "l_%d" :: Int -> String) <$> nextLabel
+    labelStart <- (printf "l_%d" :: Int -> String) <$> lift nextLabel
+    labelEnd <- (printf "l_%d" :: Int -> String) <$> lift nextLabel
 
     buildStatement (S.Label labelStart)
 
@@ -102,7 +101,7 @@ scStatement (T.While cond body) = do
     let bindings = M.assocs $ M.intersectionWith (,) preBranchBindings postBranchBindings
     let mismatches = filter (uncurry (/=) . snd) bindings
     unifies <- mapM (buildStatement . uncurry S.Unify . snd) mismatches
-    zipWithM_ insertVarToID (map fst mismatches) unifies
+    lift $ zipWithM_ insertVarToID (map fst mismatches) unifies
 
     return ()
 scStatement (T.Print e) = do
@@ -111,7 +110,7 @@ scStatement (T.Print e) = do
     return ()
 scStatement (T.ExpressionStatement e) = singleton <$> sc e >> return ()
 
-sc :: T.Expression -> State CState S.ID
+sc :: T.Expression -> WriterT [S.ID] (State CState) S.ID
 sc (T.LiteralInt v) = buildStatement (S.SInt v)
 sc (T.LiteralBoolean v) = buildStatement (S.SBoolean v)
 sc (T.MemberAssignment cName object fName value) = do
@@ -124,7 +123,7 @@ sc (T.VariableAssignment name value) = do
         Just s -> do
             value' <- sc value
             v <- buildStatement (S.VarAssg value')
-            insertVarToID name value'
+            lift $ insertVarToID name value'
             return v
         Nothing -> error "Varible not found"
 sc (T.IndexAssignment array index value) = do
@@ -175,18 +174,18 @@ scVariableAsField v i = return $ S.Field v i
 
 scMethod :: T.Method -> State CState S.Method
 scMethod ast@(T.Method t name ps vs ss ret) = do
-    modify $ stIDList .~ []
-    ssaParams <- zipWithM (curry $ buildStatement . S.Parameter . snd) ps [0 .. ]
-    ssaVarAssgs <- mapM (buildStatement . S.VarAssg) ssaParams
-    zipWithM insertVarToID (map (^. AST.vName) ps) ssaVarAssgs
-    mapM scVariable vs
-    mapM scStatement ss
-    ret' <- sc ret
-    buildStatement (S.Return ret')
-    allStatements <- (^. stIDList) <$> get
-    return $ S.Method ast (ssaParams ++ allStatements ++ [ret'])
+    (a, w) <- runWriterT $ do
+        ssaParams <- zipWithM (curry $ buildStatement . S.Parameter . snd) ps [0 .. ]
+        ssaVarAssgs <- mapM (buildStatement . S.VarAssg) ssaParams
+        lift $ zipWithM insertVarToID (map (^. AST.vName) ps) ssaVarAssgs
+        mapM scVariable vs
+        mapM scStatement ss
+        ret' <- sc ret
+        buildStatement (S.Return ret')
+        return ()
+    return $ S.Method ast w
 
-scVariable :: AST.Variable -> State CState S.ID
+scVariable :: AST.Variable -> WriterT [S.ID] (State CState) S.ID
 scVariable (AST.Variable t name) = do
     r <- buildStatement (S.Null t)
     modify $ stVarToID %~ M.insert name r
@@ -218,11 +217,11 @@ nextID = state $ \s -> (s ^. stNextID, stNextID %~ succ $ s)
 nextLabel :: State CState Int
 nextLabel = state $ \s -> (s ^. stNextLabel, stNextLabel %~ succ $ s)
 
-buildStatement :: S.Statement -> State CState S.ID
+buildStatement :: S.Statement -> WriterT [S.ID] (State CState) S.ID
 buildStatement op = do
-    id <- nextID
-    modify $ stIDList %~ (++ [id])
-    modify $ stIDToS %~ M.insert id op
+    id <- lift nextID
+    tell [id]
+    lift $ modify $ stIDToS %~ M.insert id op
     return id
 
 insertVarToID :: String -> S.ID -> State CState ()
