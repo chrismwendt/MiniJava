@@ -39,7 +39,6 @@ data Method = Method
 
 data Statement =
       Unify ID ID
-    | Alias ID
 
     | Store ID Offset
     | Load Offset Register
