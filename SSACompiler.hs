@@ -58,7 +58,7 @@ cVar (AST.Variable t name) = do
 
 cSt :: T.Statement -> WriterT [S.ID] (State CState) ()
 cSt (T.Block ss) = void (mapM cSt ss)
-cSt axe@(T.If cond branchTrue branchFalse) = do
+cSt (T.If cond branchTrue branchFalse) = do
     cond' <- cExp cond
     labelElse <- show <$> lift nextLabel
     labelDone <- show <$> lift nextLabel
