@@ -174,6 +174,7 @@ scVariableAsField v i = return $ S.Field v i
 
 scMethod :: T.Method -> State CState S.Method
 scMethod ast@(T.Method t name ps vs ss ret) = do
+    modify $ stVarToID .~ M.empty
     (a, w) <- runWriterT $ do
         ssaParams <- zipWithM (curry $ buildStatement . S.Parameter . snd) ps [0 .. ]
         ssaVarAssgs <- mapM (buildStatement . S.VarAssg) ssaParams
