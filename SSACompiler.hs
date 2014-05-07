@@ -167,5 +167,5 @@ build op = do
     lift $ modify $ stIDToS %~ M.insert id op
     return id
 
-bind :: String -> S.ID -> State CState ()
-bind name id = modify $ stVarToID %~ M.insert name id
+bind :: String -> S.ID -> State CState S.ID
+bind name id = modify (stVarToID %~ M.insert name id) >> return id
