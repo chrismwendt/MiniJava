@@ -116,8 +116,8 @@ cExp (T.VariableAssignment name value) = do
     bs <- (^. stVarToID) <$> get
     case M.lookup name bs of
         Just s -> do
-            value' <- cExp value
-            v <- build (S.VarAssg value')
+            -- TODO consider removing VarAssg and bind name to the RHS
+            v <- build =<< S.VarAssg <$> cExp value
             lift $ bind name v
             return v
         Nothing -> error "Varible not found"
