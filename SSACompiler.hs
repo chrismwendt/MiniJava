@@ -113,7 +113,7 @@ cExp (T.MemberAssignment cName object fName value) = do
     value' <- cExp value
     build (S.MemberAssg cName object' fName value')
 cExp (T.VariableAssignment name value) = do
-    bs <- _stVarToID <$> get
+    bs <- (^. stVarToID) <$> get
     case M.lookup name bs of
         Just s -> do
             value' <- cExp value
@@ -121,37 +121,23 @@ cExp (T.VariableAssignment name value) = do
             lift $ bind name value'
             return v
         Nothing -> error "Varible not found"
-cExp (T.IndexAssignment array index value) = do
-    array' <- cExp array
-    index' <- cExp index
-    value' <- cExp value
-    build (S.IndexAssg array' index' value')
-cExp (T.Binary l op r) = do
-    sl <- cExp l
-    sr <- cExp r
-    case lookup op binaryOps of
-        Just opConstructor -> build (opConstructor sl sr)
-        Nothing -> error $ "Op " ++ show op ++ " not found in list: " ++ show (map fst binaryOps)
+cExp (T.IndexAssignment array index value) = build =<< S.IndexAssg <$> cExp array <*> cExp index <*> cExp value
+cExp (T.Binary l op r) = case lookup op binaryOps of
+    Just opConstructor -> build =<< opConstructor <$> cExp l <*> cExp r
+    Nothing -> error $ "Op " ++ show op ++ " not found in list: " ++ show (map fst binaryOps)
 cExp (T.Not e) = build =<< S.Not <$> cExp e
 cExp (T.IndexGet a i) = build =<< S.IndexGet <$> cExp a <*> cExp i
 cExp (T.Call cName object mName args) = do
     object' <- cExp object
-    let makeArg arg i = do
-        target <- cExp arg
-        build (S.Arg target i)
-    args' <- zipWithM makeArg args [0 .. ]
+    args' <- zipWithM (\arg i -> build =<< S.Arg <$> cExp arg <*> pure i) args [0 .. ]
     build (S.Call cName object' mName args')
-cExp (T.MemberGet cName object fName) = do
-    object' <- cExp object
-    build (S.MemberGet cName object' fName)
+cExp (T.MemberGet cName object fName) = build =<< S.MemberGet cName <$> cExp object <*> pure fName
 cExp (T.VariableGet name) = do
-    bs <- _stVarToID <$> get
+    bs <- (^. stVarToID) <$> get
     case M.lookup name bs of
         Just s -> return s
         Nothing -> error "Varible not found"
-cExp (T.NewIntArray size) = do
-    array <- cExp size
-    build (S.NewIntArray array)
+cExp (T.NewIntArray size) = build =<< S.NewIntArray <$> cExp size
 cExp (T.NewObject name) = build (S.NewObj name)
 cExp (T.This) = build S.This
 
