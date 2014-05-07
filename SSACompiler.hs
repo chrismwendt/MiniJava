@@ -108,7 +108,7 @@ compileStatement (T.Print e) = do
     value <- compileExpression e
     buildStatement (S.Print value)
     return ()
-compileStatement (T.ExpressionStatement e) = singleton <$> compileExpression e >> return ()
+compileStatement (T.ExpressionStatement e) = (: []) <$> compileExpression e >> return ()
 
 compileExpression :: T.Expression -> WriterT [S.ID] (State CState) S.ID
 compileExpression (T.LiteralInt v) = buildStatement (S.SInt v)
@@ -191,9 +191,6 @@ compileVariable (AST.Variable t name) = do
     r <- buildStatement (S.Null t)
     modify $ stVarToID %~ M.insert name r
     return r
-
-singleton :: a -> [a]
-singleton a = [a]
 
 binaryOps :: [(AST.BinaryOperator, S.ID -> S.ID -> S.Statement)]
 binaryOps =
