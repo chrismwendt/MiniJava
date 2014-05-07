@@ -36,6 +36,7 @@ cMethod :: T.Method -> State CState S.Method
 cMethod (T.Method t name ps vs ss ret) = do
     modify $ stVarToID .~ M.empty
     modify $ stIDToS .~ M.empty
+    modify $ stNextID .~ 0
     (_, w) <- runWriterT $ do
         zipWithM_ cPar ps [0 .. ]
         mapM_ cVar vs
