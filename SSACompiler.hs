@@ -98,14 +98,9 @@ cExp (T.MemberAssignment cName object fName value) = do
     value' <- cExp value
     build (S.MemberAssg cName object' fName value')
 cExp (T.VariableAssignment name value) = do
-    bs <- (^. stVarToID) <$> get
-    case M.lookup name bs of
-        Just s -> do
-            -- TODO consider removing VarAssg and bind name to the RHS
-            v <- build =<< S.VarAssg <$> cExp value
-            lift $ bind name v
-            return v
-        Nothing -> error "Varible not found"
+    -- TODO consider removing VarAssg and bind name to the RHS
+    v <- build =<< S.VarAssg <$> cExp value
+    lift $ bind name v
 cExp (T.IndexAssignment array index value) = do
     array' <- cExp array
     index' <- cExp index
