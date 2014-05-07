@@ -49,7 +49,7 @@ compileMethod ast@(T.Method t name ps vs ss ret) = do
         mapM compileStatement ss
         ret' <- compileExpression ret
         buildStatement (S.Return ret')
-    return $ S.Method ast w
+    return $ S.Method name w
 
 compileVariable :: AST.Variable -> WriterT [S.ID] (State CState) S.ID
 compileVariable (AST.Variable t name) = do

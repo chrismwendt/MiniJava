@@ -28,7 +28,7 @@ data Class = Class
     }
 
 data Method = Method
-    { _mMethod :: T.Method
+    { _mName :: String
     , _mStatements :: [ID]
     }
 
@@ -92,7 +92,7 @@ instance Show Program where
     show (Program m cs) = printf "program:\n  main:\n    method main:\n%s%s" (show m) (concatMap show cs)
 
 instance Show Method where
-    show (Method (T.Method _ name _ _ _ _) ss) = printf "    method %s:\n%s" name (unlines $ map show ss)
+    show (Method name ss) = printf "    method %s:\n%s" name (unlines $ map show ss)
 
 instance Show Class where
     show (Class name _ ms) = printf "  class %s:\n%s" name (concatMap show ms)
