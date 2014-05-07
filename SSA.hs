@@ -23,13 +23,8 @@ data Program = Program
 
 data Class = Class
     { _cName :: String
-    , _cFields :: [Field]
+    , _cFields :: [String]
     , _cMethod :: [Method]
-    }
-
-data Field = Field
-    { _fVariable :: AST.Variable
-    , _fPosition :: Position
     }
 
 data Method = Method
@@ -90,7 +85,6 @@ data Statement =
 
 makeLenses ''Program
 makeLenses ''Class
-makeLenses ''Field
 makeLenses ''Method
 makeLenses ''Statement
 
@@ -102,9 +96,6 @@ instance Show Method where
 
 instance Show Class where
     show (Class name _ ms) = printf "  class %s:\n%s" name (concatMap show ms)
-
-instance Show Field where
-    show (Field (AST.Variable _ name) _) = name
 
 instance Show Statement where
     show (Unify l r) = printf "Unify %s %s" (show l) (show r)
