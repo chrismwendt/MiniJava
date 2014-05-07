@@ -184,7 +184,7 @@ scMethod ast@(T.Method t name ps vs ss ret) = do
     ret' <- sc ret
     buildStatement (S.Return ret')
     allStatements <- (^. stIDList) <$> get
-    return $ S.Method ast ssaParams allStatements ret'
+    return $ S.Method ast (ssaParams ++ allStatements ++ [ret'])
 
 scVariable :: AST.Variable -> State CState S.ID
 scVariable (AST.Variable t name) = do

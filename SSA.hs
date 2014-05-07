@@ -35,9 +35,7 @@ data Field = Field
 
 data Method = Method
     { _mMethod :: T.Method
-    , _mParameters :: [ID]
     , _mStatements :: [ID]
-    , _mReturn :: ID
     }
 
 data Statement =
@@ -101,7 +99,7 @@ instance Show Program where
     show (Program _ m cs) = printf "program:\n  main:\n    method main:\n%s%s" (show m) (concatMap show cs)
 
 instance Show Method where
-    show (Method (T.Method _ name _ _ _ _) ps ss _) = printf "    method %s:\n%s" name (unlines $ map show ss)
+    show (Method (T.Method _ name _ _ _ _) ss) = printf "    method %s:\n%s" name (unlines $ map show ss)
 
 instance Show Class where
     show (Class (T.Class name _ _ _) _ ms) = printf "  class %s:\n%s" name (concatMap show ms)
