@@ -24,7 +24,7 @@ data Program = Program
 data Class = Class
     { _cName :: String
     , _cFields :: [String]
-    , _cMethod :: [Method]
+    , _cMethods :: [Method]
     }
 
 data Method = Method
