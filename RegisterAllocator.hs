@@ -33,4 +33,39 @@ aClass :: Int -> S.Program -> S.Class -> R.Class
 aClass n program c@(S.Class name fs ms) = R.Class name fs (map (aMethod program c) ms)
 
 aMethod :: S.Program -> S.Class -> S.Method -> R.Method
-aMethod program c (S.Method name ss m) = R.Method
+aMethod program c (S.Method name ss m) = R.Method name ss' m'
+    where
+    ss' = undefined
+    m' = undefined
+
+toRegister :: S.Statement -> R.Register -> R.Statement
+toRegister s r = case s of
+    S.Load offset            -> R.Load offset r
+    S.Null t                 -> R.Null t r
+    S.NewObj s1              -> R.NewObj s1 r
+    S.NewIntArray i1         -> R.NewIntArray i1 r
+    S.This                   -> R.This r
+    S.SInt v                 -> R.SInt v r
+    S.SBoolean v             -> R.SBoolean v r
+    S.Parameter i1           -> R.Parameter i1 r
+    S.Call s1 i1 s2 is       -> R.Call s1 i1 s2 is r
+    S.MemberGet s1 i1 s2     -> R.MemberGet s1 i1 s2 r
+    S.MemberAssg s1 i1 s2 i2 -> R.MemberAssg s1 i1 s2 i2 r
+    S.VarAssg i1             -> R.VarAssg i1 r
+    S.IndexGet i1 i2         -> R.IndexGet i1 i2 r
+    S.IndexAssg i1 i2 i3     -> R.IndexAssg i1 i2 i3 r
+    S.Not i1                 -> R.Not i1 r
+    S.Lt i1 i2               -> R.Lt i1 i2 r
+    S.Le i1 i2               -> R.Le i1 i2 r
+    S.Eq i1 i2               -> R.Eq i1 i2 r
+    S.Ne i1 i2               -> R.Ne i1 i2 r
+    S.Gt i1 i2               -> R.Gt i1 i2 r
+    S.Ge i1 i2               -> R.Ge i1 i2 r
+    S.And i1 i2              -> R.And i1 i2 r
+    S.Or i1 i2               -> R.Or i1 i2 r
+    S.Plus i1 i2             -> R.Plus i1 i2 r
+    S.Minus i1 i2            -> R.Minus i1 i2 r
+    S.Mul i1 i2              -> R.Mul i1 i2 r
+    S.Div i1 i2              -> R.Div i1 i2 r
+    S.Mod i1 i2              -> R.Mod i1 i2 r
+    _                        -> error $ show s ++ " cannot have a register"
