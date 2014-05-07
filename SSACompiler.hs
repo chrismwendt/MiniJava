@@ -118,7 +118,7 @@ cExp (T.VariableAssignment name value) = do
         Just s -> do
             value' <- cExp value
             v <- build (S.VarAssg value')
-            lift $ bind name value'
+            lift $ bind name v
             return v
         Nothing -> error "Varible not found"
 cExp (T.IndexAssignment array index value) = build =<< S.IndexAssg <$> cExp array <*> cExp index <*> cExp value
