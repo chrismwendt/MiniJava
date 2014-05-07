@@ -31,6 +31,7 @@ data Class = Class
 data Method = Method
     { _mName :: String
     , _mStatements :: [ID]
+    , _mIDToS :: M.Map ID Statement
     }
     deriving (Show)
 

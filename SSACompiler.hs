@@ -23,13 +23,11 @@ data CState = CState
 
 makeLenses ''CState
 
-compile :: T.Program -> (S.Program, M.Map S.ID S.Statement)
-compile program = _2 %~ _stIDToS $ runState cProgram (CState program M.empty M.empty 0 0)
+compile :: T.Program -> S.Program
+compile program = evalState (cProgram program) (CState program M.empty M.empty 0 0)
 
-cProgram :: State CState S.Program
-cProgram = do
-    p <- (^. stProgram) <$> get
-    S.Program <$> cClass (p ^. T.pMain) <*> mapM cClass (p ^. T.pClasses)
+cProgram :: T.Program -> State CState S.Program
+cProgram (T.Program m cs) = S.Program <$> cClass m <*> mapM cClass cs
 
 cClass :: T.Class -> State CState S.Class
 cClass (T.Class name extends vs ms) = S.Class name (map (^. AST.vName) vs) <$> mapM cMethod ms
@@ -37,12 +35,13 @@ cClass (T.Class name extends vs ms) = S.Class name (map (^. AST.vName) vs) <$> m
 cMethod :: T.Method -> State CState S.Method
 cMethod (T.Method t name ps vs ss ret) = do
     modify $ stVarToID .~ M.empty
+    modify $ stIDToS .~ M.empty
     (_, w) <- runWriterT $ do
         zipWithM_ cPar ps [0 .. ]
         mapM_ cVar vs
         mapM_ cSt ss
         build =<< S.Return <$> cExp ret
-    return $ S.Method name w
+    S.Method name w . (^. stIDToS) <$> get
 
 cPar :: AST.Variable -> S.Position -> WriterT [S.ID] (State CState) S.ID
 cPar (AST.Variable _ name) i = do
