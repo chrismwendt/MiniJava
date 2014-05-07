@@ -35,8 +35,8 @@ compileProgram = do
     S.Program <$> compileClass main <*> mapM compileClass classes
 
 compileClass :: T.Class -> State CState S.Class
-compileClass ast@(T.Class name extends vs ms) =
-    S.Class ast (zipWith S.Field vs [0 .. ]) <$> mapM compileMethod ms
+compileClass (T.Class name extends vs ms) =
+    S.Class name (zipWith S.Field vs [0 .. ]) <$> mapM compileMethod ms
 
 compileMethod :: T.Method -> State CState S.Method
 compileMethod ast@(T.Method t name ps vs ss ret) = do

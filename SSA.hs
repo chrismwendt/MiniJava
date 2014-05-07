@@ -22,7 +22,7 @@ data Program = Program
     }
 
 data Class = Class
-    { _cClass :: T.Class
+    { _cName :: String
     , _cFields :: [Field]
     , _cMethod :: [Method]
     }
@@ -101,7 +101,7 @@ instance Show Method where
     show (Method (T.Method _ name _ _ _ _) ss) = printf "    method %s:\n%s" name (unlines $ map show ss)
 
 instance Show Class where
-    show (Class (T.Class name _ _ _) _ ms) = printf "  class %s:\n%s" name (concatMap show ms)
+    show (Class name _ ms) = printf "  class %s:\n%s" name (concatMap show ms)
 
 instance Show Field where
     show (Field (AST.Variable _ name) _) = name
