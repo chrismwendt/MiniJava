@@ -153,7 +153,7 @@ typeCheckExpression p c m e = case e of
     subtype (U.TypeObject name) b@(U.TypeObject name') = if name == name'
         then True
         else case M.lookup name classMap of
-            Just parentClass -> subtype (U.TypeObject (parentClass ^. U.cName)) b
+            Just childClass -> subtype (U.TypeObject (childClass ^. U.cParent)) b
             Nothing -> False
     subtype a b = a == b
 
