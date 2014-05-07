@@ -6,7 +6,6 @@ module SSACompiler where
 import qualified ASTTyped as T
 import qualified AST
 import qualified SSA as S
-import Text.Printf
 import Data.List
 import Data.Functor
 import Control.Applicative
@@ -67,8 +66,8 @@ compileStatement (T.Block ss) = void (mapM compileStatement ss)
 compileStatement axe@(T.If cond branchTrue branchFalse) = do
     cond' <- compileExpression cond
 
-    labelElse <- (printf "l_%d" :: Int -> String) <$> lift nextLabel
-    labelDone <- (printf "l_%d" :: Int -> String) <$> lift nextLabel
+    labelElse <- show <$> lift nextLabel
+    labelDone <- show <$> lift nextLabel
 
     buildStatement (S.NBranch cond' labelElse)
 
@@ -92,8 +91,8 @@ compileStatement axe@(T.If cond branchTrue branchFalse) = do
 
     return ()
 compileStatement (T.While cond body) = do
-    labelStart <- (printf "l_%d" :: Int -> String) <$> lift nextLabel
-    labelEnd <- (printf "l_%d" :: Int -> String) <$> lift nextLabel
+    labelStart <- show <$> lift nextLabel
+    labelEnd <- show <$> lift nextLabel
 
     buildStatement (S.Label labelStart)
 
