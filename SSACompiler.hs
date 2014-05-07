@@ -24,148 +24,143 @@ data CState = CState
 makeLenses ''CState
 
 compile :: T.Program -> (S.Program, M.Map S.ID S.Statement)
-compile program = _2 %~ _stIDToS $ runState compileProgram (CState program M.empty M.empty 0 0)
+compile program = _2 %~ _stIDToS $ runState cProgram (CState program M.empty M.empty 0 0)
 
-compileProgram :: State CState S.Program
-compileProgram = do
-    state <- get
-    let main = state ^. stProgram . T.pMain
-    let classes = state ^. stProgram . T.pClasses
-    S.Program <$> compileClass main <*> mapM compileClass classes
+cProgram :: State CState S.Program
+cProgram = do
+    p <- (^. stProgram) <$> get
+    S.Program <$> cClass (p ^. T.pMain) <*> mapM cClass (p ^. T.pClasses)
 
-compileClass :: T.Class -> State CState S.Class
-compileClass (T.Class name extends vs ms) =
-    S.Class name (map (^. AST.vName) vs) <$> mapM compileMethod ms
+cClass :: T.Class -> State CState S.Class
+cClass (T.Class name extends vs ms) = S.Class name (map (^. AST.vName) vs) <$> mapM cMethod ms
 
-compileMethod :: T.Method -> State CState S.Method
-compileMethod ast@(T.Method t name ps vs ss ret) = do
+cMethod :: T.Method -> State CState S.Method
+cMethod (T.Method t name ps vs ss ret) = do
     modify $ stVarToID .~ M.empty
     (_, w) <- runWriterT $ do
-        ssaParams <- zipWithM (curry $ buildStatement . S.Parameter . snd) ps [0 .. ]
-        ssaVarAssgs <- mapM (buildStatement . S.VarAssg) ssaParams
-        lift $ zipWithM insertVarToID (map (^. AST.vName) ps) ssaVarAssgs
-        mapM compileVariable vs
-        mapM compileStatement ss
-        ret' <- compileExpression ret
-        buildStatement (S.Return ret')
+        zipWithM_ cPar ps [0 .. ]
+        mapM_ cVar vs
+        mapM_ cSt ss
+        build =<< S.Return <$> cExp ret
     return $ S.Method name w
 
-compileVariable :: AST.Variable -> WriterT [S.ID] (State CState) S.ID
-compileVariable (AST.Variable t name) = do
-    r <- buildStatement (S.Null t)
-    modify $ stVarToID %~ M.insert name r
-    return r
+cPar :: AST.Variable -> S.Position -> WriterT [S.ID] (State CState) S.ID
+cPar (AST.Variable _ name) i = do
+    p <- build (S.Parameter i)
+    lift $ bind name p
+    return p
 
-compileStatement :: T.Statement -> WriterT [S.ID] (State CState) ()
-compileStatement (T.Block ss) = void (mapM compileStatement ss)
-compileStatement axe@(T.If cond branchTrue branchFalse) = do
-    cond' <- compileExpression cond
+cVar :: AST.Variable -> WriterT [S.ID] (State CState) S.ID
+cVar (AST.Variable t name) = do
+    n <- build (S.Null t)
+    lift $ bind name n
+    return n
+
+cSt :: T.Statement -> WriterT [S.ID] (State CState) ()
+cSt (T.Block ss) = void (mapM cSt ss)
+cSt axe@(T.If cond branchTrue branchFalse) = do
+    cond' <- cExp cond
 
     labelElse <- show <$> lift nextLabel
     labelDone <- show <$> lift nextLabel
 
-    buildStatement (S.NBranch cond' labelElse)
+    build (S.NBranch cond' labelElse)
 
     preBranchBindings <- (^. stVarToID) <$> get
 
-    compileStatement branchTrue
-    buildStatement (S.Goto labelDone)
-    buildStatement (S.Label labelElse)
+    cSt branchTrue
+    build (S.Goto labelDone)
+    build (S.Label labelElse)
     postTrueBindings <- (^. stVarToID) <$> get
 
     modify $ stVarToID .~ preBranchBindings
-    fromMaybe (return ()) (compileStatement <$> branchFalse)
+    fromMaybe (return ()) (cSt <$> branchFalse)
     postFalseBindings <- (^. stVarToID) <$> get
 
-    buildStatement (S.Label labelDone)
+    build (S.Label labelDone)
 
-    let bindings = M.assocs $ M.intersectionWith (,) postTrueBindings postFalseBindings
-    let mismatches = filter (uncurry (/=) . snd) bindings
-    unifies <- mapM (buildStatement . uncurry S.Unify . snd) mismatches
-    void $ lift $ zipWithM_ insertVarToID (map fst mismatches) unifies
-compileStatement (T.While cond body) = do
+    unify postTrueBindings postFalseBindings
+cSt (T.While cond body) = do
     labelStart <- show <$> lift nextLabel
     labelEnd <- show <$> lift nextLabel
 
-    buildStatement (S.Label labelStart)
+    build (S.Label labelStart)
 
-    preBranchState <- get
-    let preBranchBindings = preBranchState ^. stVarToID
+    preBranchBindings <- (^. stVarToID) <$> get
 
-    cond' <- compileExpression cond
+    cond' <- cExp cond
 
-    buildStatement (S.NBranch cond' labelEnd)
+    build (S.NBranch cond' labelEnd)
 
-    compileStatement body
+    cSt body
 
-    buildStatement (S.Goto labelStart)
-    buildStatement (S.Label labelEnd)
+    build (S.Goto labelStart)
+    build (S.Label labelEnd)
 
     postBranchBindings <- (^. stVarToID) <$> get
 
-    let bindings = M.assocs $ M.intersectionWith (,) preBranchBindings postBranchBindings
-    let mismatches = filter (uncurry (/=) . snd) bindings
-    unifies <- mapM (buildStatement . uncurry S.Unify . snd) mismatches
-    void $ lift $ zipWithM_ insertVarToID (map fst mismatches) unifies
-compileStatement (T.Print e) = do
-    value <- compileExpression e
-    void $ buildStatement (S.Print value)
-compileStatement (T.ExpressionStatement e) = void $ (: []) <$> compileExpression e
+    unify preBranchBindings postBranchBindings
+cSt (T.Print e) = do
+    value <- cExp e
+    void $ build (S.Print value)
+cSt (T.ExpressionStatement e) = void $ (: []) <$> cExp e
 
-compileExpression :: T.Expression -> WriterT [S.ID] (State CState) S.ID
-compileExpression (T.LiteralInt v) = buildStatement (S.SInt v)
-compileExpression (T.LiteralBoolean v) = buildStatement (S.SBoolean v)
-compileExpression (T.MemberAssignment cName object fName value) = do
-    object' <- compileExpression object
-    value' <- compileExpression value
-    buildStatement (S.MemberAssg cName object' fName value')
-compileExpression (T.VariableAssignment name value) = do
+cExp :: T.Expression -> WriterT [S.ID] (State CState) S.ID
+cExp (T.LiteralInt v) = build (S.SInt v)
+cExp (T.LiteralBoolean v) = build (S.SBoolean v)
+cExp (T.MemberAssignment cName object fName value) = do
+    object' <- cExp object
+    value' <- cExp value
+    build (S.MemberAssg cName object' fName value')
+cExp (T.VariableAssignment name value) = do
     bs <- _stVarToID <$> get
     case M.lookup name bs of
         Just s -> do
-            value' <- compileExpression value
-            v <- buildStatement (S.VarAssg value')
-            lift $ insertVarToID name value'
+            value' <- cExp value
+            v <- build (S.VarAssg value')
+            lift $ bind name value'
             return v
         Nothing -> error "Varible not found"
-compileExpression (T.IndexAssignment array index value) = do
-    array' <- compileExpression array
-    index' <- compileExpression index
-    value' <- compileExpression value
-    buildStatement (S.IndexAssg array' index' value')
-compileExpression (T.Binary l op r) = do
-    sl <- compileExpression l
-    sr <- compileExpression r
+cExp (T.IndexAssignment array index value) = do
+    array' <- cExp array
+    index' <- cExp index
+    value' <- cExp value
+    build (S.IndexAssg array' index' value')
+cExp (T.Binary l op r) = do
+    sl <- cExp l
+    sr <- cExp r
     case lookup op binaryOps of
-        Just opConstructor -> buildStatement (opConstructor sl sr)
+        Just opConstructor -> build (opConstructor sl sr)
         Nothing -> error $ "Op " ++ show op ++ " not found in list: " ++ show (map fst binaryOps)
-compileExpression (T.Not e) = do
-    r <- compileExpression e
-    buildStatement (S.Not r)
-compileExpression (T.IndexGet array index) = do
-    array <- compileExpression array
-    index <- compileExpression index
-    buildStatement (S.IndexGet array index)
-compileExpression (T.Call cName object mName args) = do
-    object' <- compileExpression object
+cExp (T.Not e) = build =<< S.Not <$> cExp e
+cExp (T.IndexGet a i) = build =<< S.IndexGet <$> cExp a <*> cExp i
+cExp (T.Call cName object mName args) = do
+    object' <- cExp object
     let makeArg arg i = do
-        target <- compileExpression arg
-        buildStatement (S.Arg target i)
+        target <- cExp arg
+        build (S.Arg target i)
     args' <- zipWithM makeArg args [0 .. ]
-    buildStatement (S.Call cName object' mName args')
-compileExpression (T.MemberGet cName object fName) = do
-    object' <- compileExpression object
-    buildStatement (S.MemberGet cName object' fName)
-compileExpression (T.VariableGet name) = do
+    build (S.Call cName object' mName args')
+cExp (T.MemberGet cName object fName) = do
+    object' <- cExp object
+    build (S.MemberGet cName object' fName)
+cExp (T.VariableGet name) = do
     bs <- _stVarToID <$> get
     case M.lookup name bs of
         Just s -> return s
         Nothing -> error "Varible not found"
-compileExpression (T.NewIntArray size) = do
-    array <- compileExpression size
-    buildStatement (S.NewIntArray array)
-compileExpression (T.NewObject name) = buildStatement (S.NewObj name)
-compileExpression (T.This) = buildStatement S.This
+cExp (T.NewIntArray size) = do
+    array <- cExp size
+    build (S.NewIntArray array)
+cExp (T.NewObject name) = build (S.NewObj name)
+cExp (T.This) = build S.This
+
+unify :: M.Map String S.ID -> M.Map String S.ID -> WriterT [S.ID] (State CState) ()
+unify bs1 bs2 = do
+    let bindings = M.assocs $ M.intersectionWith (,) bs1 bs2
+    let mismatches = filter (uncurry (/=) . snd) bindings
+    unifies <- mapM (build . uncurry S.Unify . snd) mismatches
+    void $ lift $ zipWithM_ bind (map fst mismatches) unifies
 
 binaryOps :: [(AST.BinaryOperator, S.ID -> S.ID -> S.Statement)]
 binaryOps =
@@ -190,12 +185,12 @@ nextID = state $ \s -> (s ^. stNextID, stNextID %~ succ $ s)
 nextLabel :: State CState Int
 nextLabel = state $ \s -> (s ^. stNextLabel, stNextLabel %~ succ $ s)
 
-buildStatement :: S.Statement -> WriterT [S.ID] (State CState) S.ID
-buildStatement op = do
+build :: S.Statement -> WriterT [S.ID] (State CState) S.ID
+build op = do
     id <- lift nextID
     tell [id]
     lift $ modify $ stIDToS %~ M.insert id op
     return id
 
-insertVarToID :: String -> S.ID -> State CState ()
-insertVarToID name id = modify $ stVarToID %~ M.insert name id
+bind :: String -> S.ID -> State CState ()
+bind name id = modify $ stVarToID %~ M.insert name id
