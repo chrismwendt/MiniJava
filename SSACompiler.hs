@@ -60,45 +60,30 @@ cSt :: T.Statement -> WriterT [S.ID] (State CState) ()
 cSt (T.Block ss) = void (mapM cSt ss)
 cSt axe@(T.If cond branchTrue branchFalse) = do
     cond' <- cExp cond
-
     labelElse <- show <$> lift nextLabel
     labelDone <- show <$> lift nextLabel
-
     build (S.NBranch cond' labelElse)
-
     preBranchBindings <- (^. stVarToID) <$> get
-
     cSt branchTrue
     build (S.Goto labelDone)
     build (S.Label labelElse)
     postTrueBindings <- (^. stVarToID) <$> get
-
     modify $ stVarToID .~ preBranchBindings
     fromMaybe (return ()) (cSt <$> branchFalse)
     postFalseBindings <- (^. stVarToID) <$> get
-
     build (S.Label labelDone)
-
     unify postTrueBindings postFalseBindings
 cSt (T.While cond body) = do
     labelStart <- show <$> lift nextLabel
     labelEnd <- show <$> lift nextLabel
-
     build (S.Label labelStart)
-
     preBranchBindings <- (^. stVarToID) <$> get
-
     cond' <- cExp cond
-
     build (S.NBranch cond' labelEnd)
-
     cSt body
-
     build (S.Goto labelStart)
     build (S.Label labelEnd)
-
     postBranchBindings <- (^. stVarToID) <$> get
-
     unify preBranchBindings postBranchBindings
 cSt (T.Print e) = do
     value <- cExp e
