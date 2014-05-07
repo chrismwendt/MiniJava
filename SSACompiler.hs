@@ -121,7 +121,11 @@ cExp (T.VariableAssignment name value) = do
             lift $ bind name v
             return v
         Nothing -> error "Varible not found"
-cExp (T.IndexAssignment array index value) = build =<< S.IndexAssg <$> cExp array <*> cExp index <*> cExp value
+cExp (T.IndexAssignment array index value) = do
+    array' <- cExp array
+    index' <- cExp index
+    value' <- cExp value
+    build (S.IndexAssg array' index' value')
 cExp (T.Binary l op r) = case lookup op binaryOps of
     Just opConstructor -> build =<< opConstructor <$> cExp l <*> cExp r
     Nothing -> error $ "Op " ++ show op ++ " not found in list: " ++ show (map fst binaryOps)
