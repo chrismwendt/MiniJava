@@ -20,9 +20,9 @@ import Control.Lens
 
 data CState = CState
     { _stProgram :: T.Program
-    , _stNextID :: S.ID
     , _stVarToID :: M.Map String S.ID
     , _stIDToS :: M.Map S.ID S.Statement
+    , _stNextID :: S.ID
     , _stNextLabel :: Int
     }
 
@@ -46,6 +46,30 @@ compileProgram = do
     let main = state ^. stProgram . T.pMain
     let classes = state ^. stProgram . T.pClasses
     S.Program program <$> compileClass main <*> mapM compileClass classes
+
+compileClass :: T.Class -> State CState S.Class
+compileClass ast@(T.Class name extends vs ms) =
+    S.Class ast (zipWith S.Field vs [0 .. ]) <$> mapM compileMethod ms
+
+compileMethod :: T.Method -> State CState S.Method
+compileMethod ast@(T.Method t name ps vs ss ret) = do
+    modify $ stVarToID .~ M.empty
+    (a, w) <- runWriterT $ do
+        ssaParams <- zipWithM (curry $ buildStatement . S.Parameter . snd) ps [0 .. ]
+        ssaVarAssgs <- mapM (buildStatement . S.VarAssg) ssaParams
+        lift $ zipWithM insertVarToID (map (^. AST.vName) ps) ssaVarAssgs
+        mapM compileVariable vs
+        mapM compileStatement ss
+        ret' <- compileExpression ret
+        buildStatement (S.Return ret')
+        return ()
+    return $ S.Method ast w
+
+compileVariable :: AST.Variable -> WriterT [S.ID] (State CState) S.ID
+compileVariable (AST.Variable t name) = do
+    r <- buildStatement (S.Null t)
+    modify $ stVarToID %~ M.insert name r
+    return r
 
 compileStatement :: T.Statement -> WriterT [S.ID] (State CState) ()
 compileStatement (T.Block ss) = void (mapM compileStatement ss)
@@ -164,30 +188,6 @@ compileExpression (T.NewIntArray size) = do
     buildStatement (S.NewIntArray array)
 compileExpression (T.NewObject name) = buildStatement (S.NewObj name)
 compileExpression (T.This) = buildStatement S.This
-
-compileClass :: T.Class -> State CState S.Class
-compileClass ast@(T.Class name extends vs ms) =
-    S.Class ast (zipWith S.Field vs [0 .. ]) <$> mapM compileMethod ms
-
-compileMethod :: T.Method -> State CState S.Method
-compileMethod ast@(T.Method t name ps vs ss ret) = do
-    modify $ stVarToID .~ M.empty
-    (a, w) <- runWriterT $ do
-        ssaParams <- zipWithM (curry $ buildStatement . S.Parameter . snd) ps [0 .. ]
-        ssaVarAssgs <- mapM (buildStatement . S.VarAssg) ssaParams
-        lift $ zipWithM insertVarToID (map (^. AST.vName) ps) ssaVarAssgs
-        mapM compileVariable vs
-        mapM compileStatement ss
-        ret' <- compileExpression ret
-        buildStatement (S.Return ret')
-        return ()
-    return $ S.Method ast w
-
-compileVariable :: AST.Variable -> WriterT [S.ID] (State CState) S.ID
-compileVariable (AST.Variable t name) = do
-    r <- buildStatement (S.Null t)
-    modify $ stVarToID %~ M.insert name r
-    return r
 
 binaryOps :: [(AST.BinaryOperator, S.ID -> S.ID -> S.Statement)]
 binaryOps =
