@@ -28,6 +28,10 @@ data Class = Class
     }
     deriving (Show)
 
+-- TODO consider storing statements in a graph
+-- EdgeLabel = Step | Jump
+-- flatten the graph into a list later
+
 data Method = Method
     { _mName :: String
     , _mStatements :: [ID]
