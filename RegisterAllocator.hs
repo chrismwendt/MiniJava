@@ -18,7 +18,8 @@ import Control.Lens
 type VID = Int
 
 data RState = RState
-    { _stVIDToVar :: SM.SetMap VID S.ID
+    { _stSIDToVID :: M.Map S.ID VID
+    , _stVIDToVar :: SM.SetMap VID S.ID
     }
 
 makeLenses ''RState
@@ -33,10 +34,10 @@ aClass :: Int -> S.Program -> S.Class -> R.Class
 aClass n program c@(S.Class name fs ms) = R.Class name fs (map (aMethod program c) ms)
 
 aMethod :: S.Program -> S.Class -> S.Method -> R.Method
-aMethod program c (S.Method name ss m) = R.Method name ss' m'
+aMethod program c (S.Method name ss m) = R.Method name ss m'
     where
-    ss' = undefined
-    m' = undefined
+    m' = foldr f M.empty ss
+    f s = M.insert s (toRegister (fromJust $ M.lookup s m) 0)
 
 toRegister :: S.Statement -> R.Register -> R.Statement
 toRegister s r = case s of
