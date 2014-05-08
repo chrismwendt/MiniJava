@@ -38,9 +38,7 @@ data Method = Method
     deriving (Show)
 
 data Statement =
-      Unify ID ID
-
-    | Store ID Offset
+      Store ID Offset
     | Load Offset Register
 
     | Null AST.Type Register
