@@ -37,10 +37,10 @@ aMethod :: S.Program -> S.Class -> S.Method -> R.Method
 aMethod program c (S.Method name ss m) = R.Method name ss m'
     where
     m' = foldr f M.empty ss
-    f s = M.insert s (toRegister (fromJust $ M.lookup s m) 0)
+    f s = M.insert s (withRegister (fromJust $ M.lookup s m) 0)
 
-toRegister :: S.Statement -> R.Register -> R.Statement
-toRegister s r = case s of
+withRegister :: S.Statement -> R.Register -> R.Statement
+withRegister s r = case s of
     S.Load offset            -> R.Load offset r
     S.Null t                 -> R.Null t r
     S.NewObj s1              -> R.NewObj s1 r
@@ -70,3 +70,15 @@ toRegister s r = case s of
     S.Div i1 i2              -> R.Div i1 i2 r
     S.Mod i1 i2              -> R.Mod i1 i2 r
     _                        -> error $ show s ++ " cannot have a register"
+
+withoutRegister :: S.Statement -> R.Register -> R.Statement
+withoutRegister (Unify i1 i2) = R.Unify i1 i2
+withoutRegister (Store i1 offset) = Store i1 offset
+withoutRegister (Label label) = Label label
+withoutRegister (Goto label) = Goto label
+withoutRegister (Branch i1 label) = Branch i1 label
+withoutRegister (NBranch i1 label) = NBranch i1 label
+withoutRegister (Arg i1 Position) = Arg i1 Position
+withoutRegister (Return i1) = Return i1
+withoutRegister (Print i1) = Print i1
+withoutRegister s = error $ show s ++ " needs a register"
