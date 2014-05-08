@@ -39,46 +39,41 @@ aMethod program c (S.Method name ss m) = R.Method name ss m'
     m' = foldr f M.empty ss
     f s = M.insert s (withRegister (fromJust $ M.lookup s m) 0)
 
-withRegister :: S.Statement -> R.Register -> R.Statement
-withRegister s r = case s of
-    S.Load offset            -> R.Load offset r
-    S.Null t                 -> R.Null t r
-    S.NewObj s1              -> R.NewObj s1 r
-    S.NewIntArray i1         -> R.NewIntArray i1 r
-    S.This                   -> R.This r
-    S.SInt v                 -> R.SInt v r
-    S.SBoolean v             -> R.SBoolean v r
-    S.Parameter i1           -> R.Parameter i1 r
-    S.Call s1 i1 s2 is       -> R.Call s1 i1 s2 is r
-    S.MemberGet s1 i1 s2     -> R.MemberGet s1 i1 s2 r
-    S.MemberAssg s1 i1 s2 i2 -> R.MemberAssg s1 i1 s2 i2 r
-    S.VarAssg i1             -> R.VarAssg i1 r
-    S.IndexGet i1 i2         -> R.IndexGet i1 i2 r
-    S.IndexAssg i1 i2 i3     -> R.IndexAssg i1 i2 i3 r
-    S.Not i1                 -> R.Not i1 r
-    S.Lt i1 i2               -> R.Lt i1 i2 r
-    S.Le i1 i2               -> R.Le i1 i2 r
-    S.Eq i1 i2               -> R.Eq i1 i2 r
-    S.Ne i1 i2               -> R.Ne i1 i2 r
-    S.Gt i1 i2               -> R.Gt i1 i2 r
-    S.Ge i1 i2               -> R.Ge i1 i2 r
-    S.And i1 i2              -> R.And i1 i2 r
-    S.Or i1 i2               -> R.Or i1 i2 r
-    S.Plus i1 i2             -> R.Plus i1 i2 r
-    S.Minus i1 i2            -> R.Minus i1 i2 r
-    S.Mul i1 i2              -> R.Mul i1 i2 r
-    S.Div i1 i2              -> R.Div i1 i2 r
-    S.Mod i1 i2              -> R.Mod i1 i2 r
-    _                        -> error $ show s ++ " cannot have a register"
-
-withoutRegister :: S.Statement -> R.Register -> R.Statement
-withoutRegister (Unify i1 i2) = R.Unify i1 i2
-withoutRegister (Store i1 offset) = Store i1 offset
-withoutRegister (Label label) = Label label
-withoutRegister (Goto label) = Goto label
-withoutRegister (Branch i1 label) = Branch i1 label
-withoutRegister (NBranch i1 label) = NBranch i1 label
-withoutRegister (Arg i1 Position) = Arg i1 Position
-withoutRegister (Return i1) = Return i1
-withoutRegister (Print i1) = Print i1
-withoutRegister s = error $ show s ++ " needs a register"
+withRegister :: S.Statement -> Either (R.Register -> R.Statement) R.Statement
+withRegister (S.Load offset)            = Left  $ R.Load offset
+withRegister (S.Null t)                 = Left  $ R.Null t
+withRegister (S.NewObj s1)              = Left  $ R.NewObj s1
+withRegister (S.NewIntArray i1)         = Left  $ R.NewIntArray i1
+withRegister (S.This)                   = Left  $ R.This
+withRegister (S.SInt v)                 = Left  $ R.SInt v
+withRegister (S.SBoolean v)             = Left  $ R.SBoolean v
+withRegister (S.Parameter i1)           = Left  $ R.Parameter i1
+withRegister (S.Call s1 i1 s2 is)       = Left  $ R.Call s1 i1 s2 is
+withRegister (S.MemberGet s1 i1 s2)     = Left  $ R.MemberGet s1 i1 s2
+withRegister (S.MemberAssg s1 i1 s2 i2) = Left  $ R.MemberAssg s1 i1 s2 i2
+withRegister (S.VarAssg i1)             = Left  $ R.VarAssg i1
+withRegister (S.IndexGet i1 i2)         = Left  $ R.IndexGet i1 i2
+withRegister (S.IndexAssg i1 i2 i3)     = Left  $ R.IndexAssg i1 i2 i3
+withRegister (S.Not i1)                 = Left  $ R.Not i1
+withRegister (S.Lt i1 i2)               = Left  $ R.Lt i1 i2
+withRegister (S.Le i1 i2)               = Left  $ R.Le i1 i2
+withRegister (S.Eq i1 i2)               = Left  $ R.Eq i1 i2
+withRegister (S.Ne i1 i2)               = Left  $ R.Ne i1 i2
+withRegister (S.Gt i1 i2)               = Left  $ R.Gt i1 i2
+withRegister (S.Ge i1 i2)               = Left  $ R.Ge i1 i2
+withRegister (S.And i1 i2)              = Left  $ R.And i1 i2
+withRegister (S.Or i1 i2)               = Left  $ R.Or i1 i2
+withRegister (S.Plus i1 i2)             = Left  $ R.Plus i1 i2
+withRegister (S.Minus i1 i2)            = Left  $ R.Minus i1 i2
+withRegister (S.Mul i1 i2)              = Left  $ R.Mul i1 i2
+withRegister (S.Div i1 i2)              = Left  $ R.Div i1 i2
+withRegister (S.Mod i1 i2)              = Left  $ R.Mod i1 i2
+withRegister (S.Store i1 offset)        = Right $ R.Store i1 offset
+withRegister (S.Label label)            = Right $ R.Label label
+withRegister (S.Goto label)             = Right $ R.Goto label
+withRegister (S.Branch i1 label)        = Right $ R.Branch i1 label
+withRegister (S.NBranch i1 label)       = Right $ R.NBranch i1 label
+withRegister (S.Arg i1 p)               = Right $ R.Arg i1 p
+withRegister (S.Return i1)              = Right $ R.Return i1
+withRegister (S.Print i1)               = Right $ R.Print i1
+withRegister (S.Unify _ _)              = error "Unify should have been eliminated"
