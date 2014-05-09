@@ -16,7 +16,7 @@ import qualified Data.Graph.Inductive as G
 
 data CState = CState
     { _stVarToID :: M.Map String S.ID
-    , _stControlFlow :: G.Gr S.Statement S.EdgeType
+    , _stGraph :: G.Gr S.Statement S.EdgeType
     , _stPrevID :: S.ID
     }
 
@@ -40,8 +40,8 @@ cMethod (T.Method _ name ps vs ss ret) = evalState f initialState
         mapM_ cVar vs
         mapM_ cSt ss
         build =<< S.Return <$> cExp ret
-        flow <- _stControlFlow <$> get
-        return $ S.Method name flow
+        graph <- _stGraph <$> get
+        return $ S.Method name graph
 
 cPar :: AST.Variable -> S.Position -> State CState S.ID
 cPar (AST.Variable _ name) i = build (S.Parameter i) >>= bind name
@@ -54,9 +54,9 @@ cSt (T.Block ss) = void (mapM cSt ss)
 cSt (T.If cond branchTrue branchFalse) = do
     cond' <- cExp cond
 
-    [elseID, doneID] <- G.newNodes 2 . _stControlFlow <$> get
-    modify $ stControlFlow %~ (([], elseID, S.Label, []) G.&)
-    modify $ stControlFlow %~ (([], doneID, S.Label, []) G.&)
+    [elseID, doneID] <- G.newNodes 2 . _stGraph <$> get
+    modify $ stGraph %~ (([], elseID, S.Label, []) G.&)
+    modify $ stGraph %~ (([], doneID, S.Label, []) G.&)
 
     buildSucc (S.NBranch cond') (S.Jump, elseID)
 
@@ -71,13 +71,13 @@ cSt (T.If cond branchTrue branchFalse) = do
     postFalseBindings <- _stVarToID <$> get
 
     pID <- _stPrevID <$> get
-    modify $ stControlFlow %~ G.insEdge (pID, doneID, S.Step)
+    modify $ stGraph %~ G.insEdge (pID, doneID, S.Step)
     modify $ stPrevID .~ doneID
 
     unify postTrueBindings postFalseBindings
 cSt (T.While cond body) = do
-    [endID] <- G.newNodes 1 . _stControlFlow <$> get
-    modify $ stControlFlow %~ (([], endID, S.Label, []) G.&)
+    [endID] <- G.newNodes 1 . _stGraph <$> get
+    modify $ stGraph %~ (([], endID, S.Label, []) G.&)
 
     startID <- build (S.Label)
     preBranchBindings <- _stVarToID <$> get
@@ -86,7 +86,7 @@ cSt (T.While cond body) = do
     cSt body
     buildSucc (S.Goto) (S.Jump, startID)
     pID <- _stPrevID <$> get
-    modify $ stControlFlow %~ G.insEdge (pID, endID, S.Step)
+    modify $ stGraph %~ G.insEdge (pID, endID, S.Step)
     modify $ stPrevID .~ endID
     postBranchBindings <- _stVarToID <$> get
 
@@ -156,17 +156,17 @@ binaryOps =
 
 buildSucc :: S.Statement -> (S.EdgeType, S.ID) -> State CState S.ID
 buildSucc s su = do
-    sID <- head . G.newNodes 1 . _stControlFlow <$> get
+    sID <- head . G.newNodes 1 . _stGraph <$> get
     pID <- _stPrevID <$> get
-    modify $ stControlFlow %~ (([(S.Step, pID)], sID, s, [su]) G.&)
+    modify $ stGraph %~ (([(S.Step, pID)], sID, s, [su]) G.&)
     modify $ stPrevID .~ sID
     return sID
 
 build :: S.Statement -> State CState S.ID
 build s = do
-    sID <- head . G.newNodes 1 . _stControlFlow <$> get
+    sID <- head . G.newNodes 1 . _stGraph <$> get
     pID <- _stPrevID <$> get
-    modify $ stControlFlow %~ (([(S.Step, pID)], sID, s, []) G.&)
+    modify $ stGraph %~ (([(S.Step, pID)], sID, s, []) G.&)
     modify $ stPrevID .~ sID
     return sID
 
