@@ -23,10 +23,7 @@ data CState = CState
 makeLenses ''CState
 
 compile :: T.Program -> S.Program
-compile program = cProgram program
-
-cProgram :: T.Program -> S.Program
-cProgram (T.Program m cs) = S.Program (cClass m) (map cClass cs)
+compile (T.Program m cs) = S.Program (cClass m) (map cClass cs)
 
 cClass :: T.Class -> S.Class
 cClass (T.Class name extends vs ms) = S.Class name (map AST._vName vs) (map cMethod ms)
