@@ -6,10 +6,6 @@ class If {
             } else {
                 System.out.println(0);
             }
-
-            if (true) {
-                System.out.println(1337);
-            }
         }
     }
 }
