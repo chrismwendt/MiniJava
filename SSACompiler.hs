@@ -119,7 +119,9 @@ cExp (T.Call cName object mName args) = do
     object' <- cExp object
     args' <- zipWithM (\arg i -> buildStep =<< S.Arg <$> cExp arg <*> pure i) args [0 .. ]
     buildStep (S.Call cName object' mName args')
-cExp (T.MemberGet cName object fName) = buildStep =<< S.MemberGet cName <$> cExp object <*> pure fName
+cExp (T.MemberGet cName object fName) = do
+    object' <- cExp object
+    buildStep $ S.MemberGet cName object' fName
 cExp (T.VariableGet name) = do
     bs <- _stVarToID <$> get
     case M.lookup name bs of
