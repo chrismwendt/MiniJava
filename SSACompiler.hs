@@ -104,7 +104,6 @@ cExp (T.MemberAssignment cName object fName value) = do
     value' <- cExp value
     build (S.MemberAssg cName object' fName value')
 cExp (T.VariableAssignment name value) = do
-    -- TODO consider removing VarAssg and bind name to the RHS
     v <- build =<< S.VarAssg <$> cExp value
     bind name v
 cExp (T.IndexAssignment array index value) = do
