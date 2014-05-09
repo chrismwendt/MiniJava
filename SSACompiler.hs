@@ -31,7 +31,7 @@ cProgram (T.Program m cs) = S.Program <$> cClass m <*> mapM cClass cs
 
 cClass :: T.Class -> State CState S.Class
 cClass (T.Class name extends vs ms) = S.Class name (map (^. AST.vName) vs) <$> mapM cMethod ms
-data Hole = Hole
+
 cMethod :: T.Method -> State CState S.Method
 cMethod (T.Method t name ps vs ss ret) = do
     modify $ stVarToID .~ M.empty
