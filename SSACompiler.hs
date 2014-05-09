@@ -14,9 +14,11 @@ import Data.Maybe
 import Control.Lens
 import qualified Data.Graph.Inductive as G
 
+type Graph = G.Gr S.Statement S.EdgeType
+
 data CState = CState
     { _stVarToID :: M.Map String S.ID
-    , _stGraph :: G.Gr S.Statement S.EdgeType
+    , _stGraph :: Graph
     , _stPrevID :: S.ID
     }
 
