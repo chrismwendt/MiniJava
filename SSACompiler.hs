@@ -52,8 +52,7 @@ cSt (T.If cond branchTrue branchFalse) = do
     cond' <- cExp cond
 
     [elseID, doneID] <- G.newNodes 2 . _stGraph <$> get
-    modify $ stGraph %~ (([], elseID, S.Label, []) G.&)
-    modify $ stGraph %~ (([], doneID, S.Label, []) G.&)
+    modify $ stGraph %~ G.insNodes [(elseID, S.Label), (doneID, S.Label)]
 
     buildSucc (S.NBranch cond') (S.Jump, elseID)
 
@@ -74,7 +73,7 @@ cSt (T.If cond branchTrue branchFalse) = do
     unify postTrueBindings postFalseBindings
 cSt (T.While cond body) = do
     [endID] <- G.newNodes 1 . _stGraph <$> get
-    modify $ stGraph %~ (([], endID, S.Label, []) G.&)
+    modify $ stGraph %~ G.insNode (endID, S.Label)
 
     startID <- build (S.Label)
     preBranchBindings <- _stVarToID <$> get
