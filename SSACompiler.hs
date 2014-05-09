@@ -18,13 +18,13 @@ data CState = CState
     { _stProgram :: T.Program
     , _stVarToID :: M.Map String S.ID
     , _stControlFlow :: G.Gr S.Statement S.EdgeType
-    , _stPrevID :: Maybe S.ID
+    , _stPrevID :: S.ID
     }
 
 makeLenses ''CState
 
 compile :: T.Program -> S.Program
-compile program = evalState (cProgram program) (CState program M.empty G.empty Nothing)
+compile program = evalState (cProgram program) (CState program M.empty G.empty 0)
 
 cProgram :: T.Program -> State CState S.Program
 cProgram (T.Program m cs) = S.Program <$> cClass m <*> mapM cClass cs
@@ -36,7 +36,7 @@ cMethod :: T.Method -> State CState S.Method
 cMethod (T.Method t name ps vs ss ret) = do
     modify $ stVarToID .~ M.empty
     modify $ stControlFlow .~ (([], 0, S.BeginMethod, []) G.& G.empty)
-    modify $ stPrevID .~ Just 0
+    modify $ stPrevID .~ 0
     zipWithM_ cPar ps [0 .. ]
     mapM_ cVar vs
     mapM_ cSt ss
@@ -63,7 +63,7 @@ cSt (T.If cond branchTrue branchFalse) = do
     preBranchBindings <- (^. stVarToID) <$> get
     cSt branchTrue
     buildSucc (S.Goto) (S.Jump, doneID)
-    modify $ stPrevID .~ Just elseID
+    modify $ stPrevID .~ elseID
     postTrueBindings <- (^. stVarToID) <$> get
 
     modify $ stVarToID .~ preBranchBindings
@@ -71,8 +71,8 @@ cSt (T.If cond branchTrue branchFalse) = do
     postFalseBindings <- (^. stVarToID) <$> get
 
     pID <- (^. stPrevID) <$> get
-    modify $ stControlFlow %~ G.insEdge (fromJust pID, doneID, S.Step)
-    modify $ stPrevID .~ Just doneID
+    modify $ stControlFlow %~ G.insEdge (pID, doneID, S.Step)
+    modify $ stPrevID .~ doneID
 
     unify postTrueBindings postFalseBindings
 cSt (T.While cond body) = do
@@ -86,8 +86,8 @@ cSt (T.While cond body) = do
     cSt body
     buildSucc (S.Goto) (S.Jump, startID)
     pID <- (^. stPrevID) <$> get
-    modify $ stControlFlow %~ G.insEdge (fromJust pID, endID, S.Step)
-    modify $ stPrevID .~ Just endID
+    modify $ stControlFlow %~ G.insEdge (pID, endID, S.Step)
+    modify $ stPrevID .~ endID
     postBranchBindings <- (^. stVarToID) <$> get
 
     unify preBranchBindings postBranchBindings
@@ -159,18 +159,16 @@ buildSucc :: S.Statement -> (S.EdgeType, S.ID) -> State CState S.ID
 buildSucc s su = do
     sID <- head . G.newNodes 1 . (^. stControlFlow) <$> get
     pID <- (^. stPrevID) <$> get
-    let p = maybeToList $ (\p -> (S.Step, p)) <$> pID
-    modify $ stControlFlow %~ ((p, sID, s, [su]) G.&)
-    modify $ stPrevID .~ Just sID
+    modify $ stControlFlow %~ (([(S.Step, pID)], sID, s, [su]) G.&)
+    modify $ stPrevID .~ sID
     return sID
 
 build :: S.Statement -> State CState S.ID
 build s = do
     sID <- head . G.newNodes 1 . (^. stControlFlow) <$> get
     pID <- (^. stPrevID) <$> get
-    let p = maybeToList $ (\p -> (S.Step, p)) <$> pID
-    modify $ stControlFlow %~ ((p, sID, s, []) G.&)
-    modify $ stPrevID .~ Just sID
+    modify $ stControlFlow %~ (([(S.Step, pID)], sID, s, []) G.&)
+    modify $ stPrevID .~ sID
     return sID
 
 bind :: String -> S.ID -> State CState S.ID
