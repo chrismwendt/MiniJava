@@ -8,7 +8,6 @@ import qualified SSA as S
 import Data.Functor
 import Control.Applicative
 import Control.Monad.State
-import Control.Monad.Writer
 import qualified Data.Map as M
 import Data.Maybe
 import Control.Lens
@@ -28,7 +27,7 @@ compile :: T.Program -> S.Program
 compile (T.Program m cs) = S.Program (cClass m) (map cClass cs)
 
 cClass :: T.Class -> S.Class
-cClass (T.Class name extends vs ms) = S.Class name (map AST._vName vs) (map cMethod ms)
+cClass (T.Class name _ vs ms) = S.Class name (map AST._vName vs) (map cMethod ms)
 
 cMethod :: T.Method -> S.Method
 cMethod (T.Method _ name ps vs ss ret) = evalState f initialState
@@ -170,7 +169,7 @@ buildWithPrevs prevs s = do
     return sID
 
 bind :: String -> S.ID -> State CState S.ID
-bind name id = modify (stVarToID %~ M.insert name id) >> return id
+bind name sID = modify (stVarToID %~ M.insert name sID) >> return sID
 
 modifyGraph :: (Graph -> Graph) -> State CState ()
 modifyGraph f =  modify $ stGraph %~ f
