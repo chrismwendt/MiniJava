@@ -15,8 +15,7 @@ import Control.Lens
 import qualified Data.Graph.Inductive as G
 
 data CState = CState
-    { _stProgram :: T.Program
-    , _stVarToID :: M.Map String S.ID
+    { _stVarToID :: M.Map String S.ID
     , _stControlFlow :: G.Gr S.Statement S.EdgeType
     , _stPrevID :: S.ID
     }
@@ -24,24 +23,25 @@ data CState = CState
 makeLenses ''CState
 
 compile :: T.Program -> S.Program
-compile program = evalState (cProgram program) (CState program M.empty G.empty 0)
+compile program = cProgram program
 
-cProgram :: T.Program -> State CState S.Program
-cProgram (T.Program m cs) = S.Program <$> cClass m <*> mapM cClass cs
+cProgram :: T.Program -> S.Program
+cProgram (T.Program m cs) = S.Program (cClass m) (map cClass cs)
 
-cClass :: T.Class -> State CState S.Class
-cClass (T.Class name extends vs ms) = S.Class name (map (^. AST.vName) vs) <$> mapM cMethod ms
+cClass :: T.Class -> S.Class
+cClass (T.Class name extends vs ms) = S.Class name (map AST._vName vs) (map cMethod ms)
 
-cMethod :: T.Method -> State CState S.Method
-cMethod (T.Method t name ps vs ss ret) = do
-    modify $ stVarToID .~ M.empty
-    modify $ stControlFlow .~ (([], 0, S.BeginMethod, []) G.& G.empty)
-    modify $ stPrevID .~ 0
-    zipWithM_ cPar ps [0 .. ]
-    mapM_ cVar vs
-    mapM_ cSt ss
-    build =<< S.Return <$> cExp ret
-    return =<< S.Method name . (^. stControlFlow) <$> get
+cMethod :: T.Method -> S.Method
+cMethod (T.Method _ name ps vs ss ret) = evalState f initialState
+    where
+    initialState = (CState M.empty (G.mkGraph [(0, S.BeginMethod)] []) 0)
+    f = do
+        zipWithM_ cPar ps [0 .. ]
+        mapM_ cVar vs
+        mapM_ cSt ss
+        build =<< S.Return <$> cExp ret
+        flow <- _stControlFlow <$> get
+        return $ S.Method name flow
 
 cPar :: AST.Variable -> S.Position -> State CState S.ID
 cPar (AST.Variable _ name) i = build (S.Parameter i) >>= bind name
