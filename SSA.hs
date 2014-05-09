@@ -8,6 +8,7 @@ import qualified Data.Map as M
 import Control.Lens
 import Text.Printf
 import Data.List
+import Data.Graph.Inductive
 
 type ID = Int
 
@@ -28,19 +29,18 @@ data Class = Class
     }
     deriving (Show)
 
--- TODO consider storing statements in a graph
--- EdgeLabel = Step | Jump
--- flatten the graph into a list later
-
 data Method = Method
     { _mName :: String
-    , _mStatements :: [ID]
-    , _mIDToS :: M.Map ID Statement
+    , _mControlFlow :: Gr Statement EdgeType
     }
     deriving (Show)
 
+data EdgeType = Step | Jump deriving (Show)
+
 data Statement =
-      Unify ID ID
+      BeginMethod
+
+    | Unify ID ID
 
     | Store ID Offset
     | Load Offset
@@ -52,10 +52,10 @@ data Statement =
     | SInt Int
     | SBoolean Bool
 
-    | Label String
-    | Goto String
-    | Branch ID String
-    | NBranch ID String
+    | Label
+    | Goto
+    | Branch ID
+    | NBranch ID
 
     | Parameter ID
     | Arg ID Position

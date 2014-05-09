@@ -12,85 +12,91 @@ import Control.Monad.Writer
 import qualified Data.Map as M
 import Data.Maybe
 import Control.Lens
+import qualified Data.Graph.Inductive as G
 
 data CState = CState
     { _stProgram :: T.Program
     , _stVarToID :: M.Map String S.ID
-    , _stIDToS :: M.Map S.ID S.Statement
-    , _stNextID :: S.ID
-    , _stNextLabel :: Int
+    , _stControlFlow :: G.Gr S.Statement S.EdgeType
+    , _stPrevID :: Maybe S.ID
     }
 
 makeLenses ''CState
 
 compile :: T.Program -> S.Program
-compile program = evalState (cProgram program) (CState program M.empty M.empty 0 0)
+compile program = evalState (cProgram program) (CState program M.empty G.empty Nothing)
 
 cProgram :: T.Program -> State CState S.Program
 cProgram (T.Program m cs) = S.Program <$> cClass m <*> mapM cClass cs
 
 cClass :: T.Class -> State CState S.Class
 cClass (T.Class name extends vs ms) = S.Class name (map (^. AST.vName) vs) <$> mapM cMethod ms
-
+data Hole = Hole
 cMethod :: T.Method -> State CState S.Method
 cMethod (T.Method t name ps vs ss ret) = do
     modify $ stVarToID .~ M.empty
-    modify $ stIDToS .~ M.empty
-    modify $ stNextID .~ 0
-    (_, w) <- runWriterT $ do
-        zipWithM_ cPar ps [0 .. ]
-        mapM_ cVar vs
-        mapM_ cSt ss
-        build =<< S.Return <$> cExp ret
-    S.Method name w . (^. stIDToS) <$> get
+    modify $ stControlFlow .~ (([], 0, S.BeginMethod, []) G.& G.empty)
+    modify $ stPrevID .~ Just 0
+    zipWithM_ cPar ps [0 .. ]
+    mapM_ cVar vs
+    mapM_ cSt ss
+    build =<< S.Return <$> cExp ret
+    return =<< S.Method name . (^. stControlFlow) <$> get
 
-cPar :: AST.Variable -> S.Position -> WriterT [S.ID] (State CState) S.ID
-cPar (AST.Variable _ name) i = do
-    p <- build (S.Parameter i)
-    lift $ bind name p
-    return p
+cPar :: AST.Variable -> S.Position -> State CState S.ID
+cPar (AST.Variable _ name) i = build (S.Parameter i) >>= bind name
 
-cVar :: AST.Variable -> WriterT [S.ID] (State CState) S.ID
-cVar (AST.Variable t name) = do
-    n <- build (S.Null t)
-    lift $ bind name n
-    return n
+cVar :: AST.Variable -> State CState S.ID
+cVar (AST.Variable t name) = build (S.Null t) >>= bind name
 
-cSt :: T.Statement -> WriterT [S.ID] (State CState) ()
+cSt :: T.Statement -> State CState ()
 cSt (T.Block ss) = void (mapM cSt ss)
 cSt (T.If cond branchTrue branchFalse) = do
     cond' <- cExp cond
-    labelElse <- show <$> lift nextLabel
-    labelDone <- show <$> lift nextLabel
-    build (S.NBranch cond' labelElse)
+
+    [elseID, doneID] <- G.newNodes 2 . (^. stControlFlow) <$> get
+    modify $ stControlFlow %~ (([], elseID, S.Label, []) G.&)
+    modify $ stControlFlow %~ (([], doneID, S.Label, []) G.&)
+
+    buildSucc (S.NBranch cond') (S.Jump, elseID)
+
     preBranchBindings <- (^. stVarToID) <$> get
     cSt branchTrue
-    build (S.Goto labelDone)
-    build (S.Label labelElse)
+    buildSucc (S.Goto) (S.Jump, doneID)
+    modify $ stPrevID .~ Just elseID
     postTrueBindings <- (^. stVarToID) <$> get
+
     modify $ stVarToID .~ preBranchBindings
     fromMaybe (return ()) (cSt <$> branchFalse)
     postFalseBindings <- (^. stVarToID) <$> get
-    build (S.Label labelDone)
+
+    pID <- (^. stPrevID) <$> get
+    modify $ stControlFlow %~ G.insEdge (fromJust pID, doneID, S.Step)
+    modify $ stPrevID .~ Just doneID
+
     unify postTrueBindings postFalseBindings
 cSt (T.While cond body) = do
-    labelStart <- show <$> lift nextLabel
-    labelEnd <- show <$> lift nextLabel
-    build (S.Label labelStart)
+    [endID] <- G.newNodes 1 . (^. stControlFlow) <$> get
+    modify $ stControlFlow %~ (([], endID, S.Label, []) G.&)
+
+    startID <- build (S.Label)
     preBranchBindings <- (^. stVarToID) <$> get
     cond' <- cExp cond
-    build (S.NBranch cond' labelEnd)
+    buildSucc (S.NBranch cond') (S.Jump, endID)
     cSt body
-    build (S.Goto labelStart)
-    build (S.Label labelEnd)
+    buildSucc (S.Goto) (S.Jump, startID)
+    pID <- (^. stPrevID) <$> get
+    modify $ stControlFlow %~ G.insEdge (fromJust pID, endID, S.Step)
+    modify $ stPrevID .~ Just endID
     postBranchBindings <- (^. stVarToID) <$> get
+
     unify preBranchBindings postBranchBindings
 cSt (T.Print e) = do
     value <- cExp e
     void $ build (S.Print value)
 cSt (T.ExpressionStatement e) = void $ (: []) <$> cExp e
 
-cExp :: T.Expression -> WriterT [S.ID] (State CState) S.ID
+cExp :: T.Expression -> State CState S.ID
 cExp (T.LiteralInt v) = build (S.SInt v)
 cExp (T.LiteralBoolean v) = build (S.SBoolean v)
 cExp (T.MemberAssignment cName object fName value) = do
@@ -100,7 +106,7 @@ cExp (T.MemberAssignment cName object fName value) = do
 cExp (T.VariableAssignment name value) = do
     -- TODO consider removing VarAssg and bind name to the RHS
     v <- build =<< S.VarAssg <$> cExp value
-    lift $ bind name v
+    bind name v
 cExp (T.IndexAssignment array index value) = do
     array' <- cExp array
     index' <- cExp index
@@ -125,12 +131,12 @@ cExp (T.NewIntArray size) = build =<< S.NewIntArray <$> cExp size
 cExp (T.NewObject name) = build (S.NewObj name)
 cExp (T.This) = build S.This
 
-unify :: M.Map String S.ID -> M.Map String S.ID -> WriterT [S.ID] (State CState) ()
+unify :: M.Map String S.ID -> M.Map String S.ID -> State CState ()
 unify bs1 bs2 = do
     let bindings = M.assocs $ M.intersectionWith (,) bs1 bs2
     let mismatches = filter (uncurry (/=) . snd) bindings
     unifies <- mapM (build . uncurry S.Unify . snd) mismatches
-    void $ lift $ zipWithM_ bind (map fst mismatches) unifies
+    void $ zipWithM_ bind (map fst mismatches) unifies
 
 binaryOps :: [(AST.BinaryOperator, S.ID -> S.ID -> S.Statement)]
 binaryOps =
@@ -149,18 +155,23 @@ binaryOps =
     , (AST.Mod, S.Mod)
     ]
 
-nextID :: State CState S.ID
-nextID = state $ \s -> (s ^. stNextID, stNextID %~ succ $ s)
+buildSucc :: S.Statement -> (S.EdgeType, S.ID) -> State CState S.ID
+buildSucc s su = do
+    sID <- head . G.newNodes 1 . (^. stControlFlow) <$> get
+    pID <- (^. stPrevID) <$> get
+    let p = maybeToList $ (\p -> (S.Step, p)) <$> pID
+    modify $ stControlFlow %~ ((p, sID, s, [su]) G.&)
+    modify $ stPrevID .~ Just sID
+    return sID
 
-nextLabel :: State CState Int
-nextLabel = state $ \s -> (s ^. stNextLabel, stNextLabel %~ succ $ s)
-
-build :: S.Statement -> WriterT [S.ID] (State CState) S.ID
-build op = do
-    id <- lift nextID
-    tell [id]
-    lift $ modify $ stIDToS %~ M.insert id op
-    return id
+build :: S.Statement -> State CState S.ID
+build s = do
+    sID <- head . G.newNodes 1 . (^. stControlFlow) <$> get
+    pID <- (^. stPrevID) <$> get
+    let p = maybeToList $ (\p -> (S.Step, p)) <$> pID
+    modify $ stControlFlow %~ ((p, sID, s, []) G.&)
+    modify $ stPrevID .~ Just sID
+    return sID
 
 bind :: String -> S.ID -> State CState S.ID
 bind name id = modify (stVarToID %~ M.insert name id) >> return id

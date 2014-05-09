@@ -8,6 +8,8 @@ import qualified Data.Map as M
 import Control.Lens
 import Text.Printf
 import Data.List
+import Data.Graph.Inductive
+import qualified SSA as S
 
 type ID = Int
 
@@ -32,13 +34,14 @@ data Class = Class
 
 data Method = Method
     { _mName :: String
-    , _mStatements :: [ID]
-    , _mIDToS :: M.Map ID Statement
+    , _mControlFlow :: Gr Statement S.EdgeType
     }
     deriving (Show)
 
 data Statement =
-      Store ID Offset
+      BeginMethod
+
+    | Store ID Offset
     | Load Offset Register
 
     | Null AST.Type Register
@@ -48,10 +51,10 @@ data Statement =
     | SInt Int Register
     | SBoolean Bool Register
 
-    | Label String
-    | Goto String
-    | Branch ID String
-    | NBranch ID String
+    | Label
+    | Goto
+    | Branch ID
+    | NBranch ID
 
     | Parameter ID Register
     | Arg ID Position
