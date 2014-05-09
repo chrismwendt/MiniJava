@@ -70,6 +70,7 @@ data Statement =
 
     | IndexGet ID ID Register
     | IndexAssg ID ID ID Register
+    | ArrayLength ID
 
     | Not ID Register
 

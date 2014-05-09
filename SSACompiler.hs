@@ -127,6 +127,7 @@ cExp (T.VariableGet name) = do
         Nothing -> error "Varible not found"
 cExp (T.NewIntArray size) = buildStep =<< S.NewIntArray <$> cExp size
 cExp (T.NewObject name) = buildStep (S.NewObj name)
+cExp (T.IntArrayLength array) = buildStep =<< S.ArrayLength <$> cExp array
 cExp (T.This) = buildStep S.This
 
 unify :: M.Map String S.ID -> M.Map String S.ID -> State CState ()

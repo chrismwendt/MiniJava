@@ -71,6 +71,7 @@ data Statement =
 
     | IndexGet ID ID
     | IndexAssg ID ID ID
+    | ArrayLength ID
 
     | Not ID
 
