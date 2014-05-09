@@ -54,41 +54,41 @@ cSt (T.Block ss) = void (mapM cSt ss)
 cSt (T.If cond branchTrue branchFalse) = do
     cond' <- cExp cond
 
-    [elseID, doneID] <- G.newNodes 2 . (^. stControlFlow) <$> get
+    [elseID, doneID] <- G.newNodes 2 . _stControlFlow <$> get
     modify $ stControlFlow %~ (([], elseID, S.Label, []) G.&)
     modify $ stControlFlow %~ (([], doneID, S.Label, []) G.&)
 
     buildSucc (S.NBranch cond') (S.Jump, elseID)
 
-    preBranchBindings <- (^. stVarToID) <$> get
+    preBranchBindings <- _stVarToID <$> get
     cSt branchTrue
     buildSucc (S.Goto) (S.Jump, doneID)
     modify $ stPrevID .~ elseID
-    postTrueBindings <- (^. stVarToID) <$> get
+    postTrueBindings <- _stVarToID <$> get
 
     modify $ stVarToID .~ preBranchBindings
     fromMaybe (return ()) (cSt <$> branchFalse)
-    postFalseBindings <- (^. stVarToID) <$> get
+    postFalseBindings <- _stVarToID <$> get
 
-    pID <- (^. stPrevID) <$> get
+    pID <- _stPrevID <$> get
     modify $ stControlFlow %~ G.insEdge (pID, doneID, S.Step)
     modify $ stPrevID .~ doneID
 
     unify postTrueBindings postFalseBindings
 cSt (T.While cond body) = do
-    [endID] <- G.newNodes 1 . (^. stControlFlow) <$> get
+    [endID] <- G.newNodes 1 . _stControlFlow <$> get
     modify $ stControlFlow %~ (([], endID, S.Label, []) G.&)
 
     startID <- build (S.Label)
-    preBranchBindings <- (^. stVarToID) <$> get
+    preBranchBindings <- _stVarToID <$> get
     cond' <- cExp cond
     buildSucc (S.NBranch cond') (S.Jump, endID)
     cSt body
     buildSucc (S.Goto) (S.Jump, startID)
-    pID <- (^. stPrevID) <$> get
+    pID <- _stPrevID <$> get
     modify $ stControlFlow %~ G.insEdge (pID, endID, S.Step)
     modify $ stPrevID .~ endID
-    postBranchBindings <- (^. stVarToID) <$> get
+    postBranchBindings <- _stVarToID <$> get
 
     unify preBranchBindings postBranchBindings
 cSt (T.Print e) = do
@@ -122,7 +122,7 @@ cExp (T.Call cName object mName args) = do
     build (S.Call cName object' mName args')
 cExp (T.MemberGet cName object fName) = build =<< S.MemberGet cName <$> cExp object <*> pure fName
 cExp (T.VariableGet name) = do
-    bs <- (^. stVarToID) <$> get
+    bs <- _stVarToID <$> get
     case M.lookup name bs of
         Just s -> return s
         Nothing -> error "Varible not found"
@@ -156,16 +156,16 @@ binaryOps =
 
 buildSucc :: S.Statement -> (S.EdgeType, S.ID) -> State CState S.ID
 buildSucc s su = do
-    sID <- head . G.newNodes 1 . (^. stControlFlow) <$> get
-    pID <- (^. stPrevID) <$> get
+    sID <- head . G.newNodes 1 . _stControlFlow <$> get
+    pID <- _stPrevID <$> get
     modify $ stControlFlow %~ (([(S.Step, pID)], sID, s, [su]) G.&)
     modify $ stPrevID .~ sID
     return sID
 
 build :: S.Statement -> State CState S.ID
 build s = do
-    sID <- head . G.newNodes 1 . (^. stControlFlow) <$> get
-    pID <- (^. stPrevID) <$> get
+    sID <- head . G.newNodes 1 . _stControlFlow <$> get
+    pID <- _stPrevID <$> get
     modify $ stControlFlow %~ (([(S.Step, pID)], sID, s, []) G.&)
     modify $ stPrevID .~ sID
     return sID
