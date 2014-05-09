@@ -38,101 +38,103 @@ cMethod (T.Method _ name ps vs ss ret) = evalState f initialState
         zipWithM_ cPar ps [0 .. ]
         mapM_ cVar vs
         mapM_ cSt ss
-        build =<< S.Return <$> cExp ret
+        buildStep =<< S.Return <$> cExp ret
         graph <- _stGraph <$> get
         return $ S.Method name graph
 
 cPar :: AST.Variable -> S.Position -> State CState S.ID
-cPar (AST.Variable _ name) i = build (S.Parameter i) >>= bind name
+cPar (AST.Variable _ name) i = buildStep (S.Parameter i) >>= bind name
 
 cVar :: AST.Variable -> State CState S.ID
-cVar (AST.Variable t name) = build (S.Null t) >>= bind name
+cVar (AST.Variable t name) = buildStep (S.Null t) >>= bind name
 
 cSt :: T.Statement -> State CState ()
 cSt (T.Block ss) = void (mapM cSt ss)
 cSt (T.If cond branchTrue branchFalse) = do
-    cond' <- cExp cond
+    condID <- cExp cond
 
-    [elseID, doneID] <- G.newNodes 2 . _stGraph <$> get
-    modifyGraph $ G.insNodes [(elseID, S.Label), (doneID, S.Label)]
-
-    buildSucc (S.NBranch cond') (S.Jump, elseID)
+    branchID <- buildStep (S.NBranch condID)
 
     preBranchBindings <- _stVarToID <$> get
     cSt branchTrue
-    buildSucc (S.Goto) (S.Jump, doneID)
-    modify $ stPrevID .~ elseID
     postTrueBindings <- _stVarToID <$> get
+
+    gotoID <- buildStep (S.Goto)
+    elseID <- build (S.Label)
 
     modify $ stVarToID .~ preBranchBindings
     fromMaybe (return ()) (cSt <$> branchFalse)
     postFalseBindings <- _stVarToID <$> get
 
-    pID <- _stPrevID <$> get
-    modifyGraph $ G.insEdge (pID, doneID, S.Step)
-    modify $ stPrevID .~ doneID
+    doneID <- buildStep (S.Label)
+
+    modifyGraph $ G.insEdge (branchID, elseID, S.Jump)
+    modifyGraph $ G.insEdge (gotoID, doneID, S.Jump)
 
     unify postTrueBindings postFalseBindings
 cSt (T.While cond body) = do
-    [endID] <- G.newNodes 1 . _stGraph <$> get
-    modifyGraph $ G.insNode (endID, S.Label)
+    startID <- buildStep (S.Label)
 
-    startID <- build (S.Label)
-    preBranchBindings <- _stVarToID <$> get
-    cond' <- cExp cond
-    buildSucc (S.NBranch cond') (S.Jump, endID)
+    pre <- _stVarToID <$> get
+
+    condID <- cExp cond
+    branchID <- buildStep (S.NBranch condID)
+
     cSt body
-    buildSucc (S.Goto) (S.Jump, startID)
-    pID <- _stPrevID <$> get
-    modifyGraph $ G.insEdge (pID, endID, S.Step)
-    modify $ stPrevID .~ endID
-    postBranchBindings <- _stVarToID <$> get
 
-    unify preBranchBindings postBranchBindings
+    gotoID <- buildStep (S.Goto)
+    doneID <- buildStep S.Label
+
+    post <- _stVarToID <$> get
+
+    modifyGraph $ G.insEdge (gotoID, startID, S.Jump)
+    modifyGraph $ G.insEdge (branchID, doneID, S.Jump)
+
+    unify pre post
 cSt (T.Print e) = do
     value <- cExp e
-    void $ build (S.Print value)
+    void $ buildStep (S.Print value)
 cSt (T.ExpressionStatement e) = void $ (: []) <$> cExp e
 
 cExp :: T.Expression -> State CState S.ID
-cExp (T.LiteralInt v) = build (S.SInt v)
-cExp (T.LiteralBoolean v) = build (S.SBoolean v)
+cExp (T.LiteralInt v) = buildStep (S.SInt v)
+cExp (T.LiteralBoolean v) = buildStep (S.SBoolean v)
 cExp (T.MemberAssignment cName object fName value) = do
     object' <- cExp object
     value' <- cExp value
-    build (S.MemberAssg cName object' fName value')
+    buildStep (S.MemberAssg cName object' fName value')
 cExp (T.VariableAssignment name value) = do
-    v <- build =<< S.VarAssg <$> cExp value
+    v <- buildStep =<< S.VarAssg <$> cExp value
     bind name v
 cExp (T.IndexAssignment array index value) = do
     array' <- cExp array
     index' <- cExp index
     value' <- cExp value
-    build (S.IndexAssg array' index' value')
+    buildStep (S.IndexAssg array' index' value')
 cExp (T.Binary l op r) = case lookup op binaryOps of
-    Just opConstructor -> build =<< opConstructor <$> cExp l <*> cExp r
+    Just opConstructor -> buildStep =<< opConstructor <$> cExp l <*> cExp r
     Nothing -> error $ "Op " ++ show op ++ " not found in list: " ++ show (map fst binaryOps)
-cExp (T.Not e) = build =<< S.Not <$> cExp e
-cExp (T.IndexGet a i) = build =<< S.IndexGet <$> cExp a <*> cExp i
+cExp (T.Not e) = buildStep =<< S.Not <$> cExp e
+cExp (T.IndexGet a i) = buildStep =<< S.IndexGet <$> cExp a <*> cExp i
 cExp (T.Call cName object mName args) = do
     object' <- cExp object
-    args' <- zipWithM (\arg i -> build =<< S.Arg <$> cExp arg <*> pure i) args [0 .. ]
-    build (S.Call cName object' mName args')
-cExp (T.MemberGet cName object fName) = build =<< S.MemberGet cName <$> cExp object <*> pure fName
+    args' <- zipWithM (\arg i -> buildStep =<< S.Arg <$> cExp arg <*> pure i) args [0 .. ]
+    buildStep (S.Call cName object' mName args')
+cExp (T.MemberGet cName object fName) = buildStep =<< S.MemberGet cName <$> cExp object <*> pure fName
 cExp (T.VariableGet name) = do
     bs <- _stVarToID <$> get
     case M.lookup name bs of
         Just s -> return s
         Nothing -> error "Varible not found"
-cExp (T.NewIntArray size) = build =<< S.NewIntArray <$> cExp size
-cExp (T.NewObject name) = build (S.NewObj name)
-cExp (T.This) = build S.This
+cExp (T.NewIntArray size) = buildStep =<< S.NewIntArray <$> cExp size
+cExp (T.NewObject name) = buildStep (S.NewObj name)
+cExp (T.This) = buildStep S.This
 
 unify :: M.Map String S.ID -> M.Map String S.ID -> State CState ()
 unify bs1 bs2 = do
     let bindings = M.assocs $ M.intersectionWith (,) bs1 bs2
     let mismatches = filter (uncurry (/=) . snd) bindings
-    unifies <- mapM (build . uncurry S.Unify . snd) mismatches
+    unifies <- mapM (buildStep . uncurry S.Unify . snd) mismatches
     void $ zipWithM_ bind (map fst mismatches) unifies
 
 binaryOps :: [(AST.BinaryOperator, S.ID -> S.ID -> S.Statement)]
@@ -152,19 +154,18 @@ binaryOps =
     , (AST.Mod, S.Mod)
     ]
 
-buildSucc :: S.Statement -> (S.EdgeType, S.ID) -> State CState S.ID
-buildSucc s su = do
-    sID <- head . G.newNodes 1 . _stGraph <$> get
+buildStep :: S.Statement -> State CState S.ID
+buildStep s = do
     pID <- _stPrevID <$> get
-    modifyGraph $ (([(S.Step, pID)], sID, s, [su]) G.&)
-    modify $ stPrevID .~ sID
-    return sID
+    buildWithPrevs [(S.Step, pID)] s
 
 build :: S.Statement -> State CState S.ID
-build s = do
-    sID <- head . G.newNodes 1 . _stGraph <$> get
-    pID <- _stPrevID <$> get
-    modifyGraph $ (([(S.Step, pID)], sID, s, []) G.&)
+build = buildWithPrevs []
+
+buildWithPrevs :: [(S.EdgeType, S.ID)] -> S.Statement -> State CState S.ID
+buildWithPrevs prevs s = do
+    [sID] <- G.newNodes 1 . _stGraph <$> get
+    modifyGraph $ ((prevs, sID, s, []) G.&)
     modify $ stPrevID .~ sID
     return sID
 
