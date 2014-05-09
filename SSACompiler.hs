@@ -54,7 +54,7 @@ cSt (T.If cond branchTrue branchFalse) = do
     cond' <- cExp cond
 
     [elseID, doneID] <- G.newNodes 2 . _stGraph <$> get
-    modify $ stGraph %~ G.insNodes [(elseID, S.Label), (doneID, S.Label)]
+    modifyGraph $ G.insNodes [(elseID, S.Label), (doneID, S.Label)]
 
     buildSucc (S.NBranch cond') (S.Jump, elseID)
 
@@ -69,13 +69,13 @@ cSt (T.If cond branchTrue branchFalse) = do
     postFalseBindings <- _stVarToID <$> get
 
     pID <- _stPrevID <$> get
-    modify $ stGraph %~ G.insEdge (pID, doneID, S.Step)
+    modifyGraph $ G.insEdge (pID, doneID, S.Step)
     modify $ stPrevID .~ doneID
 
     unify postTrueBindings postFalseBindings
 cSt (T.While cond body) = do
     [endID] <- G.newNodes 1 . _stGraph <$> get
-    modify $ stGraph %~ G.insNode (endID, S.Label)
+    modifyGraph $ G.insNode (endID, S.Label)
 
     startID <- build (S.Label)
     preBranchBindings <- _stVarToID <$> get
@@ -84,7 +84,7 @@ cSt (T.While cond body) = do
     cSt body
     buildSucc (S.Goto) (S.Jump, startID)
     pID <- _stPrevID <$> get
-    modify $ stGraph %~ G.insEdge (pID, endID, S.Step)
+    modifyGraph $ G.insEdge (pID, endID, S.Step)
     modify $ stPrevID .~ endID
     postBranchBindings <- _stVarToID <$> get
 
@@ -156,7 +156,7 @@ buildSucc :: S.Statement -> (S.EdgeType, S.ID) -> State CState S.ID
 buildSucc s su = do
     sID <- head . G.newNodes 1 . _stGraph <$> get
     pID <- _stPrevID <$> get
-    modify $ stGraph %~ (([(S.Step, pID)], sID, s, [su]) G.&)
+    modifyGraph $ (([(S.Step, pID)], sID, s, [su]) G.&)
     modify $ stPrevID .~ sID
     return sID
 
@@ -164,9 +164,12 @@ build :: S.Statement -> State CState S.ID
 build s = do
     sID <- head . G.newNodes 1 . _stGraph <$> get
     pID <- _stPrevID <$> get
-    modify $ stGraph %~ (([(S.Step, pID)], sID, s, []) G.&)
+    modifyGraph $ (([(S.Step, pID)], sID, s, []) G.&)
     modify $ stPrevID .~ sID
     return sID
 
 bind :: String -> S.ID -> State CState S.ID
 bind name id = modify (stVarToID %~ M.insert name id) >> return id
+
+modifyGraph :: (Graph -> Graph) -> State CState ()
+modifyGraph f =  modify $ stGraph %~ f
