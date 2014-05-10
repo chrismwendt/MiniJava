@@ -12,14 +12,26 @@ import Control.Monad.State
 import Control.Monad.Writer
 import qualified Data.Map as M
 import qualified Data.SetMap as SM
+import qualified Data.Set as S
 import Data.Maybe
 import Control.Lens
+import qualified Data.Graph.Inductive as G
+import Data.List
+import Data.Ord
+import Safe
 
 type VID = Int
 
 data RState = RState
     { _stSIDToVID :: M.Map S.ID VID
     , _stVIDToVar :: SM.SetMap VID S.ID
+    }
+
+data CFLabel = CFLabel
+    { _cfDef :: VID
+    , _cfUse :: S.Set VID
+    , _cfIn :: S.Set VID
+    , _cfOut :: S.Set VID
     }
 
 makeLenses ''RState
@@ -34,10 +46,20 @@ aClass :: Int -> S.Program -> S.Class -> R.Class
 aClass n program c@(S.Class name fs ms) = R.Class name fs (map (aMethod n program c) ms)
 
 aMethod :: Int -> S.Program -> S.Class -> S.Method -> R.Method
-aMethod n program c (S.Method name ss m) = R.Method name ss m'
-    where
-    m' = foldr f M.empty ss
-    f s = M.insert s (withRegister (fromJust $ M.lookup s m) 0)
+aMethod n program c (S.Method name graph) = flip evalState () $ do
+    let varGraph :: G.Gr S.Statement ()
+        varGraph = G.mkGraph
+            (G.labNodes graph)
+            [(s, o, ()) | (s, S.Unify l r) <- G.labNodes graph, o <- [l, r]]
+        varGroups = M.fromList
+            $ concatMap (\(ns, v) -> zip ns (repeat v))
+            $ zip (G.components varGraph) [0 .. ]
+        conversion (ins, n, s, outs) = case withRegister s of
+            Nothing -> error "withRegister failed"
+            Just (Left f) -> (ins, n, f (varGroups M.!) (varGroups M.! n), outs)
+            Just (Right s') -> (ins, n, s' (varGroups M.!), outs)
+        graph' = (G.gmap conversion (ununify graph))
+    return $ R.Method name graph'
 
 withRegister :: S.Statement -> Maybe (Either ((S.ID -> R.Register) -> S.ID -> R.Statement) ((S.ID -> R.Register) -> R.Statement))
 withRegister (S.Load offset)            = Just $ Left  $ \f -> R.Load offset
