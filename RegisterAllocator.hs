@@ -182,10 +182,10 @@ def (R.BeginMethod)              = Nothing
 def (R.Label)                    = Nothing
 def (R.Goto)                     = Nothing
 
-linear :: G.Gr S.Statement S.EdgeType -> [(G.Node, S.Statement)]
+linear :: G.Gr R.Statement S.EdgeType -> [(G.Node, R.Statement)]
 linear g = linear' g start Nothing
     where
-    startMaybe = G.ufold (\(_, n, l, _) acc -> case l of { S.BeginMethod -> Just n; _ -> acc }) Nothing g
+    startMaybe = G.ufold (\(_, n, l, _) acc -> case l of { R.BeginMethod -> Just n; _ -> acc }) Nothing g
     start = case startMaybe of
         Just s -> s
         Nothing -> error "applied linearize to a graph without BeginMethod"
