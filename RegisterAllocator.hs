@@ -19,6 +19,9 @@ import qualified Data.Graph.Inductive as G
 import Data.List
 import Data.Ord
 import Safe
+import Debug.Trace
+
+f x = traceShow x x
 
 type VID = Int
 
@@ -62,7 +65,27 @@ aMethod n program c (S.Method name graph) = aMethod' n program c (R.Method name 
     graph' = (G.gmap conversion (ununify graph))
 
 aMethod' :: Int -> S.Program -> S.Class -> R.Method -> R.Method
-aMethod' n program c (R.Method name graph) = R.Method name graph
+aMethod' n program c (R.Method name graph) = R.Method name (traceShow interference graph'')
+    where
+    lGraph = map fst $ linear graph
+    initialGraph = G.gmap (\(ins, n, s, outs) -> (ins, n, (s, def s, vUses s, S.empty, S.empty), outs)) graph
+    graph' = snd $ until (\(old, new) -> old == new) f (f (initialGraph, initialGraph))
+    graph'' = G.gmap (\(ins, n, (s, ds, us, vIns, vOuts), outs) -> (ins, n, s, outs)) graph'
+    edgesFor vs = zipWith (\a b -> (a, b, ())) vs (tail vs)
+    interference :: G.Gr (R.Statement, S.Set R.Register, S.Set R.Register, S.Set R.Register, S.Set R.Register) ()
+    interference = G.undir $ G.ufold (\(_, _, (_, _, _, vIns, vOuts), _) c -> foldr G.insEdge c (edgesFor (S.toList vIns))) (G.mkGraph (G.labNodes graph') []) graph'
+    f (prevOld, prevNew) = (prevNew, f' prevNew)
+    f' g = foldr f'' g lGraph
+    f'' n g = case G.match n g of
+        (Nothing, _) -> error "match failure"
+        (Just (ins, _, (s, ds, us, vIns, vOuts), outs), g') ->
+            let vIns' = us `S.union` (vOuts `S.difference` ds)
+                (_, _, _, fullOuts) = G.context g n
+                succVIns = map ((\(_, _, (_, _, _, sVIns, _), _) -> sVIns) . G.context g) (map snd fullOuts)
+                vOuts' = ds `S.union` (foldr S.union S.empty succVIns)
+                s' = (s, ds, us, vIns', vOuts')
+                newContext = (ins, n, s', outs)
+            in newContext G.& g'
 
 withRegister :: S.Statement -> Maybe (Either ((S.ID -> R.Register) -> S.ID -> R.Statement) ((S.ID -> R.Register) -> R.Statement))
 withRegister (S.Load offset)            = Just $ Left  $ \f -> R.Load offset
