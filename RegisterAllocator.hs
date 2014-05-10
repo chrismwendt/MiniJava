@@ -31,10 +31,10 @@ aProgram :: Int -> S.Program -> R.Program
 aProgram n p@(S.Program m cs) = R.Program (aClass n p m) (map (aClass n p) cs)
 
 aClass :: Int -> S.Program -> S.Class -> R.Class
-aClass n program c@(S.Class name fs ms) = R.Class name fs (map (aMethod program c) ms)
+aClass n program c@(S.Class name fs ms) = R.Class name fs (map (aMethod n program c) ms)
 
-aMethod :: S.Program -> S.Class -> S.Method -> R.Method
-aMethod program c (S.Method name ss m) = R.Method name ss m'
+aMethod :: Int -> S.Program -> S.Class -> S.Method -> R.Method
+aMethod n program c (S.Method name ss m) = R.Method name ss m'
     where
     m' = foldr f M.empty ss
     f s = M.insert s (withRegister (fromJust $ M.lookup s m) 0)
