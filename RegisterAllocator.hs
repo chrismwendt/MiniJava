@@ -39,7 +39,7 @@ aMethod program c (S.Method name ss m) = R.Method name ss m'
     m' = foldr f M.empty ss
     f s = M.insert s (withRegister (fromJust $ M.lookup s m) 0)
 
-withRegister :: S.Statement -> Maybe (Either ((S.ID -> R.Register) -> S.ID -> R.Statement) R.Statement)
+withRegister :: S.Statement -> Maybe (Either ((S.ID -> R.Register) -> S.ID -> R.Statement) ((S.ID -> R.Register) -> R.Statement))
 withRegister (S.Load offset)            = Just $ Left  $ \f -> R.Load offset
 withRegister (S.Null t)                 = Just $ Left  $ \f -> R.Null t
 withRegister (S.NewObj s1)              = Just $ Left  $ \f -> R.NewObj s1
@@ -68,15 +68,15 @@ withRegister (S.Minus i1 i2)            = Just $ Left  $ \f -> R.Minus (f i1) (f
 withRegister (S.Mul i1 i2)              = Just $ Left  $ \f -> R.Mul (f i1) (f i2)
 withRegister (S.Div i1 i2)              = Just $ Left  $ \f -> R.Div (f i1) (f i2)
 withRegister (S.Mod i1 i2)              = Just $ Left  $ \f -> R.Mod (f i1) (f i2)
-withRegister (S.Store i1 offset)        = Just $ Left  $ \f -> R.Store (f i1) offset
-withRegister (S.Branch i1)              = Just $ Left  $ \f -> R.Branch (f i1)
-withRegister (S.NBranch i1)             = Just $ Left  $ \f -> R.NBranch (f i1)
-withRegister (S.Arg i1 p)               = Just $ Left  $ \f -> R.Arg (f i1) p
-withRegister (S.Return i1)              = Just $ Left  $ \f -> R.Return (f i1)
-withRegister (S.Print i1)               = Just $ Left  $ \f -> R.Print (f i1)
-withRegister (S.BeginMethod)            = Just $ Right $ R.BeginMethod
-withRegister (S.Label)                  = Just $ Right $ R.Label
-withRegister (S.Goto)                   = Just $ Right $ R.Goto
+withRegister (S.Store i1 offset)        = Just $ Right $ \f -> R.Store (f i1) offset
+withRegister (S.Branch i1)              = Just $ Right $ \f -> R.Branch (f i1)
+withRegister (S.NBranch i1)             = Just $ Right $ \f -> R.NBranch (f i1)
+withRegister (S.Arg i1 p)               = Just $ Right $ \f -> R.Arg (f i1) p
+withRegister (S.Return i1)              = Just $ Right $ \f -> R.Return (f i1)
+withRegister (S.Print i1)               = Just $ Right $ \f -> R.Print (f i1)
+withRegister (S.BeginMethod)            = Just $ Right $ \f -> R.BeginMethod
+withRegister (S.Label)                  = Just $ Right $ \f -> R.Label
+withRegister (S.Goto)                   = Just $ Right $ \f -> R.Goto
 withRegister (S.Unify _ _)              = Nothing
 
 linear :: G.Gr S.Statement S.EdgeType -> [(G.Node, S.Statement)]
