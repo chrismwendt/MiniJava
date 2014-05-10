@@ -68,6 +68,7 @@ withRegister (S.Minus i1 i2)            = Just $ Left  $ R.Minus i1 i2
 withRegister (S.Mul i1 i2)              = Just $ Left  $ R.Mul i1 i2
 withRegister (S.Div i1 i2)              = Just $ Left  $ R.Div i1 i2
 withRegister (S.Mod i1 i2)              = Just $ Left  $ R.Mod i1 i2
+withRegister (S.BeginMethod)            = Just $ Right $ R.BeginMethod
 withRegister (S.Store i1 offset)        = Just $ Right $ R.Store i1 offset
 withRegister (S.Label)                  = Just $ Right $ R.Label
 withRegister (S.Goto)                   = Just $ Right $ R.Goto
