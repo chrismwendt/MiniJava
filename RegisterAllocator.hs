@@ -96,3 +96,10 @@ linear g = linear' g start Nothing
             (Nothing, Just j) -> linear' g (fromJustDef (snd j) next) Nothing
             (Just s, Nothing) -> linear' g (snd s) next
             (Just s, Just j) -> linear' g (snd s) (Just $ fromJustDef (snd j) next))
+
+ununify :: G.Gr S.Statement S.EdgeType -> G.Gr S.Statement S.EdgeType
+ununify g = case [n | (n, S.Unify _ _) <- G.labNodes g] of
+    [] -> g
+    (n:ns) -> let (ins, _, _, outs) = G.context g n
+                  some edge = snd . fromJust . find ((== edge) . fst)
+              in ununify $ G.insEdge (some S.Step ins, some S.Step outs, S.Step) $ G.delNode n g
