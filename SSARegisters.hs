@@ -56,7 +56,7 @@ data Statement =
     | Branch ID
     | NBranch ID
 
-    | Parameter ID Register
+    | Parameter Position Register
     | Arg ID Position
     | Call String ID String [ID] Register
     | Return ID
