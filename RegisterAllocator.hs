@@ -77,3 +77,22 @@ withRegister (S.Arg i1 p)               = Just $ Right $ R.Arg i1 p
 withRegister (S.Return i1)              = Just $ Right $ R.Return i1
 withRegister (S.Print i1)               = Just $ Right $ R.Print i1
 withRegister (S.Unify _ _)              = Nothing
+
+linear :: G.Gr S.Statement S.EdgeType -> [(G.Node, S.Statement)]
+linear g = linear' g start Nothing
+    where
+    startMaybe = G.ufold (\(_, n, l, _) acc -> case l of { S.BeginMethod -> Just n; _ -> acc }) Nothing g
+    start = case startMaybe of
+        Just s -> s
+        Nothing -> error "applied linearize to a graph without BeginMethod"
+    linear' g n next = case G.context g n of
+        (_, _, v, []) -> (n, v) : (case next of
+            Nothing -> []
+            Just blub -> linear' g blub Nothing)
+        (_, _, v, outs) -> (n, v) : (case (find ((== S.Step) . fst) outs, find ((== S.Jump) . fst) outs) of
+            (Nothing, Nothing) -> (case next of
+                Nothing -> []
+                Just blub -> linear' g blub Nothing)
+            (Nothing, Just j) -> linear' g (fromJustDef (snd j) next) Nothing
+            (Just s, Nothing) -> linear' g (snd s) next
+            (Just s, Just j) -> linear' g (snd s) (Just $ fromJustDef (snd j) next))

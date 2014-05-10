@@ -35,7 +35,7 @@ data Method = Method
     }
     deriving (Show)
 
-data EdgeType = Step | Jump deriving (Show)
+data EdgeType = Step | Jump deriving (Show, Eq)
 
 data Statement =
       BeginMethod
