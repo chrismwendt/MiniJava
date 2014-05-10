@@ -46,20 +46,23 @@ aClass :: Int -> S.Program -> S.Class -> R.Class
 aClass n program c@(S.Class name fs ms) = R.Class name fs (map (aMethod n program c) ms)
 
 aMethod :: Int -> S.Program -> S.Class -> S.Method -> R.Method
-aMethod n program c (S.Method name graph) = flip evalState () $ do
-    let varGraph :: G.Gr S.Statement ()
-        varGraph = G.mkGraph
-            (G.labNodes graph)
-            [(s, o, ()) | (s, S.Unify l r) <- G.labNodes graph, o <- [l, r]]
-        varGroups = M.fromList
-            $ concatMap (\(ns, v) -> zip ns (repeat v))
-            $ zip (G.components varGraph) [0 .. ]
-        conversion (ins, n, s, outs) = case withRegister s of
-            Nothing -> error "withRegister failed"
-            Just (Left f) -> (ins, n, f (varGroups M.!) (varGroups M.! n), outs)
-            Just (Right s') -> (ins, n, s' (varGroups M.!), outs)
-        graph' = (G.gmap conversion (ununify graph))
-    return $ R.Method name graph'
+aMethod n program c (S.Method name graph) = aMethod' n program c (R.Method name graph')
+    where
+    varGraph :: G.Gr S.Statement ()
+    varGraph = G.mkGraph
+        (G.labNodes graph)
+        [(s, o, ()) | (s, S.Unify l r) <- G.labNodes graph, o <- [l, r]]
+    varGroups = M.fromList
+        $ concatMap (\(ns, v) -> zip ns (repeat v))
+        $ zip (G.components varGraph) [0 .. ]
+    conversion (ins, n, s, outs) = case withRegister s of
+        Nothing -> error "withRegister failed"
+        Just (Left f) -> (ins, n, f (varGroups M.!) (varGroups M.! n), outs)
+        Just (Right s') -> (ins, n, s' (varGroups M.!), outs)
+    graph' = (G.gmap conversion (ununify graph))
+
+aMethod' :: Int -> S.Program -> S.Class -> R.Method -> R.Method
+aMethod' n program c (R.Method name graph) = R.Method name graph
 
 withRegister :: S.Statement -> Maybe (Either ((S.ID -> R.Register) -> S.ID -> R.Statement) ((S.ID -> R.Register) -> R.Statement))
 withRegister (S.Load offset)            = Just $ Left  $ \f -> R.Load offset
