@@ -41,52 +41,52 @@ data Method = Method
 data Statement =
       BeginMethod
 
-    | Store ID Offset
+    | Store Register Offset
     | Load Offset Register
 
     | Null AST.Type Register
     | NewObj String Register
-    | NewIntArray ID Register
+    | NewIntArray Register Register
     | This Register
     | SInt Int Register
     | SBoolean Bool Register
 
     | Label
     | Goto
-    | Branch ID
-    | NBranch ID
+    | Branch Register
+    | NBranch Register
 
     | Parameter Position Register
-    | Arg ID Position
-    | Call String ID String [ID] Register
-    | Return ID
+    | Arg Register Position
+    | Call String Register String [Register] Register
+    | Return Register
 
-    | Print ID
+    | Print Register
 
-    | MemberGet String ID String Register
-    | MemberAssg String ID String ID Register
+    | MemberGet String Register String Register
+    | MemberAssg String Register String Register Register
 
-    | VarAssg ID Register
+    | VarAssg Register Register
 
-    | IndexGet ID ID Register
-    | IndexAssg ID ID ID Register
-    | ArrayLength ID
+    | IndexGet Register Register Register
+    | IndexAssg Register Register Register Register
+    | ArrayLength Register
 
-    | Not ID Register
+    | Not Register Register
 
-    | Lt ID ID Register
-    | Le ID ID Register
-    | Eq ID ID Register
-    | Ne ID ID Register
-    | Gt ID ID Register
-    | Ge ID ID Register
-    | And ID ID Register
-    | Or ID ID Register
-    | Plus ID ID Register
-    | Minus ID ID Register
-    | Mul ID ID Register
-    | Div ID ID Register
-    | Mod ID ID Register
+    | Lt Register Register Register
+    | Le Register Register Register
+    | Eq Register Register Register
+    | Ne Register Register Register
+    | Gt Register Register Register
+    | Ge Register Register Register
+    | And Register Register Register
+    | Or Register Register Register
+    | Plus Register Register Register
+    | Minus Register Register Register
+    | Mul Register Register Register
+    | Div Register Register Register
+    | Mod Register Register Register
     deriving (Eq, Show)
 
 makeLenses ''Program
