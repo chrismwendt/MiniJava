@@ -12,7 +12,7 @@ import Control.Monad.State
 import Control.Monad.Writer
 import qualified Data.Map as M
 import qualified Data.SetMap as SM
-import qualified Data.Set as S
+import qualified Data.Set as Set
 import Data.Maybe
 import Control.Lens
 import qualified Data.Graph.Inductive as G
@@ -32,9 +32,9 @@ data RState = RState
 
 data CFLabel = CFLabel
     { _cfDef :: VID
-    , _cfUse :: S.Set VID
-    , _cfIn :: S.Set VID
-    , _cfOut :: S.Set VID
+    , _cfUse :: Set.Set VID
+    , _cfIn :: Set.Set VID
+    , _cfOut :: Set.Set VID
     }
 
 makeLenses ''RState
@@ -65,27 +65,55 @@ aMethod n program c (S.Method name graph) = aMethod' n program c (R.Method name 
     graph' = (G.gmap conversion (ununify graph))
 
 aMethod' :: Int -> S.Program -> S.Class -> R.Method -> R.Method
-aMethod' n program c (R.Method name graph) = R.Method name (traceShow interference graph'')
+-- aMethod' n program c (R.Method name graph) = if null spills
+--     then R.Method name graph
+--     else aMethod' n program c (R.Method name (performSpills spills graph))
+--     where
+--     spills = select n $ simplify n $ interference $ liveness graph
+aMethod' n program c (R.Method name graph) = R.Method name (traceShow (graph, liveness graph, interference $ liveness graph) undefined)
+
+liveness :: G.Gr R.Statement S.EdgeType -> G.Gr (R.Statement, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType
+liveness g = graph'
     where
-    lGraph = map fst $ linear graph
-    initialGraph = G.gmap (\(ins, n, s, outs) -> (ins, n, (s, def s, vUses s, S.empty, S.empty), outs)) graph
+    lGraph = map fst $ linear g
+    initialGraph = G.gmap (\(ins, n, s, outs) -> (ins, n, (s, def s, vUses s, Set.empty, Set.empty), outs)) g
     graph' = snd $ until (\(old, new) -> old == new) f (f (initialGraph, initialGraph))
-    graph'' = G.gmap (\(ins, n, (s, ds, us, vIns, vOuts), outs) -> (ins, n, s, outs)) graph'
-    edgesFor vs = zipWith (\a b -> (a, b, ())) vs (tail vs)
-    interference :: G.Gr (R.Statement, S.Set R.Register, S.Set R.Register, S.Set R.Register, S.Set R.Register) ()
-    interference = G.undir $ G.ufold (\(_, _, (_, _, _, vIns, vOuts), _) c -> foldr G.insEdge c (edgesFor (S.toList vIns))) (G.mkGraph (G.labNodes graph') []) graph'
     f (prevOld, prevNew) = (prevNew, f' prevNew)
     f' g = foldr f'' g lGraph
     f'' n g = case G.match n g of
         (Nothing, _) -> error "match failure"
         (Just (ins, _, (s, ds, us, vIns, vOuts), outs), g') ->
-            let vIns' = us `S.union` (vOuts `S.difference` ds)
+            let vIns' = us `Set.union` (vOuts `Set.difference` ds)
                 (_, _, _, fullOuts) = G.context g n
                 succVIns = map ((\(_, _, (_, _, _, sVIns, _), _) -> sVIns) . G.context g) (map snd fullOuts)
-                vOuts' = ds `S.union` (foldr S.union S.empty succVIns)
+                vOuts' = ds `Set.union` (foldr Set.union Set.empty succVIns)
                 s' = (s, ds, us, vIns', vOuts')
                 newContext = (ins, n, s', outs)
             in newContext G.& g'
+
+interference :: G.Gr (R.Statement, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType -> G.Gr R.Register ()
+interference g = live
+    where
+    concatSet :: Ord a => Set.Set (Set.Set a) -> Set.Set a
+    concatSet = Set.foldr Set.union Set.empty
+    groups :: Set.Set (Set.Set Int)
+    groups = Set.fromList $ map (vInsOf . snd) $ G.labNodes g
+    allVars = concatSet groups
+    h :: Int -> Set.Set Int -> Set.Set (Int, Int)
+    h var gr = if Set.member var gr
+        then Set.map (\x -> (var, x)) (Set.delete var gr)
+        else Set.empty
+    f :: Int -> Set.Set (Int, Int)
+    f var = concatSet $ Set.map (h var) groups
+    edgeSet = concatSet $ Set.map f allVars
+    vInsOf (_, _, _, vIns, _) = vIns
+    live = G.mkGraph (map (\v -> (v, v)) $ Set.toList allVars) (map (\(from, to) -> (from, to, ())) $ Set.toList edgeSet)
+
+simplify = undefined
+
+select = undefined
+
+performSpills = undefined
 
 withRegister :: S.Statement -> Maybe (Either ((S.ID -> R.Register) -> S.ID -> R.Statement) ((S.ID -> R.Register) -> R.Statement))
 withRegister (S.Load offset)            = Just $ Left  $ \f -> R.Load offset
@@ -127,83 +155,83 @@ withRegister (S.Label)                  = Just $ Right $ \f -> R.Label
 withRegister (S.Goto)                   = Just $ Right $ \f -> R.Goto
 withRegister (S.Unify _ _)              = Nothing
 
-vUses :: R.Statement -> S.Set R.Register
-vUses (R.Load offset r)            = S.fromList []
-vUses (R.Null t r)                 = S.fromList []
-vUses (R.NewObj s1 r)              = S.fromList []
-vUses (R.NewIntArray r1 r)         = S.fromList [r1]
-vUses (R.This r)                   = S.fromList []
-vUses (R.SInt v r)                 = S.fromList []
-vUses (R.SBoolean v r)             = S.fromList []
-vUses (R.Parameter position r)     = S.fromList []
-vUses (R.Call s1 r1 s2 is r)       = S.fromList (r1 : is)
-vUses (R.MemberGet s1 r1 s2 r)     = S.fromList [r1]
-vUses (R.MemberAssg s1 r1 s2 r2 r) = S.fromList [r1, r2]
-vUses (R.VarAssg r1 r)             = S.fromList [r1]
-vUses (R.IndexGet r1 r2 r)         = S.fromList [r1, r2]
-vUses (R.IndexAssg r1 r2 r3 r)     = S.fromList [r1, r2, r3]
-vUses (R.Not r1 r)                 = S.fromList [r1]
-vUses (R.Lt r1 r2 r)               = S.fromList [r1, r2]
-vUses (R.Le r1 r2 r)               = S.fromList [r1, r2]
-vUses (R.Eq r1 r2 r)               = S.fromList [r1, r2]
-vUses (R.Ne r1 r2 r)               = S.fromList [r1, r2]
-vUses (R.Gt r1 r2 r)               = S.fromList [r1, r2]
-vUses (R.Ge r1 r2 r)               = S.fromList [r1, r2]
-vUses (R.And r1 r2 r)              = S.fromList [r1, r2]
-vUses (R.Or r1 r2 r)               = S.fromList [r1, r2]
-vUses (R.Plus r1 r2 r)             = S.fromList [r1, r2]
-vUses (R.Minus r1 r2 r)            = S.fromList [r1, r2]
-vUses (R.Mul r1 r2 r)              = S.fromList [r1, r2]
-vUses (R.Div r1 r2 r)              = S.fromList [r1, r2]
-vUses (R.Mod r1 r2 r)              = S.fromList [r1, r2]
-vUses (R.Store r1 offset)          = S.fromList [r1]
-vUses (R.Branch r1)                = S.fromList [r1]
-vUses (R.NBranch r1)               = S.fromList [r1]
-vUses (R.Arg r1 p)                 = S.fromList [r1]
-vUses (R.Return r1)                = S.fromList [r1]
-vUses (R.Print r1)                 = S.fromList [r1]
-vUses (R.BeginMethod)              = S.fromList []
-vUses (R.Label)                    = S.fromList []
-vUses (R.Goto)                     = S.fromList []
+vUses :: R.Statement -> Set.Set R.Register
+vUses (R.Load offset r)            = Set.fromList []
+vUses (R.Null t r)                 = Set.fromList []
+vUses (R.NewObj s1 r)              = Set.fromList []
+vUses (R.NewIntArray r1 r)         = Set.fromList [r1]
+vUses (R.This r)                   = Set.fromList []
+vUses (R.SInt v r)                 = Set.fromList []
+vUses (R.SBoolean v r)             = Set.fromList []
+vUses (R.Parameter position r)     = Set.fromList []
+vUses (R.Call s1 r1 s2 is r)       = Set.fromList (r1 : is)
+vUses (R.MemberGet s1 r1 s2 r)     = Set.fromList [r1]
+vUses (R.MemberAssg s1 r1 s2 r2 r) = Set.fromList [r1, r2]
+vUses (R.VarAssg r1 r)             = Set.fromList [r1]
+vUses (R.IndexGet r1 r2 r)         = Set.fromList [r1, r2]
+vUses (R.IndexAssg r1 r2 r3 r)     = Set.fromList [r1, r2, r3]
+vUses (R.Not r1 r)                 = Set.fromList [r1]
+vUses (R.Lt r1 r2 r)               = Set.fromList [r1, r2]
+vUses (R.Le r1 r2 r)               = Set.fromList [r1, r2]
+vUses (R.Eq r1 r2 r)               = Set.fromList [r1, r2]
+vUses (R.Ne r1 r2 r)               = Set.fromList [r1, r2]
+vUses (R.Gt r1 r2 r)               = Set.fromList [r1, r2]
+vUses (R.Ge r1 r2 r)               = Set.fromList [r1, r2]
+vUses (R.And r1 r2 r)              = Set.fromList [r1, r2]
+vUses (R.Or r1 r2 r)               = Set.fromList [r1, r2]
+vUses (R.Plus r1 r2 r)             = Set.fromList [r1, r2]
+vUses (R.Minus r1 r2 r)            = Set.fromList [r1, r2]
+vUses (R.Mul r1 r2 r)              = Set.fromList [r1, r2]
+vUses (R.Div r1 r2 r)              = Set.fromList [r1, r2]
+vUses (R.Mod r1 r2 r)              = Set.fromList [r1, r2]
+vUses (R.Store r1 offset)          = Set.fromList [r1]
+vUses (R.Branch r1)                = Set.fromList [r1]
+vUses (R.NBranch r1)               = Set.fromList [r1]
+vUses (R.Arg r1 p)                 = Set.fromList [r1]
+vUses (R.Return r1)                = Set.fromList [r1]
+vUses (R.Print r1)                 = Set.fromList [r1]
+vUses (R.BeginMethod)              = Set.fromList []
+vUses (R.Label)                    = Set.fromList []
+vUses (R.Goto)                     = Set.fromList []
 
-def :: R.Statement -> S.Set R.Register
-def (R.Load offset r)            = S.fromList [r]
-def (R.Null t r)                 = S.fromList [r]
-def (R.NewObj s1 r)              = S.fromList [r]
-def (R.NewIntArray r1 r)         = S.fromList [r]
-def (R.This r)                   = S.fromList [r]
-def (R.SInt v r)                 = S.fromList [r]
-def (R.SBoolean v r)             = S.fromList [r]
-def (R.Parameter position r)     = S.fromList [r]
-def (R.Call s1 r1 s2 is r)       = S.fromList [r]
-def (R.MemberGet s1 r1 s2 r)     = S.fromList [r]
-def (R.MemberAssg s1 r1 s2 r2 r) = S.fromList [r]
-def (R.VarAssg r1 r)             = S.fromList [r]
-def (R.IndexGet r1 r2 r)         = S.fromList [r]
-def (R.IndexAssg r1 r2 r3 r)     = S.fromList [r]
-def (R.Not r1 r)                 = S.fromList [r]
-def (R.Lt r1 r2 r)               = S.fromList [r]
-def (R.Le r1 r2 r)               = S.fromList [r]
-def (R.Eq r1 r2 r)               = S.fromList [r]
-def (R.Ne r1 r2 r)               = S.fromList [r]
-def (R.Gt r1 r2 r)               = S.fromList [r]
-def (R.Ge r1 r2 r)               = S.fromList [r]
-def (R.And r1 r2 r)              = S.fromList [r]
-def (R.Or r1 r2 r)               = S.fromList [r]
-def (R.Plus r1 r2 r)             = S.fromList [r]
-def (R.Minus r1 r2 r)            = S.fromList [r]
-def (R.Mul r1 r2 r)              = S.fromList [r]
-def (R.Div r1 r2 r)              = S.fromList [r]
-def (R.Mod r1 r2 r)              = S.fromList [r]
-def (R.Store r1 offset)          = S.fromList []
-def (R.Branch r1)                = S.fromList []
-def (R.NBranch r1)               = S.fromList []
-def (R.Arg r1 p)                 = S.fromList []
-def (R.Return r1)                = S.fromList []
-def (R.Print r1)                 = S.fromList []
-def (R.BeginMethod)              = S.fromList []
-def (R.Label)                    = S.fromList []
-def (R.Goto)                     = S.fromList []
+def :: R.Statement -> Set.Set R.Register
+def (R.Load offset r)            = Set.fromList [r]
+def (R.Null t r)                 = Set.fromList [r]
+def (R.NewObj s1 r)              = Set.fromList [r]
+def (R.NewIntArray r1 r)         = Set.fromList [r]
+def (R.This r)                   = Set.fromList [r]
+def (R.SInt v r)                 = Set.fromList [r]
+def (R.SBoolean v r)             = Set.fromList [r]
+def (R.Parameter position r)     = Set.fromList [r]
+def (R.Call s1 r1 s2 is r)       = Set.fromList [r]
+def (R.MemberGet s1 r1 s2 r)     = Set.fromList [r]
+def (R.MemberAssg s1 r1 s2 r2 r) = Set.fromList [r]
+def (R.VarAssg r1 r)             = Set.fromList [r]
+def (R.IndexGet r1 r2 r)         = Set.fromList [r]
+def (R.IndexAssg r1 r2 r3 r)     = Set.fromList [r]
+def (R.Not r1 r)                 = Set.fromList [r]
+def (R.Lt r1 r2 r)               = Set.fromList [r]
+def (R.Le r1 r2 r)               = Set.fromList [r]
+def (R.Eq r1 r2 r)               = Set.fromList [r]
+def (R.Ne r1 r2 r)               = Set.fromList [r]
+def (R.Gt r1 r2 r)               = Set.fromList [r]
+def (R.Ge r1 r2 r)               = Set.fromList [r]
+def (R.And r1 r2 r)              = Set.fromList [r]
+def (R.Or r1 r2 r)               = Set.fromList [r]
+def (R.Plus r1 r2 r)             = Set.fromList [r]
+def (R.Minus r1 r2 r)            = Set.fromList [r]
+def (R.Mul r1 r2 r)              = Set.fromList [r]
+def (R.Div r1 r2 r)              = Set.fromList [r]
+def (R.Mod r1 r2 r)              = Set.fromList [r]
+def (R.Store r1 offset)          = Set.fromList []
+def (R.Branch r1)                = Set.fromList []
+def (R.NBranch r1)               = Set.fromList []
+def (R.Arg r1 p)                 = Set.fromList []
+def (R.Return r1)                = Set.fromList []
+def (R.Print r1)                 = Set.fromList []
+def (R.BeginMethod)              = Set.fromList []
+def (R.Label)                    = Set.fromList []
+def (R.Goto)                     = Set.fromList []
 
 linear :: G.Gr R.Statement S.EdgeType -> [(G.Node, R.Statement)]
 linear g = linear' g start Nothing
