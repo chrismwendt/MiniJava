@@ -20,8 +20,10 @@ import Data.List
 import Data.Ord
 import Safe
 import Debug.Trace
+import Text.Show.Pretty
 
-f x = traceShow x x
+bug x = trace (ppShow x) x
+bug' x y = trace (ppShow x) y
 
 type VID = Int
 
@@ -70,7 +72,7 @@ aMethod' :: Int -> S.Program -> S.Class -> R.Method -> R.Method
 --     else aMethod' n program c (R.Method name (performSpills spills graph))
 --     where
 --     spills = select n $ simplify n $ interference $ liveness graph
-aMethod' n program c (R.Method name graph) = R.Method name (traceShow (graph, liveness graph, interference $ liveness graph) undefined)
+aMethod' n program c (R.Method name graph) = R.Method name (bug' (graph, liveness graph, interference $ liveness graph, simplify n $ interference $ liveness graph) graph)
 
 liveness :: G.Gr R.Statement S.EdgeType -> G.Gr (R.Statement, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType
 liveness g = graph'
@@ -109,7 +111,14 @@ interference g = live
     vInsOf (_, _, _, vIns, _) = vIns
     live = G.mkGraph (map (\v -> (v, v)) $ Set.toList allVars) (map (\(from, to) -> (from, to, ())) $ Set.toList edgeSet)
 
-simplify = undefined
+simplify :: Int -> G.Gr R.Register () -> [R.Register]
+simplify n graph = regs graph
+    where
+    regs g
+        | G.isEmpty g = []
+        | otherwise = case find ((< n) . G.indeg g . fst) (G.labNodes g) of
+            Just (node, reg) -> reg : regs (G.delNode node g)
+            Nothing -> let ((_, _, reg, _), g') = G.matchAny g in reg : regs g'
 
 select = undefined
 
