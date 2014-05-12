@@ -51,7 +51,7 @@ aClass :: Int -> S.Program -> S.Class -> R.Class
 aClass n program c@(S.Class name fs ms) = R.Class name fs (map (aMethod n program c) ms)
 
 aMethod :: Int -> S.Program -> S.Class -> S.Method -> R.Method
-aMethod n program c (S.Method name graph) = aMethod' n program c (R.Method name graph')
+aMethod n program c (S.Method name graph) = aMethod' 0 n program c (R.Method name graph')
     where
     varGraph :: G.Gr S.Statement ()
     varGraph = G.mkGraph
@@ -66,13 +66,22 @@ aMethod n program c (S.Method name graph) = aMethod' n program c (R.Method name 
         Just (Right s') -> (ins, n, s' (varGroups M.!), outs)
     graph' = (G.gmap conversion (ununify graph))
 
-aMethod' :: Int -> S.Program -> S.Class -> R.Method -> R.Method
--- aMethod' n program c (R.Method name graph) = if null spills
+aMethod' :: Int -> Int -> S.Program -> S.Class -> R.Method -> R.Method
+-- aMethod' spillCount n program c (R.Method name graph) = if null spills
 --     then R.Method name graph
 --     else aMethod' n program c (R.Method name (performSpills spills graph))
 --     where
 --     spills = select n $ simplify n $ interference $ liveness graph
-aMethod' n program c (R.Method name graph) = R.Method name (bug' (graph, liveness graph, interference $ liveness graph, simplify n $ interference $ liveness graph) graph)
+aMethod' spillCount n program c (R.Method name graph) = R.Method name graph'
+    where
+    lGraph = liveness graph
+    iGraph = interference lGraph
+    simpList = simplify n iGraph
+    regMap = select n iGraph simpList
+    spilledGraph = performSpills spillCount (M.keys regMap) graph
+    graph' = bug'
+        (graph, lGraph, iGraph, simpList, regMap)
+        (rewriteRegs regMap spilledGraph)
 
 liveness :: G.Gr R.Statement S.EdgeType -> G.Gr (R.Statement, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType
 liveness g = graph'
@@ -120,9 +129,26 @@ simplify n graph = regs graph
             Just (node, reg) -> reg : regs (G.delNode node g)
             Nothing -> let ((_, _, reg, _), g') = G.matchAny g in reg : regs g'
 
-select = undefined
+select :: Int -> G.Gr R.Register () -> [R.Register] -> M.Map R.Register R.Register
+select n graph regs = M.fromList $ mapMaybe f $ zip regs $ evalState (mapM (select' n) regs) (G.nmap (\a -> (a, Nothing)) graph)
+    where
+    f (r, Just r') = Just (r, r')
+    f (_, Nothing) = Nothing
 
+select' :: Int -> R.Register -> State (G.Gr (R.Register, Maybe R.Register) ()) (Maybe R.Register)
+select' n r = do
+    graph <- get
+    case Set.toList (Set.fromList [0 .. n] `Set.difference` Set.fromList (catMaybes $ map snd $ map (fromJust . G.lab graph) (G.neighbors graph r))) of
+        [] -> return Nothing
+        (r':_) -> do
+            modify $ G.nmap (\(a, o) -> if a == r then (a, Just r') else (a, o))
+            return $ Just r'
+
+performSpills :: Int -> [R.Register] -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
 performSpills = undefined
+
+rewriteRegs :: M.Map R.Register R.Register -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
+rewriteRegs = undefined
 
 withRegister :: S.Statement -> Maybe (Either ((S.ID -> R.Register) -> S.ID -> R.Statement) ((S.ID -> R.Register) -> R.Statement))
 withRegister (S.Load offset)            = Just $ Left  $ \f -> R.Load offset
