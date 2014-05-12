@@ -21,6 +21,7 @@ import Data.Ord
 import Safe
 import Debug.Trace
 import Text.Show.Pretty
+import Data.Tuple
 
 bug x = trace (ppShow x) x
 bug' x y = trace (ppShow x) y
@@ -45,7 +46,8 @@ allocate :: Int -> S.Program -> R.Program
 allocate n = aProgram n
 
 aProgram :: Int -> S.Program -> R.Program
-aProgram n p@(S.Program m cs) = R.Program (aClass n p m) (map (aClass n p) cs)
+-- aProgram n p@(S.Program m cs) = R.Program (aClass n p m) (map (aClass n p) cs)
+aProgram n p@(S.Program m cs) = R.Program (aClass n p (head cs)) (map (aClass n p) cs)
 
 aClass :: Int -> S.Program -> S.Class -> R.Class
 aClass n program c@(S.Class name fs ms) = R.Class name fs (map (aMethod n program c) ms)
@@ -67,21 +69,25 @@ aMethod n program c (S.Method name graph) = aMethod' 0 n program c (R.Method nam
     graph' = (G.gmap conversion (ununify graph))
 
 aMethod' :: Int -> Int -> S.Program -> S.Class -> R.Method -> R.Method
--- aMethod' spillCount n program c (R.Method name graph) = if null spills
---     then R.Method name graph
---     else aMethod' n program c (R.Method name (performSpills spills graph))
---     where
---     spills = select n $ simplify n $ interference $ liveness graph
-aMethod' spillCount n program c (R.Method name graph) = R.Method name graph'
+aMethod' spillCount n program c (R.Method name graph)
+    | spillCount' == spillCount = R.Method name graph
+    | otherwise = aMethod' spillCount' n program c (R.Method name (bug' (linear spilledGraph) spilledGraph))
     where
     lGraph = liveness graph
-    iGraph = interference lGraph
+    iGraph = interference (bug lGraph)
     simpList = simplify n iGraph
     regMap = select n iGraph simpList
-    spilledGraph = performSpills spillCount (M.keys regMap) graph
-    graph' = bug'
-        (graph, lGraph, iGraph, simpList, regMap)
-        (rewriteRegs regMap spilledGraph)
+    (spilledGraph, spillCount') = performSpills spillCount regMap graph
+-- aMethod' spillCount n program c (R.Method name graph) = R.Method name graph'
+--     where
+--     lGraph = liveness graph
+--     iGraph = interference lGraph
+--     simpList = simplify n iGraph
+--     regMap = select n iGraph simpList
+--     (spilledGraph, spillCount') = performSpills spillCount regMap graph
+--     graph' = bug'
+--         (graph, lGraph, iGraph, simpList, regMap, spilledGraph, linear spilledGraph, spillCount')
+--         spilledGraph
 
 liveness :: G.Gr R.Statement S.EdgeType -> G.Gr (R.Statement, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType
 liveness g = graph'
@@ -138,17 +144,42 @@ select n graph regs = M.fromList $ mapMaybe f $ zip regs $ evalState (mapM (sele
 select' :: Int -> R.Register -> State (G.Gr (R.Register, Maybe R.Register) ()) (Maybe R.Register)
 select' n r = do
     graph <- get
-    case Set.toList (Set.fromList [0 .. n] `Set.difference` Set.fromList (catMaybes $ map snd $ map (fromJust . G.lab graph) (G.neighbors graph r))) of
+    case Set.toList (Set.fromList [1 .. n] `Set.difference` Set.fromList (catMaybes $ map snd $ map (fromJust . G.lab graph) (G.neighbors graph r))) of
         [] -> return Nothing
         (r':_) -> do
             modify $ G.nmap (\(a, o) -> if a == r then (a, Just r') else (a, o))
             return $ Just r'
 
-performSpills :: Int -> [R.Register] -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
-performSpills = undefined
-
-rewriteRegs :: M.Map R.Register R.Register -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
-rewriteRegs = undefined
+performSpills :: Int -> M.Map R.Register R.Register -> G.Gr R.Statement S.EdgeType -> (G.Gr R.Statement S.EdgeType, Int)
+performSpills spillCount regMap graph = execState (mapM doSpill (Set.toList spilledRegs) >> rewrite) (graph, spillCount)
+    where
+    nodeRegPairs = mapMaybe (\(n, st) -> case Set.toList (def st) of { [r] -> Just (n, r); _ -> Nothing }) (G.labNodes graph)
+    spilledRegs = Set.fromList (map snd nodeRegPairs) `Set.difference` Set.fromList (M.keys regMap)
+    regToNodes = foldr (uncurry SM.insert) SM.empty $ map swap nodeRegPairs
+    -- varDefToNodes = M.fromList $ map (\r -> (r, map fst $ filter (\(n, st) -> r `Set.member` def st) (G.labNodes graph))) (M.keys regMap)
+    -- spilledNodes = Set.fromList (G.nodes graph) `Set.difference` Set.fromList (concat $ M.elems varDefToNodes)
+    doSpill reg = do
+        let doStore node = do
+            (g, sc) <- get
+            case G.match node g of
+                (Nothing, _) -> error "match failure"
+                (Just (ins, n, st, outs), g') -> do
+                    let store = ([(S.Step, n)], head (G.newNodes 1 g), R.Store reg sc, outs)
+                    put (store G.& ((ins, n, st, []) G.& g'), sc)
+        let doLoad node = do
+            (g, sc) <- get
+            case G.match node g of
+                (Nothing, _) -> error "match failure"
+                (Just (ins, n, st, outs), g') -> do
+                    let load = (ins, head (G.newNodes 1 g), R.Load sc reg, [])
+                    put (([(S.Step, G.node' load)], n, st, outs) G.& (load G.& g'), sc)
+        (g, sc) <- get -- prior to insertion of stores
+        mapM doStore (Set.toList $ SM.lookup reg regToNodes)
+        mapM doLoad (map fst $ filter (\(n, st) -> reg `Set.member` vUses st) (G.labNodes g))
+        modify $ _2 %~ (+1)
+    rewrite = do 
+        (g, sc) <- get
+        put $ (G.nmap (mapRegs (\u -> case M.lookup u regMap of { Just u' -> u'; Nothing -> u })) g, sc)
 
 withRegister :: S.Statement -> Maybe (Either ((S.ID -> R.Register) -> S.ID -> R.Statement) ((S.ID -> R.Register) -> R.Statement))
 withRegister (S.Load offset)            = Just $ Left  $ \f -> R.Load offset
@@ -228,6 +259,44 @@ vUses (R.Print r1)                 = Set.fromList [r1]
 vUses (R.BeginMethod)              = Set.fromList []
 vUses (R.Label)                    = Set.fromList []
 vUses (R.Goto)                     = Set.fromList []
+
+mapRegs f (R.Load offset r)            = R.Load offset (f r)
+mapRegs f (R.Null t r)                 = R.Null t (f r)
+mapRegs f (R.NewObj s1 r)              = R.NewObj s1 (f r)
+mapRegs f (R.NewIntArray r1 r)         = R.NewIntArray (f r1) (f r)
+mapRegs f (R.This r)                   = R.This (f r)
+mapRegs f (R.SInt v r)                 = R.SInt v (f r)
+mapRegs f (R.SBoolean v r)             = R.SBoolean v (f r)
+mapRegs f (R.Parameter position r)     = R.Parameter position (f r)
+mapRegs f (R.Call s1 r1 s2 is r)       = R.Call s1 (f r1) s2 is (f r)
+mapRegs f (R.MemberGet s1 r1 s2 r)     = R.MemberGet s1 (f r1) s2 (f r)
+mapRegs f (R.MemberAssg s1 r1 s2 r2 r) = R.MemberAssg s1 (f r1) s2 (f r2) (f r)
+mapRegs f (R.VarAssg r1 r)             = R.VarAssg (f r1) (f r)
+mapRegs f (R.IndexGet r1 r2 r)         = R.IndexGet (f r1) (f r2) (f r)
+mapRegs f (R.IndexAssg r1 r2 r3 r)     = R.IndexAssg (f r1) (f r2) (f r3) (f r)
+mapRegs f (R.Not r1 r)                 = R.Not (f r1) (f r)
+mapRegs f (R.Lt r1 r2 r)               = R.Lt (f r1) (f r2) (f r)
+mapRegs f (R.Le r1 r2 r)               = R.Le (f r1) (f r2) (f r)
+mapRegs f (R.Eq r1 r2 r)               = R.Eq (f r1) (f r2) (f r)
+mapRegs f (R.Ne r1 r2 r)               = R.Ne (f r1) (f r2) (f r)
+mapRegs f (R.Gt r1 r2 r)               = R.Gt (f r1) (f r2) (f r)
+mapRegs f (R.Ge r1 r2 r)               = R.Ge (f r1) (f r2) (f r)
+mapRegs f (R.And r1 r2 r)              = R.And (f r1) (f r2) (f r)
+mapRegs f (R.Or r1 r2 r)               = R.Or (f r1) (f r2) (f r)
+mapRegs f (R.Plus r1 r2 r)             = R.Plus (f r1) (f r2) (f r)
+mapRegs f (R.Minus r1 r2 r)            = R.Minus (f r1) (f r2) (f r)
+mapRegs f (R.Mul r1 r2 r)              = R.Mul (f r1) (f r2) (f r)
+mapRegs f (R.Div r1 r2 r)              = R.Div (f r1) (f r2) (f r)
+mapRegs f (R.Mod r1 r2 r)              = R.Mod (f r1) (f r2) (f r)
+mapRegs f (R.Store r1 offset)          = R.Store (f r1) offset
+mapRegs f (R.Branch r1)                = R.Branch (f r1)
+mapRegs f (R.NBranch r1)               = R.NBranch (f r1)
+mapRegs f (R.Arg r1 p)                 = R.Arg (f r1) p
+mapRegs f (R.Return r1)                = R.Return (f r1)
+mapRegs f (R.Print r1)                 = R.Print (f r1)
+mapRegs f (R.BeginMethod)              = R.BeginMethod
+mapRegs f (R.Label)                    = R.Label
+mapRegs f (R.Goto)                     = R.Goto
 
 def :: R.Statement -> Set.Set R.Register
 def (R.Load offset r)            = Set.fromList [r]
