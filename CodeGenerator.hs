@@ -138,10 +138,10 @@ gStatement ast mName spillSpace callerSaved (ins, node, statement, outs) = do
         R.Ge r1 r2 r               -> line $ printf " sge $%s, $%s, $%s" (reg r) (reg r1) (reg r2)
         R.And r1 r2 r              -> do
             line $ printf " add $%s, $%s, $%s" (reg r2) (reg r1) (reg r2)
-            line $ printf " seq $%s, $%s, $%s" (reg r) (reg r2) "2"
+            line $ printf " seq $%s, $%s, %s" (reg r) (reg r2) "2"
         R.Or r1 r2 r               -> do
             line $ printf " add $%s, $%s, $%s" (reg r2) (reg r1) (reg r2)
-            line $ printf " sgt $%s, $%s, $%s" (reg r) (reg r2) "0"
+            line $ printf " sgt $%s, $%s, %s" (reg r) (reg r2) "0"
         R.Plus r1 r2 r             -> line $ printf " add $%s, $%s, $%s" (reg r) (reg r1) (reg r2)
         R.Minus r1 r2 r            -> line $ printf " sub $%s, $%s, $%s" (reg r) (reg r1) (reg r2)
         R.Mul r1 r2 r              -> line $ printf " mul $%s, $%s, $%s" (reg r) (reg r1) (reg r2)
