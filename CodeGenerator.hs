@@ -92,7 +92,7 @@ gStatement spillSpace callerSaved (ins, node, statement, outs) = do
         R.NewObj s1 r              -> line "NewObj not implemented"
         R.NewIntArray r1 r         -> line "NewIntArray not implemented"
         R.This r                   -> line "This not implemented"
-        R.SInt v r                 -> line "SInt not implemented"
+        R.SInt v r                 -> line $ printf " li $%s, %s" (reg r) (show v)
         R.SBoolean v r             -> line "SBoolean not implemented"
         R.Parameter position r     -> line "Parameter not implemented"
         R.Call s1 r1 s2 is r       -> line "Call not implemented"
