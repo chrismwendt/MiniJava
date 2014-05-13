@@ -78,6 +78,11 @@ gMethod (R.Method name g) = do
         line $ printf " lw $%s, ($sp)" (show $ registers !! r)
         line $ " add $sp, $sp, " ++ show wordsize
 
+    line " move $sp, $fp"
+    line " lw $fp, ($sp)"
+    line $ " add $sp, $sp, " ++ show wordsize
+    line " j $ra"
+
 gStatement :: Int -> [R.Register] -> G.Context R.Statement S.EdgeType -> Writer [String] ()
 gStatement spillSpace callerSaved (ins, node, statement, outs) = case statement of
     R.Load offset r            -> line "Load not implemented"
