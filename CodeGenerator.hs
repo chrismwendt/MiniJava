@@ -49,12 +49,12 @@ gMethod (R.Method name g) = do
 
     let maxOffset = foldr max 0 [o | (R.Store _ o) <- map snd (G.labNodes g)]
     let spillSpace = maxOffset + 1
-    let calleeSaved = Set.filter (\r -> any (r `Set.member`) (map (R.def . snd) $ G.labNodes g)) calleeSavedRegisters
-    let callerSaved = Set.filter (\r -> any (r `Set.member`) (map (R.def . snd) $ G.labNodes g)) callerSavedRegisters
+    let calleeSaved = filter (\r -> any (r `Set.member`) (map (R.def . snd) $ G.labNodes g)) $ Set.toList calleeSavedRegisters
+    let callerSaved = filter (\r -> any (r `Set.member`) (map (R.def . snd) $ G.labNodes g)) $ Set.toList callerSavedRegisters
 
-    line $ " add $sp, $sp, " ++ show (-(spillSpace + Set.size callerSaved + 1) * wordsize) -- +1 for fp
+    line $ " add $sp, $sp, " ++ show (-(spillSpace + length callerSaved + 1) * wordsize) -- +1 for fp
 
-    forM_ (Set.toList calleeSaved) $ \r -> do
+    forM_ calleeSaved $ \r -> do
         line $ " add $sp, $sp, " ++ show wordsize
         line $ printf " sw $%s, ($sp)" (show $ registers !! r)
 
@@ -74,7 +74,7 @@ gMethod (R.Method name g) = do
     line " lw $ra, ($sp)"
     line $ " add $sp, $sp, " ++ show wordsize
 
-gStatement :: Int -> Set.Set R.Register -> G.Context R.Statement S.EdgeType -> Writer [String] ()
+gStatement :: Int -> [R.Register] -> G.Context R.Statement S.EdgeType -> Writer [String] ()
 gStatement spillSpace callerSaved (ins, node, statement, outs) = case statement of
     R.Load offset r            -> line "Load not implemented"
     R.Null t r                 -> line "Null not implemented"
