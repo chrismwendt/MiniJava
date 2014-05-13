@@ -129,8 +129,17 @@ gStatement ast mName spillSpace callerSaved (ins, node, statement, outs) = do
             line $ printf " sw $%s, %s($%s)" (reg r2) (show $ fieldOffset ast s1 s2 * wordsize) (reg r1)
             line $ printf " move $%s, $%s" (reg r) (reg r2)
         R.VarAssg r1 r             -> line $ printf " move $%s, $%s" (reg r) (reg r1)
-        R.IndexGet r1 r2 r         -> line "IndexGet not implemented"
-        R.IndexAssg r1 r2 r3 r     -> line "IndexAssg not implemented"
+        R.IndexGet r1 r2 r         -> do
+            line $ printf " mul $v1, $%s, 4" (reg r2)
+            line $ printf " add $v1, $v1, 4"
+            line $ printf " add $v1, $v1, $%s" (reg r1)
+            line $ printf " lw $%s, ($v1)" (reg r)
+        R.IndexAssg r1 r2 r3 r     -> do
+            line $ printf " mul $v1, $%s, 4" (reg r2)
+            line $ printf " add $v1, $v1, 4"
+            line $ printf " add $v1, $v1, $%s" (reg r1)
+            line $ printf " sw $%s, ($v1)" (reg r3)
+            line $ printf " move $%s, $%s" (reg r) (reg r3)
         R.Not r1 r                 -> line $ printf " seq $%s, $zero, $%s" (reg r) (reg r1)
         R.Lt r1 r2 r               -> line $ printf " slt $%s, $%s, $%s" (reg r) (reg r1) (reg r2)
         R.Le r1 r2 r               -> line $ printf " sle $%s, $%s, $%s" (reg r) (reg r1) (reg r2)
