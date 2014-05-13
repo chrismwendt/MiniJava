@@ -4,6 +4,7 @@ import Parser
 import qualified TypeChecker as TC
 import qualified SSACompiler as SSA
 import qualified RegisterAllocator as Reg
+import qualified CodeGenerator as Code
 import Control.Monad.State
 import Data.Maybe
 import qualified Data.Map as M
@@ -21,7 +22,7 @@ compile (Options "parse" _) source = show $ parseString source
 compile (Options "type" _) source = show $ TC.typeCheck $ parseString source
 compile (Options "SSA" _) source = show $ SSA.compile $ TC.typeCheck $ parseString source
 compile (Options "reg" _) source = show $ Reg.allocate 22 $ SSA.compile $ TC.typeCheck $ parseString source
-compile (Options "code" _) source = error "unimplemented target: code"
+compile (Options "code" _) source = let ast = TC.typeCheck $ parseString source in Code.generate ast $ Reg.allocate 22 $ SSA.compile $ ast
 compile (Options target _) _ = error $ "unknown target: " ++ target
 
 main :: IO ()
