@@ -102,7 +102,7 @@ gStatement ast mName spillSpace callerSaved (ins, node, statement, outs) = do
         R.NewObj s1 r              -> do
             storeAll (callerSaved \\ [freeRegisters !! r]) spillSpace
             line $ printf " la $a0, mj__v_%s" s1
-            line $ printf " li $a1, %s" "0" -- TODO calculate object size
+            line $ printf " li $a1, %s" (show $ objectSize ast s1)
             line " jal minijavaNew"
             line $ printf " move $%s, $v0" (reg r)
             loadAll (callerSaved \\ [freeRegisters !! r]) spillSpace
@@ -266,3 +266,9 @@ storeAll regs spillSpace = zipWithM_ (\r i -> line $ printf " sw $%s, %s($fp)" (
 
 loadAll :: [R.Register] -> Int -> Writer [String] ()
 loadAll regs spillSpace = zipWithM_ (\r i -> line $ printf " lw $%s, %s($fp)" (registers !! r) (show $ (spillSpace + i + 1) * (-wordsize))) regs [0 .. ]
+
+objectSize :: T.Program -> String -> Int
+objectSize _ "Object" = 1
+objectSize ast@(T.Program m cs) cName = case find ((== cName) . T._cName) cs of
+    Nothing -> error "no class found"
+    Just (T.Class _ parent fs _) -> length fs + objectSize ast parent
