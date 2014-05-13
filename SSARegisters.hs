@@ -10,6 +10,7 @@ import Text.Printf
 import Data.List
 import Data.Graph.Inductive
 import qualified SSA as S
+import qualified Data.Set as Set
 
 type ID = Int
 
@@ -93,3 +94,42 @@ makeLenses ''Program
 makeLenses ''Class
 makeLenses ''Method
 makeLenses ''Statement
+
+def :: Statement -> Set.Set Register
+def (Load offset r)            = Set.fromList [r]
+def (Null t r)                 = Set.fromList [r]
+def (NewObj s1 r)              = Set.fromList [r]
+def (NewIntArray r1 r)         = Set.fromList [r]
+def (This r)                   = Set.fromList [r]
+def (SInt v r)                 = Set.fromList [r]
+def (SBoolean v r)             = Set.fromList [r]
+def (Parameter position r)     = Set.fromList [r]
+def (Call s1 r1 s2 is r)       = Set.fromList [r]
+def (MemberGet s1 r1 s2 r)     = Set.fromList [r]
+def (MemberAssg s1 r1 s2 r2 r) = Set.fromList [r]
+def (VarAssg r1 r)             = Set.fromList [r]
+def (IndexGet r1 r2 r)         = Set.fromList [r]
+def (IndexAssg r1 r2 r3 r)     = Set.fromList [r]
+def (Not r1 r)                 = Set.fromList [r]
+def (Lt r1 r2 r)               = Set.fromList [r]
+def (Le r1 r2 r)               = Set.fromList [r]
+def (Eq r1 r2 r)               = Set.fromList [r]
+def (Ne r1 r2 r)               = Set.fromList [r]
+def (Gt r1 r2 r)               = Set.fromList [r]
+def (Ge r1 r2 r)               = Set.fromList [r]
+def (And r1 r2 r)              = Set.fromList [r]
+def (Or r1 r2 r)               = Set.fromList [r]
+def (Plus r1 r2 r)             = Set.fromList [r]
+def (Minus r1 r2 r)            = Set.fromList [r]
+def (Mul r1 r2 r)              = Set.fromList [r]
+def (Div r1 r2 r)              = Set.fromList [r]
+def (Mod r1 r2 r)              = Set.fromList [r]
+def (Store r1 offset)          = Set.fromList []
+def (Branch r1)                = Set.fromList []
+def (NBranch r1)               = Set.fromList []
+def (Arg r1 p)                 = Set.fromList []
+def (Return r1)                = Set.fromList []
+def (Print r1)                 = Set.fromList []
+def (BeginMethod)              = Set.fromList []
+def (Label)                    = Set.fromList []
+def (Goto)                     = Set.fromList []

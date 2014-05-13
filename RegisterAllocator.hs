@@ -144,7 +144,7 @@ doLoad sc r n = do
     case G.match n g of
         (Nothing, _) -> error "match failure"
         (Just (ins, n, st@(stu, ds, us, vIns, vOuts), outs), g') -> do
-            let avail = case Set.toList $ (foldr Set.union Set.empty $ map (\(_, (s, _, _, _, _)) -> def s) (G.labNodes g)) `Set.difference` vIns of
+            let avail = case Set.toList $ (foldr Set.union Set.empty $ map (\(_, (s, _, _, _, _)) -> R.def s) (G.labNodes g)) `Set.difference` vIns of
                                 [] -> error "no available register"
                                 (a:_) -> a
             let load = (ins, head (G.newNodes 1 g), (R.Load sc avail, ds, us, vIns, vOuts), [])
@@ -180,7 +180,7 @@ liveness :: G.Gr R.Statement S.EdgeType -> G.Gr (R.Statement, Set.Set R.Register
 liveness g = graph'
     where
     lGraph = map fst $ linear g
-    initialGraph = G.gmap (\(ins, n, s, outs) -> (ins, n, (s, def s, vUses s, Set.empty, Set.empty), outs)) g
+    initialGraph = G.gmap (\(ins, n, s, outs) -> (ins, n, (s, R.def s, vUses s, Set.empty, Set.empty), outs)) g
     graph' = snd $ until (\(old, new) -> old == new) f (f (initialGraph, initialGraph))
     f (prevOld, prevNew) = (prevNew, f' prevNew)
     f' g = foldr f'' g lGraph
@@ -311,45 +311,6 @@ mapRegs f (R.Print r1)                 = R.Print (f r1)
 mapRegs f (R.BeginMethod)              = R.BeginMethod
 mapRegs f (R.Label)                    = R.Label
 mapRegs f (R.Goto)                     = R.Goto
-
-def :: R.Statement -> Set.Set R.Register
-def (R.Load offset r)            = Set.fromList [r]
-def (R.Null t r)                 = Set.fromList [r]
-def (R.NewObj s1 r)              = Set.fromList [r]
-def (R.NewIntArray r1 r)         = Set.fromList [r]
-def (R.This r)                   = Set.fromList [r]
-def (R.SInt v r)                 = Set.fromList [r]
-def (R.SBoolean v r)             = Set.fromList [r]
-def (R.Parameter position r)     = Set.fromList [r]
-def (R.Call s1 r1 s2 is r)       = Set.fromList [r]
-def (R.MemberGet s1 r1 s2 r)     = Set.fromList [r]
-def (R.MemberAssg s1 r1 s2 r2 r) = Set.fromList [r]
-def (R.VarAssg r1 r)             = Set.fromList [r]
-def (R.IndexGet r1 r2 r)         = Set.fromList [r]
-def (R.IndexAssg r1 r2 r3 r)     = Set.fromList [r]
-def (R.Not r1 r)                 = Set.fromList [r]
-def (R.Lt r1 r2 r)               = Set.fromList [r]
-def (R.Le r1 r2 r)               = Set.fromList [r]
-def (R.Eq r1 r2 r)               = Set.fromList [r]
-def (R.Ne r1 r2 r)               = Set.fromList [r]
-def (R.Gt r1 r2 r)               = Set.fromList [r]
-def (R.Ge r1 r2 r)               = Set.fromList [r]
-def (R.And r1 r2 r)              = Set.fromList [r]
-def (R.Or r1 r2 r)               = Set.fromList [r]
-def (R.Plus r1 r2 r)             = Set.fromList [r]
-def (R.Minus r1 r2 r)            = Set.fromList [r]
-def (R.Mul r1 r2 r)              = Set.fromList [r]
-def (R.Div r1 r2 r)              = Set.fromList [r]
-def (R.Mod r1 r2 r)              = Set.fromList [r]
-def (R.Store r1 offset)          = Set.fromList []
-def (R.Branch r1)                = Set.fromList []
-def (R.NBranch r1)               = Set.fromList []
-def (R.Arg r1 p)                 = Set.fromList []
-def (R.Return r1)                = Set.fromList []
-def (R.Print r1)                 = Set.fromList []
-def (R.BeginMethod)              = Set.fromList []
-def (R.Label)                    = Set.fromList []
-def (R.Goto)                     = Set.fromList []
 
 linear :: G.Gr R.Statement S.EdgeType -> [(G.Node, R.Statement)]
 linear g = linear' g start Nothing
