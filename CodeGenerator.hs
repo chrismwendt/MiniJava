@@ -69,7 +69,44 @@ gMethod (R.Method name g) = do
     mapM_ (gStatement spillSpace callerSaved) (map (G.context g) (G.nodes g))
 
 gStatement :: Int -> Set.Set R.Register -> G.Context R.Statement S.EdgeType -> Writer [String] ()
-gStatement spillSpace callerSaved (ins, node, statement, outs) = undefined
+gStatement spillSpace callerSaved (ins, node, statement, outs) = case statement of
+    R.Load offset r            -> line "Load not implemented"
+    R.Null t r                 -> line "Null not implemented"
+    R.NewObj s1 r              -> line "NewObj not implemented"
+    R.NewIntArray r1 r         -> line "NewIntArray not implemented"
+    R.This r                   -> line "This not implemented"
+    R.SInt v r                 -> line "SInt not implemented"
+    R.SBoolean v r             -> line "SBoolean not implemented"
+    R.Parameter position r     -> line "Parameter not implemented"
+    R.Call s1 r1 s2 is r       -> line "Call not implemented"
+    R.MemberGet s1 r1 s2 r     -> line "MemberGet not implemented"
+    R.MemberAssg s1 r1 s2 r2 r -> line "MemberAssg not implemented"
+    R.VarAssg r1 r             -> line "VarAssg not implemented"
+    R.IndexGet r1 r2 r         -> line "IndexGet not implemented"
+    R.IndexAssg r1 r2 r3 r     -> line "IndexAssg not implemented"
+    R.Not r1 r                 -> line "Not not implemented"
+    R.Lt r1 r2 r               -> line "Lt not implemented"
+    R.Le r1 r2 r               -> line "Le not implemented"
+    R.Eq r1 r2 r               -> line "Eq not implemented"
+    R.Ne r1 r2 r               -> line "Ne not implemented"
+    R.Gt r1 r2 r               -> line "Gt not implemented"
+    R.Ge r1 r2 r               -> line "Ge not implemented"
+    R.And r1 r2 r              -> line "And not implemented"
+    R.Or r1 r2 r               -> line "Or not implemented"
+    R.Plus r1 r2 r             -> line "Plus not implemented"
+    R.Minus r1 r2 r            -> line "Minus not implemented"
+    R.Mul r1 r2 r              -> line "Mul not implemented"
+    R.Div r1 r2 r              -> line "Div not implemented"
+    R.Mod r1 r2 r              -> line "Mod not implemented"
+    R.Store r1 offset          -> line "Store not implemented"
+    R.Branch r1                -> line "Branch not implemented"
+    R.NBranch r1               -> line "NBranch not implemented"
+    R.Arg r1 p                 -> line "Arg not implemented"
+    R.Return r1                -> line "Return not implemented"
+    R.Print r1                 -> line "Print not implemented"
+    R.BeginMethod              -> line "BeginMethod not implemented"
+    R.Label                    -> line "Label not implemented"
+    R.Goto                     -> line "Goto not implemented"
 
 boilerplate :: Writer [String] ()
 boilerplate = do
