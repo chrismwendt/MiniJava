@@ -260,3 +260,9 @@ registers =
 
 reg :: R.Register -> String
 reg r = registers !! (freeRegisters !! r)
+
+storeAll :: [R.Register] -> Int -> Writer [String] ()
+storeAll regs spillSpace = zipWithM_ (\r i -> line $ printf " sw $%s, %s($fp)" (registers !! r) (show $ (spillSpace + i + 1) * (-wordsize))) regs [0 .. ]
+
+loadAll :: [R.Register] -> Int -> Writer [String] ()
+loadAll regs spillSpace = zipWithM_ (\r i -> line $ printf " lw $%s, %s($fp)" (registers !! r) (show $ (spillSpace + i + 1) * (-wordsize))) regs [0 .. ]
