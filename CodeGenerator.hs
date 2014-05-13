@@ -22,6 +22,9 @@ import Text.Show.Pretty
 import Data.Tuple
 import Text.Printf
 
+bug x = trace (ppShow x) x
+bug' x y = trace (ppShow x) y
+
 generate :: T.Program -> R.Program -> String
 generate ast (R.Program (R.Class _ _ [m]) cs) = unlines $ execWriter $ do
     boilerplate
