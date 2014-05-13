@@ -195,6 +195,14 @@ callerSavedRegisters = Set.fromList
     , 8, 9, 10, 11, 12, 13, 14, 15, 24, 25 -- t*
     ]
 
+freeRegisters :: [R.Register]
+freeRegisters =
+    [ 4, 5, 6, 7 -- a*
+    , 8, 9, 10, 11, 12, 13, 14, 15 -- t*
+    , 16, 17, 18, 19, 20, 21, 22, 23 -- s*
+    , 24, 25 -- t*
+    ]
+
 registers :: [String]
 registers =
     [ "zero"
@@ -207,3 +215,6 @@ registers =
     , "k0", "k1"
     , "gp", "sp", "fp", "ra"
     ]
+
+reg :: R.Register -> String
+reg r = registers !! (freeRegisters !! r)
