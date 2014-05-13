@@ -46,8 +46,7 @@ allocate :: Int -> S.Program -> R.Program
 allocate n = aProgram n
 
 aProgram :: Int -> S.Program -> R.Program
--- aProgram n p@(S.Program m cs) = R.Program (aClass n p m) (map (aClass n p) cs)
-aProgram n p@(S.Program m cs) = R.Program (aClass n p (head cs)) (map (aClass n p) [])
+aProgram n p@(S.Program m cs) = R.Program (aClass n p m) (map (aClass n p) cs)
 
 aClass :: Int -> S.Program -> S.Class -> R.Class
 aClass n program c@(S.Class name fs ms) = R.Class name fs (map (aMethod n program c) ms)
