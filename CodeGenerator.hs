@@ -54,8 +54,11 @@ gMethod (R.Method name g) = do
         { Nothing -> 0
         ; Just o -> o + 1
         }
-    let calleeSaved = filter (\r -> any (r `Set.member`) (map (R.def . snd) $ G.labNodes g)) calleeSavedRegisters
-    let callerSaved = 2 : 3 : filter (\r -> any (r `Set.member`) (map (R.def . snd) $ G.labNodes g)) callerSavedRegisters
+    let fromSaved list = [fr | [r] <- map (Set.toList . R.def . snd) (G.labNodes g)
+                          , let fr = freeRegisters !! r
+                          , fr `elem` list]
+    let calleeSaved = fromSaved calleeSavedRegisters
+    let callerSaved = nub $ 2 : 3 : fromSaved callerSavedRegisters
 
     line $ " add $sp, $sp, " ++ show (-(spillSpace + length callerSaved + 1) * wordsize) -- +1 for fp
 
