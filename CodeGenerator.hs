@@ -120,7 +120,7 @@ gStatement ast mName spillSpace callerSaved (ins, node, statement, outs) = do
             storeAll (callerSaved \\ [freeRegisters !! r]) spillSpace
             line $ printf " move $v0, $%s" (reg r1)
             line $ printf " lw $v1, ($v0)"
-            line $ printf " lw $v1, %s($v1)" "0" -- TODO calculate method offset
+            line $ printf " lw $v1, %s($v1)" (show $ methodOffset ast s1 s2 * wordsize)
             line " jal $v1"
             line $ printf " move $%s, $v0" (reg r)
             loadAll (callerSaved \\ [freeRegisters !! r]) spillSpace
@@ -272,3 +272,13 @@ objectSize _ "Object" = 1
 objectSize ast@(T.Program m cs) cName = case find ((== cName) . T._cName) cs of
     Nothing -> error "no class found"
     Just (T.Class _ parent fs _) -> length fs + objectSize ast parent
+
+methodOffset :: T.Program -> String -> String -> Int
+methodOffset ast@(T.Program m cs) cName mName = case find ((== cName) . T._cName) cs of
+    Nothing -> error "no class found"
+    Just (T.Class _ parent _ ms) -> fromJust $ lookup mName $ reverse $ zip ((allMethods ast parent) ++ (map T._mName ms)) [0 .. ]
+
+allMethods :: T.Program -> String -> [String]
+allMethods ast@(T.Program m cs) cName = case find ((== cName) . T._cName) cs of
+    Nothing -> []
+    Just (T.Class _ parent _ ms) -> allMethods ast parent ++ (map T._mName ms)
