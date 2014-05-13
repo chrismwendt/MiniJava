@@ -69,7 +69,7 @@ aMethod n program c (S.Method name graph) = squashRegs n $ aMethod' 0 n program 
     graph' = G.gmap conversion (ununify graph)
 
 squashRegs :: Int -> R.Method -> R.Method
-squashRegs n (R.Method name g) = R.Method name (bug' (linear g, linear g') g')
+squashRegs n (R.Method name g) = R.Method name g'
     where
     lGraph = liveness g
     iGraph = interference lGraph
