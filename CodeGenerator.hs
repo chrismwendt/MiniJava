@@ -68,6 +68,12 @@ gMethod (R.Method name g) = do
 
     mapM_ (gStatement spillSpace callerSaved) (map (G.context g) (G.nodes g))
 
+    line $ printf " .ret_%s:" name
+
+    line $ " add $sp, $sp, " ++ show (argSpace * wordsize)
+    line " lw $ra, ($sp)"
+    line $ " add $sp, $sp, " ++ show wordsize
+
 gStatement :: Int -> Set.Set R.Register -> G.Context R.Statement S.EdgeType -> Writer [String] ()
 gStatement spillSpace callerSaved (ins, node, statement, outs) = case statement of
     R.Load offset r            -> line "Load not implemented"
