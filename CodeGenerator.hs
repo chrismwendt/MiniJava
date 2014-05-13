@@ -52,8 +52,8 @@ gMethod (R.Method name g) = do
 
     let maxOffset = foldr max 0 [o | (R.Store _ o) <- map snd (G.labNodes g)]
     let spillSpace = maxOffset + 1
-    let calleeSaved = filter (\r -> any (r `Set.member`) (map (R.def . snd) $ G.labNodes g)) $ Set.toList calleeSavedRegisters
-    let callerSaved = filter (\r -> any (r `Set.member`) (map (R.def . snd) $ G.labNodes g)) $ Set.toList callerSavedRegisters
+    let calleeSaved = filter (\r -> any (r `Set.member`) (map (R.def . snd) $ G.labNodes g)) calleeSavedRegisters
+    let callerSaved = 2 : 3 : filter (\r -> any (r `Set.member`) (map (R.def . snd) $ G.labNodes g)) callerSavedRegisters
 
     line $ " add $sp, $sp, " ++ show (-(spillSpace + length callerSaved + 1) * wordsize) -- +1 for fp
 
@@ -211,15 +211,15 @@ implementor ast@(T.Program m cs) cName mName = case find ((== cName) . T._cName)
 line :: String -> Writer [String] ()
 line s = tell [s]
 
-calleeSavedRegisters :: Set.Set R.Register
-calleeSavedRegisters = Set.fromList
+calleeSavedRegisters :: [R.Register]
+calleeSavedRegisters =
     [ 16, 17, 18, 19, 20, 21, 22, 23 -- s*
     , 28 -- gp
     , 31 -- ra
     ]
 
-callerSavedRegisters :: Set.Set R.Register
-callerSavedRegisters = Set.fromList
+callerSavedRegisters :: [R.Register]
+callerSavedRegisters =
     [ 2, 3 -- v*
     , 4, 5, 6, 7 -- a*
     , 8, 9, 10, 11, 12, 13, 14, 15, 24, 25 -- t*
