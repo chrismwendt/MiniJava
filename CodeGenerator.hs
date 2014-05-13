@@ -53,11 +53,13 @@ gMethod (R.Method name g) = do
     let callerSaved = Set.filter (\r -> any (r `Set.member`) (map (R.def . snd) $ G.labNodes g)) callerSavedRegisters
 
     line $ " add $sp, $sp, " ++ show (-(spillSpace + Set.size callerSaved + 1) * wordsize) -- +1 for fp
-    line ""
 
     forM_ (Set.toList calleeSaved) $ \r -> do
         line $ " add $sp, $sp, " ++ show wordsize
         line $ printf " sw $%s, ($sp)" (show $ registers !! r)
+
+    line $ " add $sp, $sp " ++ show (-wordsize)
+    line " sw $ra, ($sp)"
 
 boilerplate :: Writer [String] ()
 boilerplate = do
