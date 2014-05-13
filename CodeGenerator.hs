@@ -124,8 +124,10 @@ gStatement ast mName spillSpace callerSaved (ins, node, statement, outs) = do
             line " jal $v1"
             line $ printf " move $%s, $v0" (reg r)
             loadAll (callerSaved \\ [freeRegisters !! r]) spillSpace
-        R.MemberGet s1 r1 s2 r     -> line $ printf " lw $%s, %s($%s)" (reg r) (fieldOffset ast s1 s2) (reg r1)
-        R.MemberAssg s1 r1 s2 r2 r -> line "MemberAssg not implemented"
+        R.MemberGet s1 r1 s2 r     -> line $ printf " lw $%s, %s($%s)" (reg r) (show $ fieldOffset ast s1 s2 * wordsize) (reg r1)
+        R.MemberAssg s1 r1 s2 r2 r -> do
+            line $ printf " sw $%s, %s($%s)" (reg r2) (show $ fieldOffset ast s1 s2 * wordsize) (reg r1)
+            line $ printf " move $%s, $%s" (reg r) (reg r2)
         R.VarAssg r1 r             -> line $ printf " move $%s, $%s" (reg r) (reg r1)
         R.IndexGet r1 r2 r         -> line "IndexGet not implemented"
         R.IndexAssg r1 r2 r3 r     -> line "IndexAssg not implemented"
