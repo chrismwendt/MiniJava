@@ -97,8 +97,8 @@ gStatement :: String -> Int -> [R.Register] -> G.Context R.Statement S.EdgeType 
 gStatement mName spillSpace callerSaved (ins, node, statement, outs) = do
     line $ " # " ++ show statement
     case statement of
-        R.Load offset r            -> line "Load not implemented"
-        R.Null t r                 -> line "Null not implemented"
+        R.Load offset r            -> line $ printf " lw $%s, %s($fp)" (reg r) (show $ (offset + 1) * (-wordsize))
+        R.Null t r                 -> line $ printf " move $%s, $zero" (reg r)
         R.NewObj s1 r              -> do
             -- TODO store all but regN(s) callerSaved
             line $ printf " la $a0, mj__v_%s" s1
@@ -106,11 +106,16 @@ gStatement mName spillSpace callerSaved (ins, node, statement, outs) = do
             line " jal minijavaNew"
             line $ printf " move $%s, $v0" (reg r)
             -- TODO restore all but regN(s) callerSaved
-        R.NewIntArray r1 r         -> line "NewIntArray not implemented"
-        R.This r                   -> line "This not implemented"
+        R.NewIntArray r1 r         -> do
+            -- TODO store all but regN(s) callerSaved
+            line $ printf " move $a0, $%s" (reg r1)
+            line " jal minijavaNewArray"
+            line $ printf " move $%s, $v0" (reg r)
+            -- TODO restore all but regN(s) callerSaved
+        R.This r                   -> line $ printf " move $%s, $v0" (reg r)
         R.SInt v r                 -> line $ printf " li $%s, %s" (reg r) (show v)
         R.SBoolean v r             -> line $ printf " li $%s, %s" (reg r) (if v then "1" else "0")
-        R.Parameter position r     -> line "Parameter not implemented"
+        R.Parameter position r     -> line $ printf " lw $%s, %s($fp)" (reg r) (show $ (position + 1) * wordsize)
         R.Call s1 r1 s2 is r       -> do
             -- TODO store all but regN(s) callerSaved
             line $ printf " move $v0, $%s" (reg r1)
