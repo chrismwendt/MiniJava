@@ -63,7 +63,7 @@ gMethod ast (R.Method name g) = do
     line $ " add $sp, $sp, " ++ show (-(spillSpace + length callerSaved + 1) * wordsize) -- +1 for fp
 
     forM_ calleeSaved $ \r -> do
-        line $ " add $sp, $sp, " ++ show wordsize
+        line $ " add $sp, $sp, " ++ show (-wordsize)
         line $ printf " sw $%s, ($sp)" (registers !! r)
 
     line $ " add $sp, $sp, " ++ show (-wordsize)
