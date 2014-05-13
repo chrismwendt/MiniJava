@@ -120,7 +120,11 @@ gStatement spillSpace callerSaved (ins, node, statement, outs) = do
         R.NBranch r1               -> line "NBranch not implemented"
         R.Arg r1 p                 -> line "Arg not implemented"
         R.Return r1                -> line "Return not implemented"
-        R.Print r1                 -> line "Print not implemented"
+        R.Print r1                 -> do
+            -- TODO store caller saved
+            line $ printf " move $a0, $%s" (reg r1)
+            line " jal minijavaPrint"
+            -- TODO restore caller saved
         R.BeginMethod              -> line "BeginMethod not implemented"
         R.Label                    -> line "Label not implemented"
         R.Goto                     -> line "Goto not implemented"
