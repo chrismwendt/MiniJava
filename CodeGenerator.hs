@@ -29,7 +29,7 @@ generate :: T.Program -> R.Program -> String
 generate ast (R.Program (R.Class _ _ [m]) cs) = unlines $ execWriter $ do
     boilerplate
     line "mj_main:"
-    gMethod m
+    gMethod ast m
     mapM_ (gClass ast) cs
 
 gClass :: T.Program -> R.Class -> Writer [String] ()
@@ -42,10 +42,10 @@ gClass ast (R.Class name fs ms) = do
     mapM_ (\(R.Method mName _) -> line $ printf " .word mj__m_%s_%s" (implementor ast name mName) mName) ms
 
     line ".text"
-    mapM_ (\m@(R.Method mName _) -> line (printf "mj__m_%s_%s:" name mName) >> gMethod m) ms
+    mapM_ (\m@(R.Method mName _) -> line (printf "mj__m_%s_%s:" name mName) >> gMethod ast m) ms
 
-gMethod :: R.Method -> Writer [String] ()
-gMethod (R.Method name g) = do
+gMethod :: T.Program -> R.Method -> Writer [String] ()
+gMethod ast (R.Method name g) = do
     line $ " add $sp, $sp, " ++ show (-1 * wordsize)
     line $ " sw $fp, ($sp)"
     line $ " move $fp, $sp"
@@ -76,7 +76,7 @@ gMethod (R.Method name g) = do
 
     line $ " add $sp, $sp, " ++ show (argSpace * (-wordsize))
 
-    mapM_ (gStatement name spillSpace callerSaved) (map (G.context g) (G.nodes g))
+    mapM_ (gStatement ast name spillSpace callerSaved) (map (G.context g) (G.nodes g))
 
     line $ printf " .ret_%s:" name
 
@@ -93,8 +93,8 @@ gMethod (R.Method name g) = do
     line $ " add $sp, $sp, " ++ show wordsize
     line " j $ra"
 
-gStatement :: String -> Int -> [R.Register] -> G.Context R.Statement S.EdgeType -> Writer [String] ()
-gStatement mName spillSpace callerSaved (ins, node, statement, outs) = do
+gStatement :: T.Program -> String -> Int -> [R.Register] -> G.Context R.Statement S.EdgeType -> Writer [String] ()
+gStatement ast mName spillSpace callerSaved (ins, node, statement, outs) = do
     line $ " # " ++ show statement
     case statement of
         R.Load offset r            -> line $ printf " lw $%s, %s($fp)" (reg r) (show $ (offset + 1) * (-wordsize))
