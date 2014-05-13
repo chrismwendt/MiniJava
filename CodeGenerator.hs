@@ -128,8 +128,8 @@ gStatement mName spillSpace callerSaved (ins, node, statement, outs) = do
             line " jal minijavaPrint"
             -- TODO restore caller saved
         R.BeginMethod              -> return ()
-        R.Label                    -> line "Label not implemented"
-        R.Goto                     -> line "Goto not implemented"
+        R.Label                    -> line $ printf " .l_%s:" (show node)
+        R.Goto                     -> line $ printf " j .l_%s" (show $ snd $ head outs)
 
 boilerplate :: Writer [String] ()
 boilerplate = do
