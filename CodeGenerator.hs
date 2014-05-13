@@ -126,7 +126,7 @@ gStatement mName spillSpace callerSaved (ins, node, statement, outs) = do
             -- TODO restore all but regN(s) callerSaved
         R.MemberGet s1 r1 s2 r     -> line "MemberGet not implemented"
         R.MemberAssg s1 r1 s2 r2 r -> line "MemberAssg not implemented"
-        R.VarAssg r1 r             -> line "VarAssg not implemented"
+        R.VarAssg r1 r             -> line $ printf " move $%s, $%s" (reg r) (reg r1)
         R.IndexGet r1 r2 r         -> line "IndexGet not implemented"
         R.IndexAssg r1 r2 r3 r     -> line "IndexAssg not implemented"
         R.Not r1 r                 -> line $ printf " seq $%s, $zero, $%s" (reg r) (reg r1)
