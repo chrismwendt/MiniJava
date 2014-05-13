@@ -61,6 +61,11 @@ gMethod (R.Method name g) = do
     line $ " add $sp, $sp " ++ show (-wordsize)
     line " sw $ra, ($sp)"
 
+    let maxArgPosition = foldr max 0 [p | (R.Arg _ p) <- map snd (G.labNodes g)]
+    let argSpace = maxArgPosition + 1
+
+    line $ " add $sp, $sp, " ++ show (argSpace * (-wordsize))
+
 boilerplate :: Writer [String] ()
 boilerplate = do
     line "main:"
