@@ -58,7 +58,7 @@ gMethod (R.Method name g) = do
         line $ " add $sp, $sp, " ++ show wordsize
         line $ printf " sw $%s, ($sp)" (show $ registers !! r)
 
-    line $ " add $sp, $sp " ++ show (-wordsize)
+    line $ " add $sp, $sp, " ++ show (-wordsize)
     line " sw $ra, ($sp)"
 
     let maxArgPosition = foldr max 0 [p | (R.Arg _ p) <- map snd (G.labNodes g)]
