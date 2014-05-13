@@ -121,7 +121,7 @@ select n graph regs = M.fromList $ mapMaybe f $ zip regs $ evalState (mapM (sele
 select' :: Int -> R.Register -> State (G.Gr (R.Register, Maybe R.Register) ()) (Maybe R.Register)
 select' n r = do
     graph <- get
-    case Set.toList (Set.fromList [1 .. n] `Set.difference` Set.fromList (catMaybes $ map snd $ map (fromJust . G.lab graph) (G.neighbors graph r))) of
+    case Set.toList (Set.fromList [0 .. n - 1] `Set.difference` Set.fromList (catMaybes $ map snd $ map (fromJust . G.lab graph) (G.neighbors graph r))) of
         [] -> return Nothing
         (r':_) -> do
             modify $ G.nmap (\(a, o) -> if a == r then (a, Just r') else (a, o))
