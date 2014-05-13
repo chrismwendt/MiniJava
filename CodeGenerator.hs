@@ -101,20 +101,28 @@ gStatement mName spillSpace callerSaved (ins, node, statement, outs) = do
         R.VarAssg r1 r             -> line "VarAssg not implemented"
         R.IndexGet r1 r2 r         -> line "IndexGet not implemented"
         R.IndexAssg r1 r2 r3 r     -> line "IndexAssg not implemented"
-        R.Not r1 r                 -> line "Not not implemented"
-        R.Lt r1 r2 r               -> line "Lt not implemented"
-        R.Le r1 r2 r               -> line "Le not implemented"
-        R.Eq r1 r2 r               -> line "Eq not implemented"
-        R.Ne r1 r2 r               -> line "Ne not implemented"
-        R.Gt r1 r2 r               -> line "Gt not implemented"
-        R.Ge r1 r2 r               -> line "Ge not implemented"
-        R.And r1 r2 r              -> line "And not implemented"
-        R.Or r1 r2 r               -> line "Or not implemented"
-        R.Plus r1 r2 r             -> line "Plus not implemented"
-        R.Minus r1 r2 r            -> line "Minus not implemented"
-        R.Mul r1 r2 r              -> line "Mul not implemented"
-        R.Div r1 r2 r              -> line "Div not implemented"
-        R.Mod r1 r2 r              -> line "Mod not implemented"
+        R.Not r1 r                 -> line $ printf " seq $%s, $zero, $%s" (reg r) (reg r1)
+        R.Lt r1 r2 r               -> line $ printf " slt $%s, $%s, $%s" (reg r) (reg r1) (reg r2)
+        R.Le r1 r2 r               -> line $ printf " sle $%s, $%s, $%s" (reg r) (reg r1) (reg r2)
+        R.Eq r1 r2 r               -> line $ printf " seq $%s, $%s, $%s" (reg r) (reg r1) (reg r2)
+        R.Ne r1 r2 r               -> line $ printf " sne $%s, $%s, $%s" (reg r) (reg r1) (reg r2)
+        R.Gt r1 r2 r               -> line $ printf " sgt $%s, $%s, $%s" (reg r) (reg r1) (reg r2)
+        R.Ge r1 r2 r               -> line $ printf " sge $%s, $%s, $%s" (reg r) (reg r1) (reg r2)
+        R.And r1 r2 r              -> do
+            line $ printf " add $%s, $%s, $%s" (reg r2) (reg r1) (reg r2)
+            line $ printf " seq $%s, $%s, $%s" (reg r) (reg r2) "2"
+        R.Or r1 r2 r               -> do
+            line $ printf " add $%s, $%s, $%s" (reg r2) (reg r1) (reg r2)
+            line $ printf " sgt $%s, $%s, $%s" (reg r) (reg r2) "0"
+        R.Plus r1 r2 r             -> line $ printf " add $%s, $%s, $%s" (reg r) (reg r1) (reg r2)
+        R.Minus r1 r2 r            -> line $ printf " sub $%s, $%s, $%s" (reg r) (reg r1) (reg r2)
+        R.Mul r1 r2 r              -> line $ printf " mul $%s, $%s, $%s" (reg r) (reg r1) (reg r2)
+        R.Div r1 r2 r              -> do
+            line $ printf " div $%s, $%s" (reg r1) (reg r2)
+            line $ printf " mflo $%s" (reg r)
+        R.Mod r1 r2 r              -> do
+            line $ printf " div $%s, $%s" (reg r1) (reg r2)
+            line $ printf " mfhi $%s" (reg r)
         R.Store r1 offset          -> line "Store not implemented"
         R.Branch r1                -> line $ printf " bne $%s, $zero, .l_%s" (reg r1) (show $ head $ [n | (S.Jump, n) <- outs])
         R.NBranch r1               -> line $ printf " beq $%s, $zero, .l_%s" (reg r1) (show $ head $ [n | (S.Jump, n) <- outs])
