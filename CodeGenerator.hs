@@ -100,30 +100,30 @@ gStatement mName spillSpace callerSaved (ins, node, statement, outs) = do
         R.Load offset r            -> line $ printf " lw $%s, %s($fp)" (reg r) (show $ (offset + 1) * (-wordsize))
         R.Null t r                 -> line $ printf " move $%s, $zero" (reg r)
         R.NewObj s1 r              -> do
-            storeAll (callerSaved \\ [r]) spillSpace
+            storeAll (callerSaved \\ [freeRegisters !! r]) spillSpace
             line $ printf " la $a0, mj__v_%s" s1
             line $ printf " li $a1, %s" "0" -- TODO calculate object size
             line " jal minijavaNew"
             line $ printf " move $%s, $v0" (reg r)
-            loadAll (callerSaved \\ [r]) spillSpace
+            loadAll (callerSaved \\ [freeRegisters !! r]) spillSpace
         R.NewIntArray r1 r         -> do
-            storeAll (callerSaved \\ [r]) spillSpace
+            storeAll (callerSaved \\ [freeRegisters !! r]) spillSpace
             line $ printf " move $a0, $%s" (reg r1)
             line " jal minijavaNewArray"
             line $ printf " move $%s, $v0" (reg r)
-            loadAll (callerSaved \\ [r]) spillSpace
+            loadAll (callerSaved \\ [freeRegisters !! r]) spillSpace
         R.This r                   -> line $ printf " move $%s, $v0" (reg r)
         R.SInt v r                 -> line $ printf " li $%s, %s" (reg r) (show v)
         R.SBoolean v r             -> line $ printf " li $%s, %s" (reg r) (if v then "1" else "0")
         R.Parameter position r     -> line $ printf " lw $%s, %s($fp)" (reg r) (show $ (position + 1) * wordsize)
         R.Call s1 r1 s2 is r       -> do
-            storeAll (callerSaved \\ [r]) spillSpace
+            storeAll (callerSaved \\ [freeRegisters !! r]) spillSpace
             line $ printf " move $v0, $%s" (reg r1)
             line $ printf " lw $v1, ($v0)"
             line $ printf " lw $v1, %s($v1)" "0" -- TODO calculate method offset
             line " jal $v1"
             line $ printf " move $%s, $v0" (reg r)
-            loadAll (callerSaved \\ [r]) spillSpace
+            loadAll (callerSaved \\ [freeRegisters !! r]) spillSpace
         R.MemberGet s1 r1 s2 r     -> line "MemberGet not implemented"
         R.MemberAssg s1 r1 s2 r2 r -> line "MemberAssg not implemented"
         R.VarAssg r1 r             -> line $ printf " move $%s, $%s" (reg r) (reg r1)
