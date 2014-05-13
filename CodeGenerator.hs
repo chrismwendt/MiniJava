@@ -1,7 +1,7 @@
 module CodeGenerator where
 
 import qualified ASTTyped as T
-import qualified AST
+import qualified AST as U
 import qualified SSA as S
 import qualified SSARegisters as R
 import Data.Functor
@@ -124,7 +124,7 @@ gStatement ast mName spillSpace callerSaved (ins, node, statement, outs) = do
             line " jal $v1"
             line $ printf " move $%s, $v0" (reg r)
             loadAll (callerSaved \\ [freeRegisters !! r]) spillSpace
-        R.MemberGet s1 r1 s2 r     -> line "MemberGet not implemented"
+        R.MemberGet s1 r1 s2 r     -> line $ printf " lw $%s, %s($%s)" (reg r) (fieldOffset ast s1 s2) (reg r1)
         R.MemberAssg s1 r1 s2 r2 r -> line "MemberAssg not implemented"
         R.VarAssg r1 r             -> line $ printf " move $%s, $%s" (reg r) (reg r1)
         R.IndexGet r1 r2 r         -> line "IndexGet not implemented"
@@ -282,3 +282,13 @@ allMethods :: T.Program -> String -> [String]
 allMethods ast@(T.Program m cs) cName = case find ((== cName) . T._cName) cs of
     Nothing -> []
     Just (T.Class _ parent _ ms) -> allMethods ast parent ++ (map T._mName ms)
+
+fieldOffset :: T.Program -> String -> String -> Int
+fieldOffset ast@(T.Program m cs) cName fName = case find ((== cName) . T._cName) cs of
+    Nothing -> error "no class found"
+    Just (T.Class _ parent fs _) -> fromJust $ lookup fName $ reverse $ zip ((allFields ast parent) ++ (map U._vName fs)) [0 .. ]
+
+allFields :: T.Program -> String -> [String]
+allFields ast@(T.Program m cs) cName = case find ((== cName) . T._cName) cs of
+    Nothing -> []
+    Just (T.Class _ parent fs _) -> allFields ast parent ++ (map U._vName fs)
