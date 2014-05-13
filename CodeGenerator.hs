@@ -151,10 +151,10 @@ gStatement mName spillSpace callerSaved (ins, node, statement, outs) = do
         R.Mod r1 r2 r              -> do
             line $ printf " div $%s, $%s" (reg r1) (reg r2)
             line $ printf " mfhi $%s" (reg r)
-        R.Store r1 offset          -> line "Store not implemented"
+        R.Store r1 offset          -> line $ printf " sw $%s, %s($fp)" (reg r1) (show $ (offset + 1) * (-wordsize))
         R.Branch r1                -> line $ printf " bne $%s, $zero, .l_%s" (reg r1) (show $ head $ [n | (S.Jump, n) <- outs])
         R.NBranch r1               -> line $ printf " beq $%s, $zero, .l_%s" (reg r1) (show $ head $ [n | (S.Jump, n) <- outs])
-        R.Arg r1 p                 -> line "Arg not implemented"
+        R.Arg r1 p                 -> line $ printf " sw $%s, %s($sp)" (reg r1) (show $ p)
         R.Return r1                -> do
             line $ printf " move $v0, $%s" (reg r1)
             line $ printf " j .ret_%s" mName
