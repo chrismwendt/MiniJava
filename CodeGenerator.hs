@@ -89,13 +89,26 @@ gStatement mName spillSpace callerSaved (ins, node, statement, outs) = do
     case statement of
         R.Load offset r            -> line "Load not implemented"
         R.Null t r                 -> line "Null not implemented"
-        R.NewObj s1 r              -> line "NewObj not implemented"
+        R.NewObj s1 r              -> do
+            -- TODO store all but regN(s) callerSaved
+            line $ printf " la $a0, mj__v_%s" s1
+            line $ printf " li $a1, %s" "0" -- TODO calculate object size
+            line " jal minijavaNew"
+            line $ printf " move $%s, $v0" (reg r)
+            -- TODO restore all but regN(s) callerSaved
         R.NewIntArray r1 r         -> line "NewIntArray not implemented"
         R.This r                   -> line "This not implemented"
         R.SInt v r                 -> line $ printf " li $%s, %s" (reg r) (show v)
         R.SBoolean v r             -> line $ printf " li $%s, %s" (reg r) (if v then "1" else "0")
         R.Parameter position r     -> line "Parameter not implemented"
-        R.Call s1 r1 s2 is r       -> line "Call not implemented"
+        R.Call s1 r1 s2 is r       -> do
+            -- TODO store all but regN(s) callerSaved
+            line $ printf " move $v0, $%s" (reg r1)
+            line $ printf " lw $v1, ($v0)"
+            line $ printf " lw $v1, %s($v1)" "0" -- TODO calculate method offset
+            line " jal $v1"
+            line $ printf " move $%s, $v0" (reg r)
+            -- TODO restore all but regN(s) callerSaved
         R.MemberGet s1 r1 s2 r     -> line "MemberGet not implemented"
         R.MemberAssg s1 r1 s2 r2 r -> line "MemberAssg not implemented"
         R.VarAssg r1 r             -> line "VarAssg not implemented"
