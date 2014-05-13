@@ -116,8 +116,8 @@ gStatement mName spillSpace callerSaved (ins, node, statement, outs) = do
         R.Div r1 r2 r              -> line "Div not implemented"
         R.Mod r1 r2 r              -> line "Mod not implemented"
         R.Store r1 offset          -> line "Store not implemented"
-        R.Branch r1                -> line "Branch not implemented"
-        R.NBranch r1               -> line "NBranch not implemented"
+        R.Branch r1                -> line $ printf " bne $%s, $zero, .l_%s" (reg r1) (show $ head $ [n | (S.Jump, n) <- outs])
+        R.NBranch r1               -> line $ printf " beq $%s, $zero, .l_%s" (reg r1) (show $ head $ [n | (S.Jump, n) <- outs])
         R.Arg r1 p                 -> line "Arg not implemented"
         R.Return r1                -> do
             line $ printf " move $v0, $%s" (reg r1)
