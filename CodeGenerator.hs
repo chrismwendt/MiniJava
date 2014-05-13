@@ -66,7 +66,7 @@ gMethod (R.Method name g) = do
 
     line $ " add $sp, $sp, " ++ show (argSpace * (-wordsize))
 
-    mapM_ (gStatement spillSpace callerSaved) (map (G.context g) (G.nodes g))
+    mapM_ (gStatement name spillSpace callerSaved) (map (G.context g) (G.nodes g))
 
     line $ printf " .ret_%s:" name
 
@@ -83,8 +83,8 @@ gMethod (R.Method name g) = do
     line $ " add $sp, $sp, " ++ show wordsize
     line " j $ra"
 
-gStatement :: Int -> [R.Register] -> G.Context R.Statement S.EdgeType -> Writer [String] ()
-gStatement spillSpace callerSaved (ins, node, statement, outs) = do
+gStatement :: String -> Int -> [R.Register] -> G.Context R.Statement S.EdgeType -> Writer [String] ()
+gStatement mName spillSpace callerSaved (ins, node, statement, outs) = do
     line $ " # " ++ show statement
     case statement of
         R.Load offset r            -> line "Load not implemented"
@@ -119,7 +119,9 @@ gStatement spillSpace callerSaved (ins, node, statement, outs) = do
         R.Branch r1                -> line "Branch not implemented"
         R.NBranch r1               -> line "NBranch not implemented"
         R.Arg r1 p                 -> line "Arg not implemented"
-        R.Return r1                -> line "Return not implemented"
+        R.Return r1                -> do
+            line $ printf " move $v0, $%s" (reg r1)
+            line $ printf " j .ret_%s" mName
         R.Print r1                 -> do
             -- TODO store caller saved
             line $ printf " move $a0, $%s" (reg r1)
