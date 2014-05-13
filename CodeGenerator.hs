@@ -50,8 +50,10 @@ gMethod (R.Method name g) = do
     line $ " sw $fp, ($sp)"
     line $ " move $fp, $sp"
 
-    let maxOffset = foldr max 0 [o | (R.Store _ o) <- map snd (G.labNodes g)]
-    let spillSpace = maxOffset + 1
+    let spillSpace = case maximumMay [o | (R.Store _ o) <- map snd (G.labNodes g)] of
+        { Nothing -> 0
+        ; Just o -> o + 1
+        }
     let calleeSaved = filter (\r -> any (r `Set.member`) (map (R.def . snd) $ G.labNodes g)) calleeSavedRegisters
     let callerSaved = 2 : 3 : filter (\r -> any (r `Set.member`) (map (R.def . snd) $ G.labNodes g)) callerSavedRegisters
 
@@ -64,8 +66,10 @@ gMethod (R.Method name g) = do
     line $ " add $sp, $sp, " ++ show (-wordsize)
     line " sw $ra, ($sp)"
 
-    let maxArgPosition = foldr max 0 [p | (R.Arg _ p) <- map snd (G.labNodes g)]
-    let argSpace = maxArgPosition + 1
+    let argSpace = case maximumMay [p | (R.Arg _ p) <- map snd (G.labNodes g)] of
+        { Nothing -> 0
+        ; Just p -> p + 1
+        }
 
     line $ " add $sp, $sp, " ++ show (argSpace * (-wordsize))
 
