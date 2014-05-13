@@ -159,10 +159,10 @@ gStatement mName spillSpace callerSaved (ins, node, statement, outs) = do
             line $ printf " move $v0, $%s" (reg r1)
             line $ printf " j .ret_%s" mName
         R.Print r1                 -> do
-            -- TODO store caller saved
+            storeAll callerSaved spillSpace
             line $ printf " move $a0, $%s" (reg r1)
             line " jal minijavaPrint"
-            -- TODO restore caller saved
+            loadAll callerSaved spillSpace
         R.BeginMethod              -> return ()
         R.Label                    -> line $ printf " .l_%s:" (show node)
         R.Goto                     -> line $ printf " j .l_%s" (show $ snd $ head outs)
