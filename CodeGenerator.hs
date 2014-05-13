@@ -64,7 +64,7 @@ gMethod ast (R.Method name g) = do
 
     forM_ calleeSaved $ \r -> do
         line $ " add $sp, $sp, " ++ show wordsize
-        line $ printf " sw $%s, ($sp)" (show $ registers !! r)
+        line $ printf " sw $%s, ($sp)" (registers !! r)
 
     line $ " add $sp, $sp, " ++ show (-wordsize)
     line " sw $ra, ($sp)"
@@ -85,7 +85,7 @@ gMethod ast (R.Method name g) = do
     line $ " add $sp, $sp, " ++ show wordsize
 
     forM_ (reverse calleeSaved) $ \r -> do
-        line $ printf " lw $%s, ($sp)" (show $ registers !! r)
+        line $ printf " lw $%s, ($sp)" (registers !! r)
         line $ " add $sp, $sp, " ++ show wordsize
 
     line " move $sp, $fp"
