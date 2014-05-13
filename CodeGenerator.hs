@@ -66,6 +66,11 @@ gMethod (R.Method name g) = do
 
     line $ " add $sp, $sp, " ++ show (argSpace * (-wordsize))
 
+    mapM_ (gStatement spillSpace callerSaved) (map (G.context g) (G.nodes g))
+
+gStatement :: Int -> Set.Set R.Register -> G.Context R.Statement S.EdgeType -> Writer [String] ()
+gStatement spillSpace callerSaved (ins, node, statement, outs) = undefined
+
 boilerplate :: Writer [String] ()
 boilerplate = do
     line "main:"
