@@ -4,6 +4,7 @@ import qualified ASTTyped as T
 import qualified AST as U
 import qualified SSA as S
 import qualified SSARegisters as R
+import qualified RegisterAllocator as RA
 import Data.Functor
 import Control.Applicative
 import Control.Monad.State
@@ -76,7 +77,7 @@ gMethod ast (R.Method name g) = do
 
     line $ " add $sp, $sp, " ++ show (argSpace * (-wordsize))
 
-    mapM_ (gStatement ast name spillSpace callerSaved) (map (G.context g) (G.nodes g))
+    mapM_ (gStatement ast name spillSpace callerSaved) (map (G.context g) (map fst $ RA.linear g))
 
     line $ printf " .ret_%s:" name
 
