@@ -144,7 +144,7 @@ doLoad sc r n = do
     case G.match n g of
         (Nothing, _) -> error "match failure"
         (Just (ins, n, st@(stu, ds, us, vIns, vOuts), outs), g') -> do
-            let avail = case Set.toList $ (foldr Set.union Set.empty $ map (\(_, (s, _, _, _, _)) -> R.def s) (G.labNodes g)) `Set.difference` vIns of
+            let avail = case Set.toList $ (foldr Set.union Set.empty $ map (\(_, (s, _, _, _, _)) -> R.def s) (G.labNodes g)) `Set.difference` (Set.delete r vIns) of
                                 [] -> error "no available register"
                                 (a:_) -> a
             let load = (ins, head (G.newNodes 1 g), (R.Load sc avail, ds, us, vIns, vOuts), [])
