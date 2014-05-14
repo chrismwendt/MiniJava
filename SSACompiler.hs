@@ -82,7 +82,7 @@ cSt (T.While cond body) = do
     cSt body
 
     gotoID <- buildStep (S.Goto)
-    doneID <- buildStep S.Label
+    doneID <- build S.Label
 
     post <- _stVarToID <$> get
 
