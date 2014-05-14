@@ -144,6 +144,7 @@ doLoad sc r n = do
     case G.match n g of
         (Nothing, _) -> error "match failure"
         (Just (ins, n, st@(stu, ds, us, vIns, vOuts), outs), g') -> do
+            -- TODO consider using a fresh register since they get squashed anyway
             let avail = case Set.toList $ (foldr Set.union Set.empty $ map (\(_, (s, _, _, _, _)) -> R.def s) (G.labNodes g)) `Set.difference` (Set.delete r vIns) of
                                 [] -> error "no available register"
                                 (a:_) -> a
