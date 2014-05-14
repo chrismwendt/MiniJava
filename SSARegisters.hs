@@ -71,7 +71,7 @@ data Statement =
 
     | IndexGet Register Register Register
     | IndexAssg Register Register Register Register
-    | ArrayLength Register
+    | ArrayLength Register Register
 
     | Not Register Register
 
@@ -110,6 +110,7 @@ def (MemberAssg s1 r1 s2 r2 r) = Set.fromList [r]
 def (VarAssg r1 r)             = Set.fromList [r]
 def (IndexGet r1 r2 r)         = Set.fromList [r]
 def (IndexAssg r1 r2 r3 r)     = Set.fromList [r]
+def (ArrayLength r1 r)         = Set.fromList [r]
 def (Not r1 r)                 = Set.fromList [r]
 def (Lt r1 r2 r)               = Set.fromList [r]
 def (Le r1 r2 r)               = Set.fromList [r]
