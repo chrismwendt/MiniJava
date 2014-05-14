@@ -161,23 +161,6 @@ doStore sc r n = do
             let store = ([(S.Step, n)], head (G.newNodes 1 g), (R.Store r sc, ds, us, vIns, vOuts),  outs)
             put (store G.& ((ins, n, st, []) G.& g'))
 
-        -- let doStore node = do
-        --     (g, sc) <- get
-        --     case G.match node g of
-        --         (Nothing, _) -> error "match failure"
-        --         (Just (ins, n, st, outs), g') -> do
-        --             let store = ([(S.Step, n)], head (G.newNodes 1 g), R.Store reg sc, outs)
-        --             put (store G.& ((ins, n, st, []) G.& g'), sc)
-        -- let doLoad node = do
-        --     (g, sc) <- get
-        --     case G.match node g of
-        --         (Nothing, _) -> error "match failure"
-        --         (Just (ins, n, st, outs), g') -> do
-        --             let load = (ins, head (G.newNodes 1 g), R.Load sc reg, [])
-        --             put (([(S.Step, G.node' load)], n, st, outs) G.& (load G.& g'), sc)
-        -- mapM doStore (Set.toList $ SM.lookup reg regToNodes)
-        --         mapM doLoad (map fst $ filter (\(n, st) -> reg `Set.member` vUses st) (G.labNodes g))
-
 liveness :: G.Gr R.Statement S.EdgeType -> G.Gr (R.Statement, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType
 liveness g = graph'
     where
