@@ -27,10 +27,10 @@ bug x = trace (ppShow x) x
 bug' x y = trace (ppShow x) y
 
 generate :: T.Program -> R.Program -> String
-generate ast (R.Program (R.Class _ _ [m]) cs) = unlines $ execWriter $ do
+generate ast (R.Program (R.Class mainClassName _ [m]) cs) = unlines $ execWriter $ do
     boilerplate
     line "mj_main:"
-    gMethod ast m
+    gMethod ast mainClassName m
     mapM_ (gClass ast) cs
 
 gClass :: T.Program -> R.Class -> Writer [String] ()
@@ -43,10 +43,10 @@ gClass ast (R.Class name fs ms) = do
     mapM_ (\(R.Method mName _) -> line $ printf " .word mj__m_%s_%s" (implementor ast name mName) mName) ms
 
     line ".text"
-    mapM_ (\m@(R.Method mName _) -> line (printf "mj__m_%s_%s:" name mName) >> gMethod ast m) ms
+    mapM_ (\m@(R.Method mName _) -> line (printf "mj__m_%s_%s:" name mName) >> gMethod ast name m) ms
 
-gMethod :: T.Program -> R.Method -> Writer [String] ()
-gMethod ast (R.Method name g) = do
+gMethod :: T.Program -> String -> R.Method -> Writer [String] ()
+gMethod ast cName (R.Method name g) = do
     line $ " add $sp, $sp, " ++ show (-1 * wordsize)
     line $ " sw $fp, ($sp)"
     line $ " move $fp, $sp"
@@ -77,7 +77,7 @@ gMethod ast (R.Method name g) = do
 
     line $ " add $sp, $sp, " ++ show (argSpace * (-wordsize))
 
-    mapM_ (gStatement ast name spillSpace callerSaved) (map (G.context g) (map fst $ RA.linear g))
+    mapM_ (gStatement ast cName name spillSpace callerSaved) (map (G.context g) (map fst $ RA.linear g))
 
     line $ printf " .ret_%s:" name
 
@@ -94,8 +94,8 @@ gMethod ast (R.Method name g) = do
     line $ " add $sp, $sp, " ++ show wordsize
     line " j $ra"
 
-gStatement :: T.Program -> String -> Int -> [R.Register] -> G.Context R.Statement S.EdgeType -> Writer [String] ()
-gStatement ast mName spillSpace callerSaved (ins, node, statement, outs) = do
+gStatement :: T.Program -> String -> String -> Int -> [R.Register] -> G.Context R.Statement S.EdgeType -> Writer [String] ()
+gStatement ast cName mName spillSpace callerSaved (ins, node, statement, outs) = do
     line $ " # " ++ show statement
     case statement of
         R.Load offset r            -> line $ printf " lw $%s, %s($fp)" (reg r) (show $ (offset + 1) * (-wordsize))
@@ -165,8 +165,8 @@ gStatement ast mName spillSpace callerSaved (ins, node, statement, outs) = do
             line $ printf " div $%s, $%s" (reg r1) (reg r2)
             line $ printf " mfhi $%s" (reg r)
         R.Store r1 offset          -> line $ printf " sw $%s, %s($fp)" (reg r1) (show $ (offset + 1) * (-wordsize))
-        R.Branch r1                -> line $ printf " bne $%s, $zero, .l_%s" (reg r1) (show $ head $ [n | (S.Jump, n) <- outs])
-        R.NBranch r1               -> line $ printf " beq $%s, $zero, .l_%s" (reg r1) (show $ head $ [n | (S.Jump, n) <- outs])
+        R.Branch r1                -> line $ printf " bne $%s, $zero, .l_%s_%s_%s" (reg r1) cName mName (show $ head $ [n | (S.Jump, n) <- outs])
+        R.NBranch r1               -> line $ printf " beq $%s, $zero, .l_%s_%s_%s" (reg r1) cName mName (show $ head $ [n | (S.Jump, n) <- outs])
         R.Arg r1 p                 -> line $ printf " sw $%s, %s($sp)" (reg r1) (show $ p)
         R.Return r1                -> do
             line $ printf " move $v0, $%s" (reg r1)
@@ -177,8 +177,8 @@ gStatement ast mName spillSpace callerSaved (ins, node, statement, outs) = do
             line " jal minijavaPrint"
             loadAll callerSaved spillSpace
         R.BeginMethod              -> return ()
-        R.Label                    -> line $ printf " .l_%s:" (show node)
-        R.Goto                     -> line $ printf " j .l_%s" (show $ snd $ head outs)
+        R.Label                    -> line $ printf " .l_%s_%s_%s:" cName mName (show node)
+        R.Goto                     -> line $ printf " j .l_%s_%s_%s" cName mName (show $ snd $ head outs)
 
 boilerplate :: Writer [String] ()
 boilerplate = do
