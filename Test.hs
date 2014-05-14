@@ -20,6 +20,7 @@ main = do
         -- ["type", "golden", golden, file] -> ensureGolden golden file
         ["SSA"] -> allM testSSA successExamples >> return ()
         ("SSA":files) -> allM testSSA files >> return ()
+        ("code":files) -> allM testCode files >> return ()
 
 ensureGolden a b = do
     outA <- a
@@ -51,6 +52,21 @@ testReg file = do
     ecMine <- system $ "runhaskell Main.hs --stopAt reg " ++ file ++ " > mine.out"
     compDiff file ecCanonical ecMine
 
+testCode file = do
+    system $ "canonical/bin/mjcompile-mips " ++ file ++ " > canonical.mips"
+    system $ "runhaskell Main.hs --stopAt code " ++ file ++ " > mine.mips"
+    (_, canonicalOut, _) <- readProcessWithExitCode "spim" (words "-file canonical.mips") ""
+    (_, mineOut, _) <- readProcessWithExitCode "spim" (words "-file mine.mips") ""
+    let canonicalOut' = unlines $ drop 5 $ lines canonicalOut
+    let mineOut'      = unlines $ drop 5 $ lines mineOut
+    writeFile "canonical.out" canonicalOut'
+    writeFile "mine.out" mineOut'
+    (e, stdout, _) <- readProcessWithExitCode "diff" (words "-y canonical.out mine.out") ""
+    putStr stdout
+    case e of
+        ExitSuccess -> return True
+        ExitFailure _ -> return False
+
 compDiff file ecCanonical ecMine = case (ecCanonical, ecMine) of
         (ExitSuccess, ExitSuccess) -> do
             (_, stdout, _) <- readProcessWithExitCode "diff" ["-y", "canonical.out", "mine.out"] ""
@@ -67,8 +83,11 @@ comp file ecCanonical ecMine = case (ecCanonical, ecMine) of
         (ExitFailure _, ExitFailure _) -> putStr "Both failed" >> return True
 
 diffPrint a b = do
-    (_, stdout, _) <- readProcessWithExitCode "diff" ["-y", a, b] ""
+    (e, stdout, _) <- readProcessWithExitCode "diff" ["-y", a, b] ""
     putStr stdout
+    case e of
+        ExitSuccess -> return True
+        ExitFailure _ -> return False
 
 successExamples =
     [ "examples/Leet.java"
