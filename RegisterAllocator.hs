@@ -317,23 +317,19 @@ mapRegs f (R.Label)                    = R.Label
 mapRegs f (R.Goto)                     = R.Goto
 
 linear :: G.Gr R.Statement S.EdgeType -> [(G.Node, R.Statement)]
-linear g = linear' g start Nothing
+linear g = evalState (doLinear 0) Set.empty
     where
-    startMaybe = G.ufold (\(_, n, l, _) acc -> case l of { R.BeginMethod -> Just n; _ -> acc }) Nothing g
-    start = case startMaybe of
-        Just s -> s
-        Nothing -> error "applied linearize to a graph without BeginMethod"
-    linear' g n next = case G.context g n of
-        (_, _, v, []) -> (n, v) : (case next of
-            Nothing -> []
-            Just blub -> linear' g blub Nothing)
-        (_, _, v, outs) -> (n, v) : (case (find ((== S.Step) . fst) outs, find ((== S.Jump) . fst) outs) of
-            (Nothing, Nothing) -> (case next of
-                Nothing -> []
-                Just blub -> linear' g blub Nothing)
-            (Nothing, Just j) -> linear' g (fromJustDef (snd j) next) Nothing
-            (Just s, Nothing) -> linear' g (snd s) next
-            (Just s, Just j) -> linear' g (snd s) (Just $ fromJustDef (snd j) next))
+    doLinear node = do
+        seen <- get
+        if node `Set.member` seen
+            then return []
+            else do
+                let (_, _, statement, outs) = G.context g node
+                    filterEdge edge = map snd . filter ((== edge) . fst)
+                modify $ Set.insert node
+                steps <- concat <$> mapM doLinear (filterEdge S.Step outs)
+                jumps <- concat <$> mapM doLinear (filterEdge S.Jump outs)
+                return $ [(node, statement)] ++ steps ++ jumps
 
 ununify :: G.Gr S.Statement S.EdgeType -> G.Gr S.Statement S.EdgeType
 ununify g = case [n | (n, S.Unify _ _) <- G.labNodes g] of
