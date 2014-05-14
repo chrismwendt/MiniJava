@@ -58,17 +58,20 @@ cSt (T.If cond branchTrue branchFalse) = do
     cSt branchTrue
     postTrueBindings <- _stVarToID <$> get
 
-    gotoID <- buildStep (S.Goto)
+    trueGotoDoneID <- buildStep (S.Goto)
     elseID <- build (S.Label)
 
     modify $ stVarToID .~ preBranchBindings
     fromMaybe (return ()) (cSt <$> branchFalse)
     postFalseBindings <- _stVarToID <$> get
 
+    falseGotoDoneID <- buildStep (S.Goto)
+
     doneID <- buildStep (S.Label)
 
     modifyGraph $ G.insEdge (branchID, elseID, S.Jump)
-    modifyGraph $ G.insEdge (gotoID, doneID, S.Jump)
+    modifyGraph $ G.insEdge (trueGotoDoneID, doneID, S.Jump)
+    modifyGraph $ G.insEdge (falseGotoDoneID, doneID, S.Jump)
 
     unify postTrueBindings postFalseBindings
 cSt (T.While cond body) = do
