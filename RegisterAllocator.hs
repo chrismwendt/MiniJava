@@ -52,7 +52,7 @@ aClass :: Int -> S.Program -> S.Class -> R.Class
 aClass n program c@(S.Class name fs ms) = R.Class name fs (map (aMethod n program c) ms)
 
 aMethod :: Int -> S.Program -> S.Class -> S.Method -> R.Method
-aMethod n program c (S.Method name graph) = squashRegs n $ aMethod' 0 n program c (R.Method name graph')
+aMethod n program c (S.Method name graph) = squashed
     where
     varGraph :: G.Gr S.Statement ()
     varGraph = G.mkGraph
@@ -66,6 +66,7 @@ aMethod n program c (S.Method name graph) = squashRegs n $ aMethod' 0 n program 
         Just (Left f) -> (ins, n, f (varGroups M.!) (varGroups M.! n), outs)
         Just (Right s') -> (ins, n, s' (varGroups M.!), outs)
     graph' = G.gmap conversion (ununify graph)
+    squashed = squashRegs n $ aMethod' 0 n program c (R.Method name graph')
 
 squashRegs :: Int -> R.Method -> R.Method
 squashRegs n (R.Method name g) = R.Method name g'
