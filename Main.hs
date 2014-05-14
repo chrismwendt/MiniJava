@@ -17,12 +17,15 @@ options = Options
     <$> strOption (long "stopAt" <> metavar "[parse|SSA|type|reg|code]" <> value "code")
     <*> argument str (metavar "file")
 
+registerLimit :: Int
+registerLimit = 22
+
 compile :: Options -> String -> String
 compile (Options "parse" _) source = show $ parseString source
 compile (Options "type" _) source = show $ TC.typeCheck $ parseString source
 compile (Options "SSA" _) source = show $ SSA.compile $ TC.typeCheck $ parseString source
-compile (Options "reg" _) source = show $ Reg.allocate 22 $ SSA.compile $ TC.typeCheck $ parseString source
-compile (Options "code" _) source = let ast = TC.typeCheck $ parseString source in Code.generate ast $ Reg.allocate 22 $ SSA.compile $ ast
+compile (Options "reg" _) source = show $ Reg.allocate registerLimit $ SSA.compile $ TC.typeCheck $ parseString source
+compile (Options "code" _) source = let ast = TC.typeCheck $ parseString source in Code.generate ast $ Reg.allocate registerLimit $ SSA.compile $ ast
 compile (Options target _) _ = error $ "unknown target: " ++ target
 
 main :: IO ()
