@@ -79,7 +79,7 @@ gMethod ast cName (R.Method name g) = do
 
     mapM_ (gStatement ast cName name spillSpace callerSaved) (map (G.context g) (map fst $ RA.linear g))
 
-    line $ printf " .ret_%s:" name
+    line $ printf " .ret_%s_%s:" cName name
 
     line $ " add $sp, $sp, " ++ show (argSpace * wordsize)
     line " lw $ra, ($sp)"
@@ -170,7 +170,7 @@ gStatement ast cName mName spillSpace callerSaved (ins, node, statement, outs) =
         R.Arg r1 p                 -> line $ printf " sw $%s, %s($sp)" (reg r1) (show $ p * wordsize)
         R.Return r1                -> do
             line $ printf " move $v0, $%s" (reg r1)
-            line $ printf " j .ret_%s" mName
+            line $ printf " j .ret_%s_%s" cName mName
         R.Print r1                 -> do
             storeAll callerSaved spillSpace
             line $ printf " move $a0, $%s" (reg r1)
