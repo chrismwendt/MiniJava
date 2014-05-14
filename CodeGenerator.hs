@@ -141,6 +141,7 @@ gStatement ast mName spillSpace callerSaved (ins, node, statement, outs) = do
             line $ printf " add $v1, $v1, $%s" (reg r1)
             line $ printf " sw $%s, ($v1)" (reg r3)
             line $ printf " move $%s, $%s" (reg r) (reg r3)
+        R.ArrayLength r1 r         -> line $ printf " lw $%s, %s($%s)" (reg r) "0" (reg r1)
         R.Not r1 r                 -> line $ printf " seq $%s, $zero, $%s" (reg r) (reg r1)
         R.Lt r1 r2 r               -> line $ printf " slt $%s, $%s, $%s" (reg r) (reg r1) (reg r2)
         R.Le r1 r2 r               -> line $ printf " sle $%s, $%s, $%s" (reg r) (reg r1) (reg r2)
