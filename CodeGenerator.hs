@@ -167,7 +167,7 @@ gStatement ast cName mName spillSpace callerSaved (ins, node, statement, outs) =
         R.Store r1 offset          -> line $ printf " sw $%s, %s($fp)" (reg r1) (show $ (offset + 1) * (-wordsize))
         R.Branch r1                -> line $ printf " bne $%s, $zero, .l_%s_%s_%s" (reg r1) cName mName (show $ head $ [n | (S.Jump, n) <- outs])
         R.NBranch r1               -> line $ printf " beq $%s, $zero, .l_%s_%s_%s" (reg r1) cName mName (show $ head $ [n | (S.Jump, n) <- outs])
-        R.Arg r1 p                 -> line $ printf " sw $%s, %s($sp)" (reg r1) (show $ p)
+        R.Arg r1 p                 -> line $ printf " sw $%s, %s($sp)" (reg r1) (show $ p * wordsize)
         R.Return r1                -> do
             line $ printf " move $v0, $%s" (reg r1)
             line $ printf " j .ret_%s" mName
