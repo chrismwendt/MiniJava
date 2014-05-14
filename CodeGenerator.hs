@@ -299,7 +299,7 @@ allMethods ast@(T.Program m cs) cName = case find ((== cName) . T._cName) cs of
 fieldOffset :: T.Program -> String -> String -> Int
 fieldOffset ast@(T.Program m cs) cName fName = case find ((== cName) . T._cName) cs of
     Nothing -> error "no class found"
-    Just (T.Class _ parent fs _) -> fromJust $ lookup fName $ reverse $ zip ((allFields ast parent) ++ (map U._vName fs)) [0 .. ]
+    Just (T.Class _ parent fs _) -> fromJust $ lookup fName $ reverse $ zip ((allFields ast parent) ++ (map U._vName fs)) [1 .. ]
 
 allFields :: T.Program -> String -> [String]
 allFields ast@(T.Program m cs) cName = case find ((== cName) . T._cName) cs of
