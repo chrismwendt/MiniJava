@@ -40,7 +40,7 @@ gClass ast (R.Class name fs ms) = do
     line ""
 
     line $ printf "mj__v_%s:" name
-    mapM_ (\(R.Method mName _) -> line $ printf " .word mj__m_%s_%s" (implementor ast name mName) mName) ms
+    mapM_ (\mName -> line $ printf " .word mj__m_%s_%s" (implementor ast name mName) mName) (nub $ allMethods ast name)
 
     line ".text"
     mapM_ (\m@(R.Method mName _) -> line (printf "mj__m_%s_%s:" name mName) >> gMethod ast name m) ms
@@ -122,6 +122,7 @@ gStatement ast cName mName spillSpace callerSaved (ins, node, statement, outs) =
             line $ printf " move $v0, $%s" (reg r1)
             line $ printf " lw $v1, ($v0)"
             line $ printf " lw $v1, %s($v1)" (show $ methodOffset ast s1 s2 * wordsize)
+            -- line $ printf " lw $v1, %s($v1)" (show $ (\x -> bug' (s1, s2, x) x) $ methodOffset ast s1 s2 * wordsize)
             line " jal $v1"
             line $ printf " move $%s, $v0" (reg r)
             loadAll (callerSaved \\ [freeRegisters !! r]) spillSpace
@@ -287,9 +288,9 @@ objectSize ast@(T.Program m cs) cName = case find ((== cName) . T._cName) cs of
     Just (T.Class _ parent fs _) -> length fs + objectSize ast parent
 
 methodOffset :: T.Program -> String -> String -> Int
-methodOffset ast@(T.Program m cs) cName mName = case find ((== cName) . T._cName) cs of
-    Nothing -> error "no class found"
-    Just (T.Class _ parent _ ms) -> fromJust $ lookup mName $ reverse $ zip ((allMethods ast parent) ++ (map T._mName ms)) [0 .. ]
+methodOffset ast@(T.Program m cs) cName mName = case mName `elemIndex` (nub $ allMethods ast cName) of
+    Nothing -> error "method not found"
+    Just i -> i
 
 allMethods :: T.Program -> String -> [String]
 allMethods ast@(T.Program m cs) cName = case find ((== cName) . T._cName) cs of
