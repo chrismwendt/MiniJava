@@ -91,7 +91,7 @@ interference g = live
     concatSet :: Ord a => Set.Set (Set.Set a) -> Set.Set a
     concatSet = Set.foldr Set.union Set.empty
     groups :: Set.Set (Set.Set Int)
-    groups = Set.fromList $ map (\(_, (_, _, _, vIns, vOuts)) -> vIns `Set.union` vOuts) $ G.labNodes g
+    groups = Set.fromList $ map (\(_, (_, defs, _, vIns, vOuts)) -> (defs `Set.union` vIns) `Set.union` vOuts) $ G.labNodes g
     allVars = concatSet groups
     h :: Int -> Set.Set Int -> Set.Set (Int, Int)
     h var gr = if Set.member var gr
