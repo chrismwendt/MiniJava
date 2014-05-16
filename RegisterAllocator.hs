@@ -88,15 +88,6 @@ interference g = live
     vInsOf (_, _, _, vIns, _) = vIns
     live = G.mkGraph (map (\v -> (v, v)) $ Set.toList allVars) (map (\(from, to) -> (from, to, ())) $ Set.toList edgeSet)
 
-simplify :: Int -> G.Gr R.Register () -> [R.Register]
-simplify nRegs graph = regs graph
-    where
-    regs g
-        | G.isEmpty g = []
-        | otherwise = case find ((< nRegs) . G.indeg g . fst) (G.labNodes g) of
-            Just (node, reg) -> reg : regs (G.delNode node g)
-            Nothing -> let ((_, _, reg, _), g') = G.matchAny g in reg : regs g'
-
 select :: Int -> G.Gr R.Register () -> [R.Register] -> M.Map R.Register R.Register
 select nRegs graph regs = M.fromList $ mapMaybe f $ zip regs $ evalState (mapM (select' nRegs) regs) (G.nmap (\a -> (a, Nothing)) graph)
     where
