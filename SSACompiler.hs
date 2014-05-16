@@ -57,20 +57,20 @@ cSt (T.If cond branchTrue branchFalse) = do
 
     pre <- gets _stVarToID
 
-    branch <- buildStep (SSA.NBranch cond')
+    branch <- buildStep $ SSA.NBranch cond'
     cSt branchTrue
-    trueGotoDone <- buildStep (SSA.Goto)
+    trueGotoDone <- buildStep SSA.Goto
 
     postTrue <- gets _stVarToID
     modify $ stVarToID .~ pre
 
     elseLabel <- build (SSA.Label)
     fromMaybe (return ()) (cSt <$> branchFalse)
-    falseGotoDone <- buildStep (SSA.Goto)
+    falseGotoDone <- buildStep SSA.Goto
 
     postFalse <- gets _stVarToID
 
-    doneLabel <- buildStep (SSA.Label)
+    doneLabel <- buildStep SSA.Label
 
     modifyGraph $ G.insEdge (branch, elseLabel, SSA.Jump)
     modifyGraph $ G.insEdge (trueGotoDone, doneLabel, SSA.Jump)
@@ -80,12 +80,12 @@ cSt (T.If cond branchTrue branchFalse) = do
 cSt (T.While cond body) = do
     pre <- gets _stVarToID
 
-    conditionLabel <- buildStep (SSA.Label)
+    conditionLabel <- buildStep SSA.Label
     cond' <- cExp cond
-    branch <- buildStep (SSA.NBranch cond')
+    branch <- buildStep $ SSA.NBranch cond'
 
     cSt body
-    goto <- buildStep (SSA.Goto)
+    goto <- buildStep SSA.Goto
 
     post <- gets _stVarToID
 
@@ -99,12 +99,12 @@ cSt (T.Print e) = void $ buildStep =<< SSA.Print <$> cExp e
 cSt (T.ExpressionStatement e) = void $ (: []) <$> cExp e
 
 cExp :: T.Expression -> State CState SSA.ID
-cExp (T.LiteralInt v) = buildStep (SSA.SInt v)
-cExp (T.LiteralBoolean v) = buildStep (SSA.SBoolean v)
+cExp (T.LiteralInt v) = buildStep $ SSA.SInt v
+cExp (T.LiteralBoolean v) = buildStep $ SSA.SBoolean v
 cExp (T.MemberAssignment cName object fName value) = do
     object' <- cExp object
     value' <- cExp value
-    buildStep (SSA.MemberAssg cName object' fName value')
+    buildStep $ SSA.MemberAssg cName object' fName value'
 cExp (T.VariableAssignment name value) = do
     v <- buildStep =<< SSA.VarAssg <$> cExp value
     bind name v
@@ -112,7 +112,7 @@ cExp (T.IndexAssignment array index value) = do
     array' <- cExp array
     index' <- cExp index
     value' <- cExp value
-    buildStep (SSA.IndexAssg array' index' value')
+    buildStep $ SSA.IndexAssg array' index' value'
 cExp (T.Binary l op r) = case lookup op binaryOps of
     Just opConstructor -> buildStep =<< opConstructor <$> cExp l <*> cExp r
     Nothing -> error $ "Op " ++ show op ++ " not found in list: " ++ show (map fst binaryOps)
@@ -121,7 +121,7 @@ cExp (T.IndexGet a i) = buildStep =<< SSA.IndexGet <$> cExp a <*> cExp i
 cExp (T.Call cName object mName args) = do
     object' <- cExp object
     args' <- zipWithM (\arg i -> buildStep =<< SSA.Arg <$> cExp arg <*> pure i) args [0 .. ]
-    buildStep (SSA.Call cName object' mName args')
+    buildStep $ SSA.Call cName object' mName args'
 cExp (T.MemberGet cName object fName) = do
     object' <- cExp object
     buildStep $ SSA.MemberGet cName object' fName
@@ -131,7 +131,7 @@ cExp (T.VariableGet name) = do
         Just s -> return s
         Nothing -> error "Varible not found"
 cExp (T.NewIntArray size) = buildStep =<< SSA.NewIntArray <$> cExp size
-cExp (T.NewObject name) = buildStep (SSA.NewObj name)
+cExp (T.NewObject name) = buildStep $ SSA.NewObj name
 cExp (T.IntArrayLength array) = buildStep =<< SSA.ArrayLength <$> cExp array
 cExp (T.This) = buildStep SSA.This
 
