@@ -24,8 +24,10 @@ typeCheckProgram p@(U.Program main classes)
 
 typeCheckClass :: U.Program -> U.Class -> T.Class
 typeCheckClass p c@(U.Class name parent fields methods)
-    | allUnique $ map U._mName methods = T.Class name parent fields (map (typeCheckMethod p c) methods)
+    | allUnique $ map U._mName methods = T.Class name parent fields methods'
     | otherwise =  error "Duplicate method"
+    where
+    methods' = map (typeCheckMethod p c) methods
 
 typeCheckMethod :: U.Program -> U.Class -> U.Method -> T.Method
 typeCheckMethod p c m@(U.Method retType name ps ls ss ret)
