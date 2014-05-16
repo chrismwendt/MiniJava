@@ -131,7 +131,7 @@ typeCheckExpression p c m e = case e of
                 then (T.IntArrayLength object', U.TypeInt)
                 else error "Int arrays only have a length field"
             _ -> error "Member access must be performed on an object or length of array"
-    U.VariableGet name -> case find (\v -> v ^. U.vName == name) (m ^. U.mLocals ++ m ^. U.mParameters) of
+    U.VariableGet name -> case find ((== name) . U._vName) (m ^. U.mLocals ++ m ^. U.mParameters) of
         Just v -> (T.VariableGet name, v ^. U.vType)
         Nothing -> tcExp (U.MemberGet U.This name)
     U.This -> (T.This, U.TypeObject (c ^. U.cName))
