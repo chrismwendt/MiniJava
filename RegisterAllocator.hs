@@ -54,12 +54,11 @@ assignRegisters graph = G.gmap unifyRegs (removeUnifies graph)
         Right s' -> (ins, n, R.mapRegs translate s'    , outs)
 
 squashRegs :: Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
-squashRegs nRegs g = g'
+squashRegs nRegs g = G.nmap (R.mapRegs (regMap M.!)) g
     where
     lGraph = liveness g
     iGraph = interference lGraph
     regMap = select nRegs iGraph (map snd $ G.labNodes iGraph)
-    g' = G.nmap (R.mapRegs (regMap M.!)) g
 
 limitInterference :: Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
 limitInterference nRegs graph = limitInterference' 0 graph
