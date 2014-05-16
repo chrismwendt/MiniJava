@@ -55,7 +55,7 @@ gMethod ast cName (R.Method name g) = do
         { Nothing -> 0
         ; Just o -> o + 1
         }
-    let fromSaved list = [fr | [r] <- map (Set.toList . R.def . snd) (G.labNodes g)
+    let fromSaved list = [fr | Just r <- map (R.def . snd) (G.labNodes g)
                           , let fr = freeRegisters !! r
                           , fr `elem` list]
     let calleeSaved = fromSaved calleeSavedRegisters

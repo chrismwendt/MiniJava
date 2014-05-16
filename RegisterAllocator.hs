@@ -74,13 +74,15 @@ allocateMethod' spillCount n program c (R.Method name graph) = case spillMaybe o
 
 strip g = G.nmap (\(st, ds, us, vIns, vOuts) -> st) g
 
-interference :: G.Gr (R.Statement, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType -> G.Gr R.Register ()
+maybeToSet = Set.fromList . maybeToList
+
+interference :: G.Gr (R.Statement, Maybe R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType -> G.Gr R.Register ()
 interference g = live
     where
     concatSet :: Ord a => Set.Set (Set.Set a) -> Set.Set a
     concatSet = Set.foldr Set.union Set.empty
     groups :: Set.Set (Set.Set Int)
-    groups = Set.fromList $ map (\(_, (_, defs, _, vIns, vOuts)) -> (defs `Set.union` vIns) `Set.union` vOuts) $ G.labNodes g
+    groups = Set.fromList $ map (\(_, (_, defs, _, vIns, vOuts)) -> ((maybeToSet defs) `Set.union` vIns) `Set.union` vOuts) $ G.labNodes g
     allVars = concatSet groups
     h :: Int -> Set.Set Int -> Set.Set (Int, Int)
     h var gr = if Set.member var gr
@@ -116,31 +118,31 @@ select' n r = do
             modify $ G.nmap (\(a, o) -> if a == r then (a, Just r') else (a, o))
             return $ Just r'
 
-performSpill :: Int -> (G.Node, (R.Statement, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register)) -> G.Gr (R.Statement, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType -> G.Gr (R.Statement, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType
-performSpill sc (node, (st, ds, us, vIns, vOuts))  g = case Set.toList $ vOuts `Set.difference` ds of
+performSpill :: Int -> (G.Node, (R.Statement, Maybe R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register)) -> G.Gr (R.Statement, Maybe R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType -> G.Gr (R.Statement, Maybe R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType
+performSpill sc (node, (st, ds, us, vIns, vOuts))  g = case Set.toList $ vOuts `Set.difference` (maybeToSet ds) of
     [] -> error "no room"
     (toSpill:_) -> doSpill sc toSpill g
 
-doSpill :: Int -> R.Register -> G.Gr (R.Statement, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType -> G.Gr (R.Statement, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType
+doSpill :: Int -> R.Register -> G.Gr (R.Statement, Maybe R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType -> G.Gr (R.Statement, Maybe R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType
 doSpill sc r g = g''
     where
     g' = execState (mapM (doLoad sc r) $ filter (\n -> r `Set.member` (let (_, _, vUses, _, _) = fromJust $ G.lab g n in vUses)) (G.nodes g)) g
-    g'' = execState (mapM (doStore sc r) $ filter (\n -> r `Set.member` (let (_, vDefs, _, _, _) = fromJust $ G.lab g n in vDefs)) (G.nodes g)) g'
+    g'' = execState (mapM (doStore sc r) $ filter (\n -> r `Set.member` (let (_, vDefs, _, _, _) = fromJust $ G.lab g n in (maybeToSet vDefs))) (G.nodes g)) g'
 
-doLoad :: Int -> R.Register -> G.Node -> State (G.Gr (R.Statement, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType) ()
+doLoad :: Int -> R.Register -> G.Node -> State (G.Gr (R.Statement, Maybe R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType) ()
 doLoad sc r n = do
     g <- get
     case G.match n g of
         (Nothing, _) -> error "match failure"
         (Just (ins, n, st@(stu, ds, us, vIns, vOuts), outs), g') -> do
             -- TODO consider using a fresh register since they get squashed anyway
-            let avail = case Set.toList $ (foldr Set.union Set.empty $ map (\(_, (s, _, _, _, _)) -> R.def s) (G.labNodes g)) `Set.difference` (Set.delete r vIns) of
+            let avail = case Set.toList $ (Set.fromList [def | (_, (_, Just def, _, _, _)) <- G.labNodes g]) `Set.difference` (Set.delete r vIns) of
                                 [] -> error "no available register"
                                 (a:_) -> a
-            let load = (ins, head (G.newNodes 1 g), (R.Load sc avail, ds, us, vIns, vOuts), [])
+            let load = (ins, head (G.newNodes 1 g), (R.Load sc avail, Just avail, us, vIns, vOuts), [])
             put (([(S.Step, G.node' load)], n, (mapRegs (\x -> if x == r then avail else x) stu, ds, us, vIns, vOuts), outs) G.& (load G.& g'))
 
-doStore :: Int -> R.Register -> G.Node -> State (G.Gr (R.Statement, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType) ()
+doStore :: Int -> R.Register -> G.Node -> State (G.Gr (R.Statement, Maybe R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType) ()
 doStore sc r n = do
     g <- get
     case G.match n g of
@@ -149,7 +151,7 @@ doStore sc r n = do
             let store = ([(S.Step, n)], head (G.newNodes 1 g), (R.Store r sc, ds, us, vIns, vOuts),  outs)
             put (store G.& ((ins, n, st, []) G.& g'))
 
-liveness :: G.Gr R.Statement S.EdgeType -> G.Gr (R.Statement, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType
+liveness :: G.Gr R.Statement S.EdgeType -> G.Gr (R.Statement, Maybe R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType
 liveness g = graph'
     where
     lGraph = map fst $ linear g
@@ -160,10 +162,10 @@ liveness g = graph'
     f'' n g = case G.match n g of
         (Nothing, _) -> error "match failure"
         (Just (ins, _, (s, ds, us, vIns, vOuts), outs), g') ->
-            let vIns' = us `Set.union` (vOuts `Set.difference` ds)
+            let vIns' = us `Set.union` (vOuts `Set.difference` (maybeToSet ds))
                 (_, _, _, fullOuts) = G.context g n
                 succVIns = map ((\(_, _, (_, _, _, sVIns, _), _) -> sVIns) . G.context g) (map snd fullOuts)
-                vOuts' = ds `Set.union` (foldr Set.union Set.empty succVIns)
+                vOuts' = (maybeToSet ds) `Set.union` (foldr Set.union Set.empty succVIns)
                 s' = (s, ds, us, vIns', vOuts')
                 newContext = (ins, n, s', outs)
             in newContext G.& g'
