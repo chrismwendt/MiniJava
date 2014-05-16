@@ -55,20 +55,20 @@ cSt (T.Block ss) = mapM_ cSt ss
 cSt (T.If cond branchTrue branchFalse) = do
     cond' <- cExp cond
 
-    branch <- buildStep (SSA.NBranch cond')
-
     pre <- gets _stVarToID
+
+    branch <- buildStep (SSA.NBranch cond')
     cSt branchTrue
-    postTrue <- gets _stVarToID
-
     trueGotoDone <- buildStep (SSA.Goto)
-    elseLabel <- build (SSA.Label)
 
+    postTrue <- gets _stVarToID
     modify $ stVarToID .~ pre
-    fromMaybe (return ()) (cSt <$> branchFalse)
-    postFalse <- gets _stVarToID
 
+    elseLabel <- build (SSA.Label)
+    fromMaybe (return ()) (cSt <$> branchFalse)
     falseGotoDone <- buildStep (SSA.Goto)
+
+    postFalse <- gets _stVarToID
 
     doneLabel <- buildStep (SSA.Label)
 
@@ -78,19 +78,18 @@ cSt (T.If cond branchTrue branchFalse) = do
 
     unify postTrue postFalse
 cSt (T.While cond body) = do
-    conditionLabel <- buildStep (SSA.Label)
-
     pre <- gets _stVarToID
 
+    conditionLabel <- buildStep (SSA.Label)
     cond' <- cExp cond
     branch <- buildStep (SSA.NBranch cond')
 
     cSt body
-
     goto <- buildStep (SSA.Goto)
-    doneLabel <- build SSA.Label
 
     post <- gets _stVarToID
+
+    doneLabel <- build SSA.Label
 
     modifyGraph $ G.insEdge (goto, conditionLabel, SSA.Jump)
     modifyGraph $ G.insEdge (branch, doneLabel, SSA.Jump)
