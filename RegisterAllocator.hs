@@ -43,10 +43,10 @@ allocateMethod n program c (S.Method name graph) = squashed
     singles = foldr DJ.insert DJ.empty (G.nodes graph)
     groups = foldr (uncurry DJ.union) singles [(s, o) | (s, S.Unify l r) <- G.labNodes graph, o <- [l, r]]
     translate = fromJust . fst . flip DJ.lookup groups
-    conversion (ins, n, s, outs) = case withRegister s of
+    unifyRegs (ins, n, s, outs) = case withRegister s of
         Left f ->   (ins, n, f translate (translate n), outs)
         Right s' -> (ins, n, s' translate             , outs)
-    graph' = G.gmap conversion (ununify graph)
+    graph' = G.gmap unifyRegs (removeUnifies graph)
     squashed = squashRegs n $ allocateMethod' 0 n program c (R.Method name graph')
 
 squashRegs :: Int -> R.Method -> R.Method
@@ -298,9 +298,9 @@ linear g = evalState (doLinear 0) Set.empty
                 jumps <- concat <$> mapM doLinear (filterEdge S.Jump outs)
                 return $ [(node, statement)] ++ steps ++ jumps
 
-ununify :: G.Gr S.Statement S.EdgeType -> G.Gr S.Statement S.EdgeType
-ununify g = case [n | (n, S.Unify _ _) <- G.labNodes g] of
+removeUnifies :: G.Gr S.Statement S.EdgeType -> G.Gr S.Statement S.EdgeType
+removeUnifies g = case [n | (n, S.Unify _ _) <- G.labNodes g] of
     [] -> g
     (n:ns) -> let (ins, _, _, outs) = G.context g n
                   some edge = snd . fromJust . find ((== edge) . fst)
-              in ununify $ G.insEdge (some S.Step ins, some S.Step outs, S.Step) $ G.delNode n g
+              in removeUnifies $ G.insEdge (some S.Step ins, some S.Step outs, S.Step) $ G.delNode n g
