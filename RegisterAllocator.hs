@@ -56,7 +56,7 @@ squashRegs n (R.Method name g) = R.Method name g'
     lGraph = liveness g
     iGraph = interference lGraph
     regMap = select n iGraph (map snd $ G.labNodes iGraph)
-    g' = G.nmap (\s -> R.mapRegs (regMap M.!) s) g
+    g' = G.nmap (R.mapRegs (regMap M.!)) g
 
 allocateMethod' :: Int -> Int -> S.Program -> S.Class -> R.Method -> R.Method
 allocateMethod' spillCount n program c (R.Method name graph) = case spillMaybe of
