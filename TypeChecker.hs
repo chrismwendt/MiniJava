@@ -77,9 +77,8 @@ typeCheckExpression p c m e = case e of
     U.Binary l op r ->
         let (l', l't) = tcExp l
             (r', r't) = tcExp r
-            e' = T.Binary l' op r'
             checkOp lExpect rExpect resultType = if l't == lExpect && r't == rExpect
-                then (e', resultType)
+                then (T.Binary l' op r', resultType)
                 else error "Incorrect types to binary operator"
             logicOp   = checkOp U.TypeBoolean U.TypeBoolean U.TypeBoolean
             compareOp = checkOp U.TypeInt     U.TypeInt     U.TypeBoolean
