@@ -31,7 +31,7 @@ data CFLabel = CFLabel
 makeLenses ''RState
 
 allocate :: Int -> S.Program -> R.Program
-allocate n = aProgram n
+allocate = aProgram
 
 aProgram :: Int -> S.Program -> R.Program
 aProgram n p@(S.Program m cs) = R.Program (aClass n p m) (map (aClass n p) cs)
