@@ -42,8 +42,8 @@ allocateMethod :: Int -> S.Program -> S.Class -> S.Method -> R.Method
 allocateMethod n program c (S.Method name graph) = squashed
     where
     singles = foldr DJ.insert DJ.empty (G.nodes graph)
-    groups = foldr (uncurry DJ.union) singles [(s, o) | (s, S.Unify l r) <- G.labNodes graph, o <- [l, r]]
-    translate = fromJust . fst . flip DJ.lookup groups
+    variables = foldr (uncurry DJ.union) singles [(s, o) | (s, S.Unify l r) <- G.labNodes graph, o <- [l, r]]
+    translate = fromJust . fst . flip DJ.lookup variables
     unifyRegs (ins, n, s, outs) = case withRegister s of
         Left s' ->  (ins, n, R.mapRegs translate (s' n), outs)
         Right s' -> (ins, n, R.mapRegs translate s'    , outs)
