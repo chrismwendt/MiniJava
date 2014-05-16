@@ -12,19 +12,19 @@ import qualified AST as U
 import qualified ASTTyped as T
 
 typeCheck :: U.Program -> T.Program
-typeCheck program = if validClassHierarchy (program ^. U.pClasses)
-    then typeCheckProgram program
-    else error "Invalid class hierarchy"
+typeCheck = typeCheckProgram
 
 typeCheckProgram :: U.Program -> T.Program
-typeCheckProgram program = T.Program main' classes'
+typeCheckProgram p@(U.Program main classes)
+    | validClassHierarchy classes = T.Program main' classes'
+    | otherwise = error "Invalid class hierarchy"
     where
-    main' = typeCheckClass program (program ^. U.pMain)
-    classes' = map (typeCheckClass program) (program ^. U.pClasses)
+    main' = typeCheckClass p main
+    classes' = map (typeCheckClass p) classes
 
 typeCheckClass :: U.Program -> U.Class -> T.Class
 typeCheckClass p c@(U.Class name parent fields methods)
-    | length (nub $ map (^. U.mName) methods) == length methods =
+    | length (nub $ map U._mName methods) == length methods =
         T.Class name parent fields (map (typeCheckMethod p c) methods)
     | otherwise =  error "Duplicate method"
 
