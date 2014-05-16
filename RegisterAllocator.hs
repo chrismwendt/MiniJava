@@ -45,8 +45,8 @@ allocateMethod n program c (S.Method name graph) = squashed
     groups = foldr (uncurry DJ.union) singles [(s, o) | (s, S.Unify l r) <- G.labNodes graph, o <- [l, r]]
     translate = fromJust . fst . flip DJ.lookup groups
     unifyRegs (ins, n, s, outs) = case withRegister s of
-        Left f ->   (ins, n, f translate (translate n), outs)
-        Right s' -> (ins, n, s' translate             , outs)
+        Left s' ->  (ins, n, R.mapRegs translate (s' n), outs)
+        Right s' -> (ins, n, R.mapRegs translate s'    , outs)
     graph' = G.gmap unifyRegs (removeUnifies graph)
     squashed = squashRegs n $ allocateMethod' 0 n program c (R.Method name graph')
 
@@ -164,45 +164,45 @@ liveness g = graph'
                 newContext = (ins, n, s', outs)
             in newContext G.& g'
 
-withRegister :: S.Statement -> Either ((S.ID -> R.Register) -> S.ID -> R.Statement) ((S.ID -> R.Register) -> R.Statement)
-withRegister (S.Load offset)            = Left  $ \f -> R.Load offset
-withRegister (S.Null t)                 = Left  $ \f -> R.Null t
-withRegister (S.NewObj s1)              = Left  $ \f -> R.NewObj s1
-withRegister (S.NewIntArray i1)         = Left  $ \f -> R.NewIntArray (f i1)
-withRegister (S.This)                   = Left  $ \f -> R.This
-withRegister (S.SInt v)                 = Left  $ \f -> R.SInt v
-withRegister (S.SBoolean v)             = Left  $ \f -> R.SBoolean v
-withRegister (S.Parameter position)     = Left  $ \f -> R.Parameter position
-withRegister (S.Call s1 i1 s2 is)       = Left  $ \f -> R.Call s1 (f i1) s2 (map f is)
-withRegister (S.MemberGet s1 i1 s2)     = Left  $ \f -> R.MemberGet s1 (f i1) s2
-withRegister (S.MemberAssg s1 i1 s2 i2) = Left  $ \f -> R.MemberAssg s1 (f i1) s2 (f i2)
-withRegister (S.VarAssg i1)             = Left  $ \f -> R.VarAssg (f i1)
-withRegister (S.IndexGet i1 i2)         = Left  $ \f -> R.IndexGet (f i1) (f i2)
-withRegister (S.IndexAssg i1 i2 i3)     = Left  $ \f -> R.IndexAssg (f i1) (f i2) (f i3)
-withRegister (S.ArrayLength i1)         = Left  $ \f -> R.ArrayLength (f i1)
-withRegister (S.Not i1)                 = Left  $ \f -> R.Not (f i1)
-withRegister (S.Lt i1 i2)               = Left  $ \f -> R.Lt (f i1) (f i2)
-withRegister (S.Le i1 i2)               = Left  $ \f -> R.Le (f i1) (f i2)
-withRegister (S.Eq i1 i2)               = Left  $ \f -> R.Eq (f i1) (f i2)
-withRegister (S.Ne i1 i2)               = Left  $ \f -> R.Ne (f i1) (f i2)
-withRegister (S.Gt i1 i2)               = Left  $ \f -> R.Gt (f i1) (f i2)
-withRegister (S.Ge i1 i2)               = Left  $ \f -> R.Ge (f i1) (f i2)
-withRegister (S.And i1 i2)              = Left  $ \f -> R.And (f i1) (f i2)
-withRegister (S.Or i1 i2)               = Left  $ \f -> R.Or (f i1) (f i2)
-withRegister (S.Plus i1 i2)             = Left  $ \f -> R.Plus (f i1) (f i2)
-withRegister (S.Minus i1 i2)            = Left  $ \f -> R.Minus (f i1) (f i2)
-withRegister (S.Mul i1 i2)              = Left  $ \f -> R.Mul (f i1) (f i2)
-withRegister (S.Div i1 i2)              = Left  $ \f -> R.Div (f i1) (f i2)
-withRegister (S.Mod i1 i2)              = Left  $ \f -> R.Mod (f i1) (f i2)
-withRegister (S.Store i1 offset)        = Right $ \f -> R.Store (f i1) offset
-withRegister (S.Branch i1)              = Right $ \f -> R.Branch (f i1)
-withRegister (S.NBranch i1)             = Right $ \f -> R.NBranch (f i1)
-withRegister (S.Arg i1 p)               = Right $ \f -> R.Arg (f i1) p
-withRegister (S.Return i1)              = Right $ \f -> R.Return (f i1)
-withRegister (S.Print i1)               = Right $ \f -> R.Print (f i1)
-withRegister (S.BeginMethod)            = Right $ \f -> R.BeginMethod
-withRegister (S.Label)                  = Right $ \f -> R.Label
-withRegister (S.Goto)                   = Right $ \f -> R.Goto
+withRegister :: S.Statement -> Either (S.ID -> R.Statement) R.Statement
+withRegister (S.Load offset)            = Left  $ R.Load offset
+withRegister (S.Null t)                 = Left  $ R.Null t
+withRegister (S.NewObj s1)              = Left  $ R.NewObj s1
+withRegister (S.NewIntArray i1)         = Left  $ R.NewIntArray i1
+withRegister (S.This)                   = Left  $ R.This
+withRegister (S.SInt v)                 = Left  $ R.SInt v
+withRegister (S.SBoolean v)             = Left  $ R.SBoolean v
+withRegister (S.Parameter position)     = Left  $ R.Parameter position
+withRegister (S.Call s1 i1 s2 is)       = Left  $ R.Call s1 i1 s2 is
+withRegister (S.MemberGet s1 i1 s2)     = Left  $ R.MemberGet s1 i1 s2
+withRegister (S.MemberAssg s1 i1 s2 i2) = Left  $ R.MemberAssg s1 i1 s2 i2
+withRegister (S.VarAssg i1)             = Left  $ R.VarAssg i1
+withRegister (S.IndexGet i1 i2)         = Left  $ R.IndexGet i1 i2
+withRegister (S.IndexAssg i1 i2 i3)     = Left  $ R.IndexAssg i1 i2 i3
+withRegister (S.ArrayLength i1)         = Left  $ R.ArrayLength i1
+withRegister (S.Not i1)                 = Left  $ R.Not i1
+withRegister (S.Lt i1 i2)               = Left  $ R.Lt i1 i2
+withRegister (S.Le i1 i2)               = Left  $ R.Le i1 i2
+withRegister (S.Eq i1 i2)               = Left  $ R.Eq i1 i2
+withRegister (S.Ne i1 i2)               = Left  $ R.Ne i1 i2
+withRegister (S.Gt i1 i2)               = Left  $ R.Gt i1 i2
+withRegister (S.Ge i1 i2)               = Left  $ R.Ge i1 i2
+withRegister (S.And i1 i2)              = Left  $ R.And i1 i2
+withRegister (S.Or i1 i2)               = Left  $ R.Or i1 i2
+withRegister (S.Plus i1 i2)             = Left  $ R.Plus i1 i2
+withRegister (S.Minus i1 i2)            = Left  $ R.Minus i1 i2
+withRegister (S.Mul i1 i2)              = Left  $ R.Mul i1 i2
+withRegister (S.Div i1 i2)              = Left  $ R.Div i1 i2
+withRegister (S.Mod i1 i2)              = Left  $ R.Mod i1 i2
+withRegister (S.Store i1 offset)        = Right $ R.Store i1 offset
+withRegister (S.Branch i1)              = Right $ R.Branch i1
+withRegister (S.NBranch i1)             = Right $ R.NBranch i1
+withRegister (S.Arg i1 p)               = Right $ R.Arg i1 p
+withRegister (S.Return i1)              = Right $ R.Return i1
+withRegister (S.Print i1)               = Right $ R.Print i1
+withRegister (S.BeginMethod)            = Right $ R.BeginMethod
+withRegister (S.Label)                  = Right $ R.Label
+withRegister (S.Goto)                   = Right $ R.Goto
 withRegister (S.Unify _ _)              = error "withRegister of Unify"
 
 linear :: G.Gr R.Statement S.EdgeType -> [(G.Node, R.Statement)]
