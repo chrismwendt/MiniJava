@@ -115,7 +115,7 @@ typeCheckExpression p c m e = case e of
                 Just (implementor, m) ->
                     let ps = m ^. U.mParameters
                         argCountCorrect = length args == length ps
-                        argTypesCorrect = and $ zipWith subtype (map snd args') (map (^. U.vType) ps)
+                        argTypesCorrect = and $ zipWith subtype (map snd args') (map U._vType ps)
                     in if argCountCorrect && argTypesCorrect
                         then (T.Call (implementor ^. U.cName) object' method (map tcExpE args), m ^. U.mReturnType)
                         else error "Number and types of arguments to method call must match definition"
