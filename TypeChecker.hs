@@ -141,7 +141,9 @@ typeCheckExpression p c m e = case e of
     U.NewObject cName -> if M.member cName classMap
         then (T.NewObject cName, U.TypeObject cName)
         else error "Class not found"
+
     where
+
     classMap = M.fromList $ map (\c -> (c ^. U.cName, c)) (p ^. U.pClasses)
 
     tcExp = typeCheckExpression p c m
