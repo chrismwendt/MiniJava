@@ -70,8 +70,6 @@ limitInterference nRegs graph = limitInterference' 0 graph
         lGraph = liveness g
         spillMaybe = find ((> nRegs) . Set.size . _lOut . snd) $ G.labNodes lGraph
 
-maybeToSet = Set.fromList . maybeToList
-
 interference :: G.Gr LiveLabel S.EdgeType -> G.Gr R.Register ()
 interference g = live
     where
@@ -230,3 +228,6 @@ removeUnifies g = case [n | (n, S.Unify _ _) <- G.labNodes g] of
     (n : _) -> let (ins, _, _, outs) = G.context g n
                    some edge = snd . fromJust . find ((== edge) . fst)
                in removeUnifies $ G.insEdge (some S.Step ins, some S.Step outs, S.Step) (G.delNode n g)
+
+maybeToSet :: Maybe Int -> Set.Set Int
+maybeToSet = Set.fromList . maybeToList
