@@ -33,13 +33,13 @@ allocate :: Int -> S.Program -> R.Program
 allocate = allocateProgram
 
 allocateProgram :: Int -> S.Program -> R.Program
-allocateProgram n p@(S.Program m cs) = R.Program (allocateClass n p m) (map (allocateClass n p) cs)
+allocateProgram nRegs p@(S.Program m cs) = R.Program (allocateClass nRegs p m) (map (allocateClass nRegs p) cs)
 
 allocateClass :: Int -> S.Program -> S.Class -> R.Class
-allocateClass n program c@(S.Class name fs ms) = R.Class name fs (map (allocateMethod n program c) ms)
+allocateClass nRegs program c@(S.Class name fs ms) = R.Class name fs (map (allocateMethod nRegs program c) ms)
 
 allocateMethod :: Int -> S.Program -> S.Class -> S.Method -> R.Method
-allocateMethod n program c (S.Method name graph) = R.Method name graph'
+allocateMethod nRegs program c (S.Method name graph) = R.Method name graph'
     where
     singles = foldr DJ.insert DJ.empty (G.nodes graph)
     variables = foldr (uncurry DJ.union) singles [(s, o) | (s, S.Unify l r) <- G.labNodes graph, o <- [l, r]]
@@ -48,23 +48,23 @@ allocateMethod n program c (S.Method name graph) = R.Method name graph'
         Left s' ->  (ins, n, R.mapRegs translate (s' n), outs)
         Right s' -> (ins, n, R.mapRegs translate s'    , outs)
     patchedGraph = G.gmap unifyRegs (removeUnifies graph)
-    graph' = squashRegs n $ allocateMethod' 0 n program c patchedGraph
+    graph' = squashRegs nRegs $ allocateMethod' 0 nRegs program c patchedGraph
 
 squashRegs :: Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
-squashRegs n g = g'
+squashRegs nRegs g = g'
     where
     lGraph = liveness g
     iGraph = interference lGraph
-    regMap = select n iGraph (map snd $ G.labNodes iGraph)
+    regMap = select nRegs iGraph (map snd $ G.labNodes iGraph)
     g' = G.nmap (R.mapRegs (regMap M.!)) g
 
 allocateMethod' :: Int -> Int -> S.Program -> S.Class -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
-allocateMethod' spillCount n program c graph = case spillMaybe of
+allocateMethod' spillCount nRegs program c graph = case spillMaybe of
     Nothing -> graph
-    Just v -> allocateMethod' (succ spillCount) n program c (strip $ performSpill spillCount v lGraph)
+    Just v -> allocateMethod' (succ spillCount) nRegs program c (strip $ performSpill spillCount v lGraph)
     where
     lGraph = liveness graph
-    spillMaybe = find ((> n) . Set.size . _lOut . snd) $ G.labNodes lGraph
+    spillMaybe = find ((> nRegs) . Set.size . _lOut . snd) $ G.labNodes lGraph
 
 strip g = G.nmap _lSt g
 
@@ -89,24 +89,24 @@ interference g = live
     live = G.mkGraph (map (\v -> (v, v)) $ Set.toList allVars) (map (\(from, to) -> (from, to, ())) $ Set.toList edgeSet)
 
 simplify :: Int -> G.Gr R.Register () -> [R.Register]
-simplify n graph = regs graph
+simplify nRegs graph = regs graph
     where
     regs g
         | G.isEmpty g = []
-        | otherwise = case find ((< n) . G.indeg g . fst) (G.labNodes g) of
+        | otherwise = case find ((< nRegs) . G.indeg g . fst) (G.labNodes g) of
             Just (node, reg) -> reg : regs (G.delNode node g)
             Nothing -> let ((_, _, reg, _), g') = G.matchAny g in reg : regs g'
 
 select :: Int -> G.Gr R.Register () -> [R.Register] -> M.Map R.Register R.Register
-select n graph regs = M.fromList $ mapMaybe f $ zip regs $ evalState (mapM (select' n) regs) (G.nmap (\a -> (a, Nothing)) graph)
+select nRegs graph regs = M.fromList $ mapMaybe f $ zip regs $ evalState (mapM (select' nRegs) regs) (G.nmap (\a -> (a, Nothing)) graph)
     where
     f (r, Just r') = Just (r, r')
     f (_, Nothing) = Nothing
 
 select' :: Int -> R.Register -> State (G.Gr (R.Register, Maybe R.Register) ()) (Maybe R.Register)
-select' n r = do
+select' nRegs r = do
     graph <- get
-    case Set.toList (Set.fromList [0 .. n - 1] `Set.difference` Set.fromList (catMaybes $ map snd $ map (fromJust . G.lab graph) (G.neighbors graph r))) of
+    case Set.toList (Set.fromList [0 .. nRegs - 1] `Set.difference` Set.fromList (catMaybes $ map snd $ map (fromJust . G.lab graph) (G.neighbors graph r))) of
         [] -> return Nothing
         (r':_) -> do
             modify $ G.nmap (\(a, o) -> if a == r then (a, Just r') else (a, o))
