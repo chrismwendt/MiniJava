@@ -6,6 +6,7 @@ import qualified SSA as S
 import qualified SSARegisters as R
 import Data.Functor
 import Control.Monad.State
+import Control.Monad.Writer
 import qualified Data.Map as M
 import qualified Data.SetMap as SM
 import qualified Data.Set as Set
@@ -284,20 +285,18 @@ mapRegs f (R.Label)                    = R.Label
 mapRegs f (R.Goto)                     = R.Goto
 
 linear :: G.Gr R.Statement S.EdgeType -> [(G.Node, R.Statement)]
-linear g = evalState (doLinear begin) Set.empty
+linear g = snd $ evalState (runWriterT (doLinear begin)) Set.empty
     where
     begin = head [n | (n, R.BeginMethod) <- G.labNodes g]
     doLinear node = do
         seen <- get
-        if node `Set.member` seen
-            then return []
-            else do
-                let (_, _, statement, outs) = G.context g node
-                    filterEdge edge = map snd . filter ((== edge) . fst)
-                modify $ Set.insert node
-                steps <- concat <$> mapM doLinear (filterEdge S.Step outs)
-                jumps <- concat <$> mapM doLinear (filterEdge S.Jump outs)
-                return $ [(node, statement)] ++ steps ++ jumps
+        when (node `Set.notMember` seen) $ do
+            let (_, _, statement, outs) = G.context g node
+                filterEdge edge = map snd . filter ((== edge) . fst)
+            tell [(node, statement)]
+            modify $ Set.insert node
+            mapM_ doLinear (filterEdge S.Step outs)
+            mapM_ doLinear (filterEdge S.Jump outs)
 
 removeUnifies :: G.Gr S.Statement S.EdgeType -> G.Gr S.Statement S.EdgeType
 removeUnifies g = case [n | (n, S.Unify _ _) <- G.labNodes g] of
