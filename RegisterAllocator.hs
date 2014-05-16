@@ -16,12 +16,16 @@ import Data.List
 
 type VID = Int
 
-data CFLabel = CFLabel
-    { _cfDef :: VID
-    , _cfUse :: Set.Set VID
-    , _cfIn :: Set.Set VID
-    , _cfOut :: Set.Set VID
+data LiveLabel = LiveLabel
+    { _lSt  :: R.Statement
+    , _lDef :: Maybe   R.Register
+    , _lUse :: Set.Set R.Register
+    , _lIn  :: Set.Set R.Register
+    , _lOut :: Set.Set R.Register
     }
+    deriving (Show, Eq)
+
+makeLenses ''LiveLabel
 
 allocate :: Int -> S.Program -> R.Program
 allocate = allocateProgram
@@ -63,19 +67,19 @@ allocateMethod' spillCount n program c (R.Method name graph) = case spillMaybe o
     Just v -> allocateMethod' (succ spillCount) n program c (R.Method name (strip $ performSpill spillCount v lGraph))
     where
     lGraph = liveness graph
-    spillMaybe = find (\(_, (_, _, _, _, vOuts)) -> Set.size vOuts > n) $ G.labNodes lGraph
+    spillMaybe = find ((> n) . Set.size . _lOut . snd) $ G.labNodes lGraph
 
-strip g = G.nmap (\(st, ds, us, vIns, vOuts) -> st) g
+strip g = G.nmap _lSt g
 
 maybeToSet = Set.fromList . maybeToList
 
-interference :: G.Gr (R.Statement, Maybe R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType -> G.Gr R.Register ()
+interference :: G.Gr LiveLabel S.EdgeType -> G.Gr R.Register ()
 interference g = live
     where
     concatSet :: Ord a => Set.Set (Set.Set a) -> Set.Set a
     concatSet = Set.foldr Set.union Set.empty
     groups :: Set.Set (Set.Set Int)
-    groups = Set.fromList $ map (\(_, (_, defs, _, vIns, vOuts)) -> ((maybeToSet defs) `Set.union` vIns) `Set.union` vOuts) $ G.labNodes g
+    groups = Set.fromList $ map (\(_, label) -> ((maybeToSet $ label ^. lDef) `Set.union` (label ^. lIn)) `Set.union` (label ^. lOut)) $ G.labNodes g
     allVars = concatSet groups
     h :: Int -> Set.Set Int -> Set.Set (Int, Int)
     h var gr = if Set.member var gr
@@ -111,55 +115,55 @@ select' n r = do
             modify $ G.nmap (\(a, o) -> if a == r then (a, Just r') else (a, o))
             return $ Just r'
 
-performSpill :: Int -> (G.Node, (R.Statement, Maybe R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register)) -> G.Gr (R.Statement, Maybe R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType -> G.Gr (R.Statement, Maybe R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType
-performSpill sc (node, (st, ds, us, vIns, vOuts))  g = case Set.toList $ vOuts `Set.difference` (maybeToSet ds) of
+performSpill :: Int -> (G.Node, LiveLabel) -> G.Gr LiveLabel S.EdgeType -> G.Gr LiveLabel S.EdgeType
+performSpill sc (node, label)  g = case Set.toList $ (label ^. lOut) `Set.difference` (maybeToSet (label ^. lDef)) of
     [] -> error "no room"
     (toSpill:_) -> doSpill sc toSpill g
 
-doSpill :: Int -> R.Register -> G.Gr (R.Statement, Maybe R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType -> G.Gr (R.Statement, Maybe R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType
+doSpill :: Int -> R.Register -> G.Gr LiveLabel S.EdgeType -> G.Gr LiveLabel S.EdgeType
 doSpill sc r g = g''
     where
-    g' = execState (mapM (doLoad sc r) $ filter (\n -> r `Set.member` (let (_, _, vUses, _, _) = fromJust $ G.lab g n in vUses)) (G.nodes g)) g
-    g'' = execState (mapM (doStore sc r) $ filter (\n -> r `Set.member` (let (_, vDefs, _, _, _) = fromJust $ G.lab g n in (maybeToSet vDefs))) (G.nodes g)) g'
+    g' = execState (mapM (doLoad sc r) $ filter (\n -> r `Set.member` ((fromJust $ G.lab g n) ^. lUse)) (G.nodes g)) g
+    g'' = execState (mapM (doStore sc r) $ filter (\n -> r `Set.member` (maybeToSet $ (fromJust $ G.lab g n) ^. lDef)) (G.nodes g)) g'
 
-doLoad :: Int -> R.Register -> G.Node -> State (G.Gr (R.Statement, Maybe R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType) ()
+doLoad :: Int -> R.Register -> G.Node -> State (G.Gr LiveLabel S.EdgeType) ()
 doLoad sc r n = do
     g <- get
     case G.match n g of
         (Nothing, _) -> error "match failure"
-        (Just (ins, n, st@(stu, ds, us, vIns, vOuts), outs), g') -> do
+        (Just (ins, n, LiveLabel stu ds us vIns vOuts, outs), g') -> do
             -- TODO consider using a fresh register since they get squashed anyway
-            let avail = case Set.toList $ (Set.fromList [def | (_, (_, Just def, _, _, _)) <- G.labNodes g]) `Set.difference` (Set.delete r vIns) of
+            let avail = case Set.toList $ (Set.fromList [def | (_, LiveLabel { _lDef = Just def }) <- G.labNodes g]) `Set.difference` (Set.delete r vIns) of
                                 [] -> error "no available register"
                                 (a:_) -> a
-            let load = (ins, head (G.newNodes 1 g), (R.Load sc avail, Just avail, us, vIns, vOuts), [])
-            put (([(S.Step, G.node' load)], n, (mapRegs (\x -> if x == r then avail else x) stu, ds, us, vIns, vOuts), outs) G.& (load G.& g'))
+            let load = (ins, head (G.newNodes 1 g), LiveLabel (R.Load sc avail) (Just avail) us vIns vOuts, [])
+            put (([(S.Step, G.node' load)], n, LiveLabel (mapRegs (\x -> if x == r then avail else x) stu) ds us vIns vOuts, outs) G.& (load G.& g'))
 
-doStore :: Int -> R.Register -> G.Node -> State (G.Gr (R.Statement, Maybe R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType) ()
+doStore :: Int -> R.Register -> G.Node -> State (G.Gr LiveLabel S.EdgeType) ()
 doStore sc r n = do
     g <- get
     case G.match n g of
         (Nothing, _) -> error "match failure"
-        (Just (ins, n, st@(stu, ds, us, vIns, vOuts), outs), g') -> do
-            let store = ([(S.Step, n)], head (G.newNodes 1 g), (R.Store r sc, ds, us, vIns, vOuts),  outs)
-            put (store G.& ((ins, n, st, []) G.& g'))
+        (Just (ins, n, label@(LiveLabel stu ds us vIns vOuts), outs), g') -> do
+            let store = ([(S.Step, n)], head (G.newNodes 1 g), LiveLabel (R.Store r sc) ds us vIns vOuts,  outs)
+            put (store G.& ((ins, n, label, []) G.& g'))
 
-liveness :: G.Gr R.Statement S.EdgeType -> G.Gr (R.Statement, Maybe R.Register, Set.Set R.Register, Set.Set R.Register, Set.Set R.Register) S.EdgeType
+liveness :: G.Gr R.Statement S.EdgeType -> G.Gr LiveLabel S.EdgeType
 liveness g = graph'
     where
     lGraph = map fst $ linear g
-    initialGraph = G.gmap (\(ins, n, s, outs) -> (ins, n, (s, R.def s, vUses s, Set.empty, Set.empty), outs)) g
+    initialGraph = G.gmap (\(ins, n, s, outs) -> (ins, n, LiveLabel s (R.def s) (vUses s) Set.empty Set.empty, outs)) g
     graph' = snd $ until (\(old, new) -> old == new) f (f (initialGraph, initialGraph))
     f (prevOld, prevNew) = (prevNew, f' prevNew)
     f' g = foldr f'' g lGraph
     f'' n g = case G.match n g of
         (Nothing, _) -> error "match failure"
-        (Just (ins, _, (s, ds, us, vIns, vOuts), outs), g') ->
+        (Just (ins, _, LiveLabel s ds us vIns vOuts, outs), g') ->
             let vIns' = us `Set.union` (vOuts `Set.difference` (maybeToSet ds))
                 (_, _, _, fullOuts) = G.context g n
-                succVIns = map ((\(_, _, (_, _, _, sVIns, _), _) -> sVIns) . G.context g) (map snd fullOuts)
+                succVIns = map (_lIn . G.lab' . G.context g) (map snd fullOuts)
                 vOuts' = (maybeToSet ds) `Set.union` (foldr Set.union Set.empty succVIns)
-                s' = (s, ds, us, vIns', vOuts')
+                s' = LiveLabel s ds us vIns' vOuts'
                 newContext = (ins, n, s', outs)
             in newContext G.& g'
 
