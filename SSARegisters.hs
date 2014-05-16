@@ -59,7 +59,7 @@ data Statement =
 
     | Parameter Position Register
     | Arg Register Position
-    | Call String Register String [Register] Register
+    | Call String Register String Register
     | Return Register
 
     | Print Register
@@ -104,7 +104,7 @@ def (This r)               = Just r
 def (SInt _ r)             = Just r
 def (SBoolean _ r)         = Just r
 def (Parameter _ r)        = Just r
-def (Call _ _ _ _ r)       = Just r
+def (Call _ _ _ r)         = Just r
 def (MemberGet _ _ _ r)    = Just r
 def (MemberAssg _ _ _ _ r) = Just r
 def (VarAssg _ r)          = Just r
@@ -144,7 +144,7 @@ uses (This r)                   = Set.fromList []
 uses (SInt v r)                 = Set.fromList []
 uses (SBoolean v r)             = Set.fromList []
 uses (Parameter position r)     = Set.fromList []
-uses (Call s1 r1 s2 is r)       = Set.fromList [r1]
+uses (Call s1 r1 s2 r)          = Set.fromList [r1]
 uses (MemberGet s1 r1 s2 r)     = Set.fromList [r1]
 uses (MemberAssg s1 r1 s2 r2 r) = Set.fromList [r1, r2]
 uses (VarAssg r1 r)             = Set.fromList [r1]
@@ -183,7 +183,7 @@ mapRegs f (This r)                   = This (f r)
 mapRegs f (SInt v r)                 = SInt v (f r)
 mapRegs f (SBoolean v r)             = SBoolean v (f r)
 mapRegs f (Parameter position r)     = Parameter position (f r)
-mapRegs f (Call s1 r1 s2 is r)       = Call s1 (f r1) s2 is (f r)
+mapRegs f (Call s1 r1 s2 r)          = Call s1 (f r1) s2 (f r)
 mapRegs f (MemberGet s1 r1 s2 r)     = MemberGet s1 (f r1) s2 (f r)
 mapRegs f (MemberAssg s1 r1 s2 r2 r) = MemberAssg s1 (f r1) s2 (f r2) (f r)
 mapRegs f (VarAssg r1 r)             = VarAssg (f r1) (f r)

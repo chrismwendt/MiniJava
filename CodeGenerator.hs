@@ -117,7 +117,7 @@ gStatement ast cName mName spillSpace callerSaved (ins, node, statement, outs) =
         R.SInt v r                 -> line $ printf " li $%s, %s" (reg r) (show v)
         R.SBoolean v r             -> line $ printf " li $%s, %s" (reg r) (if v then "1" else "0")
         R.Parameter position r     -> line $ printf " lw $%s, %s($fp)" (reg r) (show $ (position + 1) * wordsize)
-        R.Call s1 r1 s2 is r       -> do
+        R.Call s1 r1 s2 r       -> do
             storeAll (callerSaved \\ [freeRegisters !! r]) spillSpace
             line $ printf " move $v0, $%s" (reg r1)
             line $ printf " lw $v1, ($v0)"
