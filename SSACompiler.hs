@@ -33,10 +33,10 @@ cClass :: T.Class -> SSA.Class
 cClass (T.Class name _ vs ms) = SSA.Class name (map U._vName vs) (map cMethod ms)
 
 cMethod :: T.Method -> SSA.Method
-cMethod (T.Method _ name ps vs ss ret) = evalState f initialState
+cMethod (T.Method _ name ps vs ss ret) = evalState cMethod' initialState
     where
     initialState = (CState M.empty (G.mkGraph [(0, SSA.BeginMethod)] []) 0)
-    f = do
+    cMethod' = do
         zipWithM_ cPar ps [0 .. ]
         mapM_ cVar vs
         mapM_ cSt ss
