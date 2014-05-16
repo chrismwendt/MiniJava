@@ -31,39 +31,41 @@ typeCheckClass p c@(U.Class name parent fields methods)
 
 typeCheckMethod :: U.Program -> U.Class -> U.Method -> T.Method
 typeCheckMethod p c m@(U.Method retType name ps ls ss ret)
-    | retType == eType ret = T.Method retType name ps ls (map tcSt ss) (tcExp ret)
+    | retType == tcExpT ret = T.Method retType name ps ls (map tcSt ss) (tcExpE ret)
     | otherwise =  error "Return type of method must match declaration"
     where
     tcSt = typeCheckStatement p c m
-    tcExp = fst . typeCheckExpression p c m
-    eType = snd . typeCheckExpression p c m
+    tcExp = typeCheckExpression p c m
+    tcExpE = fst . tcExp
+    tcExpT = snd . tcExp
 
 typeCheckStatement :: U.Program -> U.Class -> U.Method -> U.Statement -> T.Statement
 typeCheckStatement p c m s = s'
     where
     s' = case s of
         U.Block ss -> T.Block $ map tcSt ss
-        U.If condition true falseMaybe -> case tcE condition of
-            (e, U.TypeBoolean) -> T.If e (tcSt true) (tcSt <$> falseMaybe)
+        U.If condition true falseMaybe -> case tcExpT condition of
+            U.TypeBoolean -> T.If (tcExpE condition) (tcSt true) (tcSt <$> falseMaybe)
             _ -> error "Type of if condition must be boolean"
-        U.While condition body -> case tcE condition of
-            (e, U.TypeBoolean) -> T.While e (tcSt body)
+        U.While condition body -> case tcExpT condition of
+            U.TypeBoolean -> T.While (tcExpE condition) (tcSt body)
             _ -> error "Type of while condition must be boolean"
-        U.Print expression -> case tcE expression of
-            (e, U.TypeInt) -> T.Print e
+        U.Print expression -> case tcExpT expression of
+            U.TypeInt -> T.Print (tcExpE expression)
             _ -> error "Type of print must be int"
-        U.ExpressionStatement expression -> T.ExpressionStatement (tcE_ expression)
+        U.ExpressionStatement expression -> T.ExpressionStatement (tcExpE expression)
     tcSt = typeCheckStatement p c m
-    tcE = typeCheckExpression p c m
-    tcE_ = fst . tcE
+    tcExp = typeCheckExpression p c m
+    tcExpE = fst . tcExp
+    tcExpT = snd . tcExp
 
 typeCheckExpression :: U.Program -> U.Class -> U.Method -> U.Expression -> (T.Expression, U.Type)
 typeCheckExpression p c m e = case e of
     U.LiteralInt value -> (T.LiteralInt value, U.TypeInt)
     U.LiteralBoolean value -> (T.LiteralBoolean value, U.TypeBoolean)
     U.Assignment target value ->
-        let (t', t'Type) = tcE target
-            (v', v'Type) = tcE value
+        let (t', t'Type) = tcExp target
+            (v', v'Type) = tcExp value
             e' = case t' of
                 T.VariableGet name -> T.VariableAssignment name v'
                 T.MemberGet cName object fName -> T.MemberAssignment cName object fName v'
@@ -73,8 +75,8 @@ typeCheckExpression p c m e = case e of
             then (e', t'Type)
             else error "Assignment value must be a subtype"
     U.Binary l op r ->
-        let (l', l't) = tcE l
-            (r', r't) = tcE r
+        let (l', l't) = tcExp l
+            (r', r't) = tcExp r
             e' = T.Binary l' op r'
             checkOp lExpect rExpect resultType = if l't == lExpect && r't == rExpect
                 then (e', resultType)
@@ -96,18 +98,18 @@ typeCheckExpression p c m e = case e of
             U.Mul   -> arithOp
             U.Div   -> arithOp
             U.Mod   -> arithOp
-    U.Not e -> case tcE e of
+    U.Not e -> case tcExp e of
         (e', U.TypeBoolean) -> (T.Not e', U.TypeBoolean)
         _ -> error "Not operand must be boolean"
     U.IndexGet array index ->
-        let (array', array't) = tcE array
-            (index', index't) = tcE index
+        let (array', array't) = tcExp array
+            (index', index't) = tcExp index
         in if array't == U.TypeIntArray && index't == U.TypeInt
             then (T.IndexGet array' index', U.TypeInt)
             else error "Array must be int[] and index must be int"
     U.Call object method args ->
-        let (object', object't) = tcE object
-            args' = map tcE args
+        let (object', object't) = tcExp object
+            args' = map tcExp args
         in case object't of
             U.TypeObject cName -> case findClassMethod (M.lookup cName classMap) method of
                 Just (implementor, m) ->
@@ -115,12 +117,12 @@ typeCheckExpression p c m e = case e of
                         argCountCorrect = length args == length ps
                         argTypesCorrect = and $ zipWith subtype (map snd args') (map (^. U.vType) ps)
                     in if argCountCorrect && argTypesCorrect
-                        then (T.Call (implementor ^. U.cName) object' method (map tcE_ args), m ^. U.mReturnType)
+                        then (T.Call (implementor ^. U.cName) object' method (map tcExpE args), m ^. U.mReturnType)
                         else error "Number and types of arguments to method call must match definition"
                 Nothing -> error "Method not found"
             _ -> error "Method call must be performed on an object"
     U.MemberGet object fName ->
-        let (object', object't) = tcE object
+        let (object', object't) = tcExp object
         in case object't of
             U.TypeObject cName -> case findClassField (M.lookup cName classMap) fName of
                 Just (c, field) -> (T.MemberGet (c ^. U.cName) object' fName, field ^. U.vType)
@@ -131,9 +133,9 @@ typeCheckExpression p c m e = case e of
             _ -> error "Member access must be performed on an object or length of array"
     U.VariableGet name -> case find (\v -> v ^. U.vName == name) (m ^. U.mLocals ++ m ^. U.mParameters) of
         Just v -> (T.VariableGet name, v ^. U.vType)
-        Nothing -> tcE (U.MemberGet U.This name)
+        Nothing -> tcExp (U.MemberGet U.This name)
     U.This -> (T.This, U.TypeObject (c ^. U.cName))
-    U.NewIntArray size -> case tcE size of
+    U.NewIntArray size -> case tcExp size of
         (size', U.TypeInt) -> (T.NewIntArray size', U.TypeIntArray)
         _ -> error "Size of new int array must be int"
     U.NewObject cName -> if M.member cName classMap
@@ -142,8 +144,9 @@ typeCheckExpression p c m e = case e of
     where
     classMap = M.fromList $ map (\c -> (c ^. U.cName, c)) (p ^. U.pClasses)
 
-    tcE = typeCheckExpression p c m
-    tcE_ = fst . tcE
+    tcExp = typeCheckExpression p c m
+    tcExpE = fst . tcExp
+    tcExpT = snd . tcExp
 
     findClassField Nothing _ = Nothing
     findClassField (Just c) fName = case find (\f -> f ^. U.vName == fName) (c ^. U.cFields) of
