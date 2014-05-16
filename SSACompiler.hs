@@ -55,35 +55,35 @@ cSt (T.Block ss) = mapM_ cSt ss
 cSt (T.If cond branchTrue branchFalse) = do
     cond' <- cExp cond
 
-    branchID <- buildStep (SSA.NBranch cond')
+    branch <- buildStep (SSA.NBranch cond')
 
-    preBranchBindings <- gets _stVarToID
+    pre <- gets _stVarToID
     cSt branchTrue
-    postTrueBindings <- gets _stVarToID
+    postTrue <- gets _stVarToID
 
     trueGotoDoneID <- buildStep (SSA.Goto)
     elseID <- build (SSA.Label)
 
-    modify $ stVarToID .~ preBranchBindings
+    modify $ stVarToID .~ pre
     fromMaybe (return ()) (cSt <$> branchFalse)
-    postFalseBindings <- gets _stVarToID
+    postFalse <- gets _stVarToID
 
     falseGotoDoneID <- buildStep (SSA.Goto)
 
     doneID <- buildStep (SSA.Label)
 
-    modifyGraph $ G.insEdge (branchID, elseID, SSA.Jump)
+    modifyGraph $ G.insEdge (branch, elseID, SSA.Jump)
     modifyGraph $ G.insEdge (trueGotoDoneID, doneID, SSA.Jump)
     modifyGraph $ G.insEdge (falseGotoDoneID, doneID, SSA.Jump)
 
-    unify postTrueBindings postFalseBindings
+    unify postTrue postFalse
 cSt (T.While cond body) = do
     startID <- buildStep (SSA.Label)
 
     pre <- gets _stVarToID
 
     cond' <- cExp cond
-    branchID <- buildStep (SSA.NBranch cond')
+    branch <- buildStep (SSA.NBranch cond')
 
     cSt body
 
@@ -93,7 +93,7 @@ cSt (T.While cond body) = do
     post <- gets _stVarToID
 
     modifyGraph $ G.insEdge (gotoID, startID, SSA.Jump)
-    modifyGraph $ G.insEdge (branchID, doneID, SSA.Jump)
+    modifyGraph $ G.insEdge (branch, doneID, SSA.Jump)
 
     unify pre post
 cSt (T.Print e) = do
