@@ -105,9 +105,7 @@ cExp (T.MemberAssignment cName object fName value) = do
     object' <- cExp object
     value' <- cExp value
     buildStep $ SSA.MemberAssg cName object' fName value'
-cExp (T.VariableAssignment name value) = do
-    v <- buildStep =<< SSA.VarAssg <$> cExp value
-    bind name v
+cExp (T.VariableAssignment name value) = SSA.VarAssg <$> cExp value >>= buildStep >>= bind name
 cExp (T.IndexAssignment array index value) = do
     array' <- cExp array
     index' <- cExp index
