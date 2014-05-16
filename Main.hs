@@ -10,7 +10,10 @@ import Data.Maybe
 import qualified Data.Map as M
 import Data.Bifunctor
 
-data Options = Options { stopAt :: String, file :: String }
+data Options = Options
+    { oStopAt :: String
+    , oFile :: String
+    }
 
 options :: Parser Options
 options = Options
@@ -20,17 +23,22 @@ options = Options
 registerLimit :: Int
 registerLimit = 22
 
-compile :: Options -> String -> String
-compile (Options "parse" _) source = show $ parseString source
-compile (Options "type" _) source = show $ TC.typeCheck $ parseString source
-compile (Options "SSA" _) source = show $ SSA.compile $ TC.typeCheck $ parseString source
-compile (Options "reg" _) source = show $ Reg.allocate registerLimit $ SSA.compile $ TC.typeCheck $ parseString source
-compile (Options "code" _) source = let ast = TC.typeCheck $ parseString source in Code.generate ast $ Reg.allocate registerLimit $ SSA.compile $ ast
-compile (Options target _) _ = error $ "unknown target: " ++ target
-
 main :: IO ()
-main = execParser opts >>= \os -> do
-    input <- readFile $ file os
-    putStrLn $ compile os input
-    where
-    opts = info (helper <*> options) (fullDesc <> header "A MiniJava compiler")
+main = do
+    let opts = info (helper <*> options) (fullDesc <> header "A MiniJava compiler")
+    Options { oStopAt = stop, oFile = file } <- execParser opts
+
+    input <- readFile file
+
+    let atParse = parseString input
+        atType  = TC.typeCheck atParse
+        atSSA   = SSA.compile atType
+        atReg   = Reg.allocate registerLimit atSSA
+        atCode  = Code.generate atType atReg
+
+    putStrLn $ case stop of
+        "parse" -> show atParse
+        "type"  -> show atType
+        "SSA"   -> show atSSA
+        "reg"   -> show atReg
+        _       -> atCode
