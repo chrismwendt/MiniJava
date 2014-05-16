@@ -48,7 +48,7 @@ allocateMethod nRegs program c (S.Method name graph) = R.Method name graph'
         Left s' ->  (ins, n, R.mapRegs translate (s' n), outs)
         Right s' -> (ins, n, R.mapRegs translate s'    , outs)
     patchedGraph = G.gmap unifyRegs (removeUnifies graph)
-    graph' = squashRegs nRegs $ allocateMethod' 0 nRegs program c patchedGraph
+    graph' = squashRegs nRegs $ limitInterference 0 nRegs program c patchedGraph
 
 squashRegs :: Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
 squashRegs nRegs g = g'
@@ -58,10 +58,10 @@ squashRegs nRegs g = g'
     regMap = select nRegs iGraph (map snd $ G.labNodes iGraph)
     g' = G.nmap (R.mapRegs (regMap M.!)) g
 
-allocateMethod' :: Int -> Int -> S.Program -> S.Class -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
-allocateMethod' spillCount nRegs program c graph = case spillMaybe of
+limitInterference :: Int -> Int -> S.Program -> S.Class -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
+limitInterference spillCount nRegs program c graph = case spillMaybe of
     Nothing -> graph
-    Just v -> allocateMethod' (succ spillCount) nRegs program c (strip $ performSpill spillCount v lGraph)
+    Just v -> limitInterference (succ spillCount) nRegs program c (strip $ performSpill spillCount v lGraph)
     where
     lGraph = liveness graph
     spillMaybe = find ((> nRegs) . Set.size . _lOut . snd) $ G.labNodes lGraph
