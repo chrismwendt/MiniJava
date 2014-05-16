@@ -31,16 +31,16 @@ data CFLabel = CFLabel
 makeLenses ''RState
 
 allocate :: Int -> S.Program -> R.Program
-allocate = aProgram
+allocate = allocateProgram
 
-aProgram :: Int -> S.Program -> R.Program
-aProgram n p@(S.Program m cs) = R.Program (aClass n p m) (map (aClass n p) cs)
+allocateProgram :: Int -> S.Program -> R.Program
+allocateProgram n p@(S.Program m cs) = R.Program (allocateClass n p m) (map (allocateClass n p) cs)
 
-aClass :: Int -> S.Program -> S.Class -> R.Class
-aClass n program c@(S.Class name fs ms) = R.Class name fs (map (aMethod n program c) ms)
+allocateClass :: Int -> S.Program -> S.Class -> R.Class
+allocateClass n program c@(S.Class name fs ms) = R.Class name fs (map (allocateMethod n program c) ms)
 
-aMethod :: Int -> S.Program -> S.Class -> S.Method -> R.Method
-aMethod n program c (S.Method name graph) = squashed
+allocateMethod :: Int -> S.Program -> S.Class -> S.Method -> R.Method
+allocateMethod n program c (S.Method name graph) = squashed
     where
     varGraph :: G.Gr S.Statement ()
     varGraph = G.mkGraph
@@ -54,7 +54,7 @@ aMethod n program c (S.Method name graph) = squashed
         Just (Left f) -> (ins, n, f (varGroups M.!) (varGroups M.! n), outs)
         Just (Right s') -> (ins, n, s' (varGroups M.!), outs)
     graph' = G.gmap conversion (ununify graph)
-    squashed = squashRegs n $ aMethod' 0 n program c (R.Method name graph')
+    squashed = squashRegs n $ allocateMethod' 0 n program c (R.Method name graph')
 
 squashRegs :: Int -> R.Method -> R.Method
 squashRegs n (R.Method name g) = R.Method name g'
@@ -64,10 +64,10 @@ squashRegs n (R.Method name g) = R.Method name g'
     regMap = select n iGraph (map snd $ G.labNodes iGraph)
     g' = G.nmap (\s -> mapRegs (regMap M.!) s) g
 
-aMethod' :: Int -> Int -> S.Program -> S.Class -> R.Method -> R.Method
-aMethod' spillCount n program c (R.Method name graph) = case spillMaybe of
+allocateMethod' :: Int -> Int -> S.Program -> S.Class -> R.Method -> R.Method
+allocateMethod' spillCount n program c (R.Method name graph) = case spillMaybe of
     Nothing -> R.Method name graph
-    Just v -> aMethod' (succ spillCount) n program c (R.Method name (strip $ performSpill spillCount v lGraph))
+    Just v -> allocateMethod' (succ spillCount) n program c (R.Method name (strip $ performSpill spillCount v lGraph))
     where
     lGraph = liveness graph
     spillMaybe = find (\(_, (_, _, _, _, vOuts)) -> Set.size vOuts > n) $ G.labNodes lGraph
