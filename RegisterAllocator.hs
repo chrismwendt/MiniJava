@@ -53,13 +53,6 @@ assignRegisters graph = G.gmap unifyRegs (removeUnifies graph)
         Left s' ->  (ins, n, R.mapRegs translate (s' n), outs)
         Right s' -> (ins, n, R.mapRegs translate s'    , outs)
 
-squashRegs :: Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
-squashRegs nRegs g = G.nmap (R.mapRegs (regMap M.!)) g
-    where
-    lGraph = liveness g
-    iGraph = interference lGraph
-    regMap = select nRegs iGraph (map snd $ G.labNodes iGraph)
-
 limitInterference :: Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
 limitInterference nRegs graph = limitInterference' 0 graph
     where
@@ -69,38 +62,6 @@ limitInterference nRegs graph = limitInterference' 0 graph
         where
         lGraph = liveness g
         outExceedsLimit = (> nRegs) . Set.size . _lOut
-
-interference :: G.Gr LiveLabel S.EdgeType -> G.Gr R.Register ()
-interference g = live
-    where
-    concatSet :: Ord a => Set.Set (Set.Set a) -> Set.Set a
-    concatSet = Set.foldr Set.union Set.empty
-    groups :: Set.Set (Set.Set Int)
-    groups = Set.fromList $ map (\(_, label) -> ((maybeToSet $ label ^. lDef) `Set.union` (label ^. lIn)) `Set.union` (label ^. lOut)) $ G.labNodes g
-    allVars = concatSet groups
-    h :: Int -> Set.Set Int -> Set.Set (Int, Int)
-    h var gr = if Set.member var gr
-        then Set.map (\x -> (var, x)) (Set.delete var gr)
-        else Set.empty
-    f :: Int -> Set.Set (Int, Int)
-    f var = concatSet $ Set.map (h var) groups
-    edgeSet = concatSet $ Set.map f allVars
-    live = G.mkGraph (map (\v -> (v, v)) $ Set.toList allVars) (map (\(from, to) -> (from, to, ())) $ Set.toList edgeSet)
-
-select :: Int -> G.Gr R.Register () -> [R.Register] -> M.Map R.Register R.Register
-select nRegs graph regs = M.fromList $ mapMaybe f $ zip regs $ evalState (mapM (select' nRegs) regs) (G.nmap (\a -> (a, Nothing)) graph)
-    where
-    f (r, Just r') = Just (r, r')
-    f (_, Nothing) = Nothing
-
-select' :: Int -> R.Register -> State (G.Gr (R.Register, Maybe R.Register) ()) (Maybe R.Register)
-select' nRegs r = do
-    graph <- get
-    case Set.toList (Set.fromList [0 .. nRegs - 1] `Set.difference` Set.fromList (catMaybes $ map snd $ map (fromJust . G.lab graph) (G.neighbors graph r))) of
-        [] -> return Nothing
-        (r':_) -> do
-            modify $ G.nmap (\(a, o) -> if a == r then (a, Just r') else (a, o))
-            return $ Just r'
 
 performSpill :: Int -> (G.Node, LiveLabel) -> G.Gr LiveLabel S.EdgeType -> G.Gr LiveLabel S.EdgeType
 performSpill sc (node, label)  g = case Set.toList $ (label ^. lOut) `Set.difference` (maybeToSet (label ^. lDef)) of
@@ -134,6 +95,45 @@ doStore sc r n = do
         (Just (ins, n, label@(LiveLabel stu ds us vIns vOuts), outs), g') -> do
             let store = ([(S.Step, n)], head (G.newNodes 1 g), LiveLabel (R.Store r sc) ds us vIns vOuts,  outs)
             put (store G.& ((ins, n, label, []) G.& g'))
+
+squashRegs :: Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
+squashRegs nRegs g = G.nmap (R.mapRegs (regMap M.!)) g
+    where
+    lGraph = liveness g
+    iGraph = interference lGraph
+    regMap = select nRegs iGraph (map snd $ G.labNodes iGraph)
+
+interference :: G.Gr LiveLabel S.EdgeType -> G.Gr R.Register ()
+interference g = live
+    where
+    concatSet :: Ord a => Set.Set (Set.Set a) -> Set.Set a
+    concatSet = Set.foldr Set.union Set.empty
+    groups :: Set.Set (Set.Set Int)
+    groups = Set.fromList $ map (\(_, label) -> ((maybeToSet $ label ^. lDef) `Set.union` (label ^. lIn)) `Set.union` (label ^. lOut)) $ G.labNodes g
+    allVars = concatSet groups
+    h :: Int -> Set.Set Int -> Set.Set (Int, Int)
+    h var gr = if Set.member var gr
+        then Set.map (\x -> (var, x)) (Set.delete var gr)
+        else Set.empty
+    f :: Int -> Set.Set (Int, Int)
+    f var = concatSet $ Set.map (h var) groups
+    edgeSet = concatSet $ Set.map f allVars
+    live = G.mkGraph (map (\v -> (v, v)) $ Set.toList allVars) (map (\(from, to) -> (from, to, ())) $ Set.toList edgeSet)
+
+select :: Int -> G.Gr R.Register () -> [R.Register] -> M.Map R.Register R.Register
+select nRegs graph regs = M.fromList $ mapMaybe f $ zip regs $ evalState (mapM (select' nRegs) regs) (G.nmap (\a -> (a, Nothing)) graph)
+    where
+    f (r, Just r') = Just (r, r')
+    f (_, Nothing) = Nothing
+
+select' :: Int -> R.Register -> State (G.Gr (R.Register, Maybe R.Register) ()) (Maybe R.Register)
+select' nRegs r = do
+    graph <- get
+    case Set.toList (Set.fromList [0 .. nRegs - 1] `Set.difference` Set.fromList (catMaybes $ map snd $ map (fromJust . G.lab graph) (G.neighbors graph r))) of
+        [] -> return Nothing
+        (r':_) -> do
+            modify $ G.nmap (\(a, o) -> if a == r then (a, Just r') else (a, o))
+            return $ Just r'
 
 liveness :: G.Gr R.Statement S.EdgeType -> G.Gr LiveLabel S.EdgeType
 liveness g = graph'
