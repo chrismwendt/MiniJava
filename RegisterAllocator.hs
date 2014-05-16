@@ -48,7 +48,7 @@ allocateMethod nRegs program c (S.Method name graph) = R.Method name graph'
         Left s' ->  (ins, n, R.mapRegs translate (s' n), outs)
         Right s' -> (ins, n, R.mapRegs translate s'    , outs)
     patchedGraph = G.gmap unifyRegs (removeUnifies graph)
-    graph' = squashRegs nRegs $ limitInterference nRegs 0 patchedGraph
+    graph' = squashRegs nRegs $ limitInterference nRegs patchedGraph
 
 squashRegs :: Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
 squashRegs nRegs g = g'
@@ -58,13 +58,15 @@ squashRegs nRegs g = g'
     regMap = select nRegs iGraph (map snd $ G.labNodes iGraph)
     g' = G.nmap (R.mapRegs (regMap M.!)) g
 
-limitInterference :: Int -> Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
-limitInterference nRegs spillCount graph = case spillMaybe of
-    Nothing -> graph
-    Just v -> limitInterference (succ spillCount) nRegs (strip $ performSpill spillCount v lGraph)
+limitInterference :: Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
+limitInterference nRegs graph = limitInterference' 0 graph
     where
-    lGraph = liveness graph
-    spillMaybe = find ((> nRegs) . Set.size . _lOut . snd) $ G.labNodes lGraph
+    limitInterference' spillCount g = case spillMaybe of
+        Nothing -> g
+        Just v -> limitInterference (succ spillCount) (strip $ performSpill spillCount v lGraph)
+        where
+        lGraph = liveness g
+        spillMaybe = find ((> nRegs) . Set.size . _lOut . snd) $ G.labNodes lGraph
 
 strip g = G.nmap _lSt g
 
