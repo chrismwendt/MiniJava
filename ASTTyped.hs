@@ -9,26 +9,26 @@ import Data.Maybe
 import qualified AST as U
 
 data Program = Program
-    { _pMain :: Class
+    { _pMain    :: Class
     , _pClasses :: [Class]
     }
     deriving (Show, Eq)
 
 data Class = Class
-    { _cName :: String
-    , _cParent :: String
-    , _cFields :: [U.Variable]
+    { _cName    :: String
+    , _cParent  :: String
+    , _cFields  :: [U.Variable]
     , _cMethods :: [Method]
     }
     deriving (Show, Eq)
 
 data Method = Method
     { _mReturnType :: U.Type
-    , _mName :: String
+    , _mName       :: String
     , _mParameters :: [U.Variable]
-    , _mLocals :: [U.Variable]
+    , _mLocals     :: [U.Variable]
     , _mStatements :: [Statement]
-    , _mReturn :: Expression
+    , _mReturn     :: Expression
     }
     deriving (Show, Eq)
 
