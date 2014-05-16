@@ -95,9 +95,7 @@ cSt (T.While cond body) = do
     modifyGraph $ G.insEdge (branch, doneLabel, SSA.Jump)
 
     unify pre post
-cSt (T.Print e) = do
-    value <- cExp e
-    void $ buildStep (SSA.Print value)
+cSt (T.Print e) = void $ buildStep =<< SSA.Print <$> cExp e
 cSt (T.ExpressionStatement e) = void $ (: []) <$> cExp e
 
 cExp :: T.Expression -> State CState SSA.ID
