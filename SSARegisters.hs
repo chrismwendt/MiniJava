@@ -175,6 +175,7 @@ uses (BeginMethod)              = Set.fromList []
 uses (Label)                    = Set.fromList []
 uses (Goto)                     = Set.fromList []
 
+mapRegs :: (Register -> Register) -> Statement -> Statement
 mapRegs f (Load offset r)            = Load offset (f r)
 mapRegs f (Null t r)                 = Null t (f r)
 mapRegs f (NewObj s1 r)              = NewObj s1 (f r)
