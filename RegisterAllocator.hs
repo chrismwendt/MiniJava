@@ -41,10 +41,10 @@ allocateClass nRegs (S.Class name fs ms) = R.Class name fs (map (allocateMethod 
 allocateMethod :: Int -> S.Method -> R.Method
 allocateMethod nRegs (S.Method name graph) = R.Method name graph'
     where
-    graph' = squashRegs nRegs . limitInterference nRegs . patchUnifies $ graph
+    graph' = squashRegs nRegs . limitInterference nRegs . assignRegisters $ graph
 
-patchUnifies :: G.Gr S.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
-patchUnifies graph = G.gmap unifyRegs (removeUnifies graph)
+assignRegisters :: G.Gr S.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
+assignRegisters graph = G.gmap unifyRegs (removeUnifies graph)
     where
     singles = foldr DJ.insert DJ.empty (G.nodes graph)
     variables = foldr (uncurry DJ.union) singles [(s, o) | (s, S.Unify l r) <- G.labNodes graph, o <- [l, r]]
