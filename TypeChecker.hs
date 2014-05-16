@@ -166,16 +166,17 @@ typeCheckExpression p c m e = case e of
     subtype a b = a == b
 
 validClassHierarchy :: [U.Class] -> Bool
-validClassHierarchy classes = allUnique names && all extendsObject names
+validClassHierarchy classes = allUnique names && all (`extends` objectNode) classNodes
     where
-    extendsObject name = node "Object" `elem` G.reachable (node name) classGraph
-    names = "Object" : map (^. U.cName) classes
-    classGraph = G.mkUGraph (map snd m) (map edge classes) :: G.Gr () ()
-    edge (U.Class name parent _ _)  = (node name, node parent)
-    node name = case name `lookup` m of
-        Just n -> n
-        Nothing -> error $ "Class " ++ name ++ " not found"
-    m = zip names [0 .. ]
+    c1 `extends` c2 = c2 `elem` G.reachable c1 classGraph
+    classGraph = G.mkUGraph classNodes (mapMaybe edgeMaybe classes) :: G.Gr () ()
+    edgeMaybe (U.Class name parent _ _) = do
+        n1 <- lookupClass name
+        n2 <- lookupClass parent
+        return (n1, n2)
+    lookupClass name = name `lookup` (zip names classNodes)
+    classNodes@(objectNode : _) = zipWith const [0 .. ] names
+    names = "Object" : map U._cName classes
 
 allUnique :: Eq a => [a] -> Bool
 allUnique as = length (nub as) == length as
