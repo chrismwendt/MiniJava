@@ -158,12 +158,12 @@ typeCheckExpression p c m e = case e of
         Just m -> Just (c, m)
         Nothing -> findClassMethod (M.lookup (c ^. U.cParent) classMap) mName
 
-    subtype (U.TypeObject name) b@(U.TypeObject name') = if name == name'
+    (U.TypeObject name) `subtype` b@(U.TypeObject name') = if name == name'
         then True
         else case M.lookup name classMap of
             Just childClass -> subtype (U.TypeObject (childClass ^. U.cParent)) b
             Nothing -> False
-    subtype a b = a == b
+    a `subtype` b = a == b
 
 validClassHierarchy :: [U.Class] -> Bool
 validClassHierarchy classes = allUnique names && all (`extends` objectNode) classNodes
