@@ -39,7 +39,7 @@ allocateClass :: Int -> S.Program -> S.Class -> R.Class
 allocateClass n program c@(S.Class name fs ms) = R.Class name fs (map (allocateMethod n program c) ms)
 
 allocateMethod :: Int -> S.Program -> S.Class -> S.Method -> R.Method
-allocateMethod n program c (S.Method name graph) = squashed
+allocateMethod n program c (S.Method name graph) = R.Method name graph'
     where
     singles = foldr DJ.insert DJ.empty (G.nodes graph)
     variables = foldr (uncurry DJ.union) singles [(s, o) | (s, S.Unify l r) <- G.labNodes graph, o <- [l, r]]
@@ -47,21 +47,21 @@ allocateMethod n program c (S.Method name graph) = squashed
     unifyRegs (ins, n, s, outs) = case withRegister s of
         Left s' ->  (ins, n, R.mapRegs translate (s' n), outs)
         Right s' -> (ins, n, R.mapRegs translate s'    , outs)
-    graph' = G.gmap unifyRegs (removeUnifies graph)
-    squashed = squashRegs n $ allocateMethod' 0 n program c (R.Method name graph')
+    patchedGraph = G.gmap unifyRegs (removeUnifies graph)
+    graph' = squashRegs n $ allocateMethod' 0 n program c patchedGraph
 
-squashRegs :: Int -> R.Method -> R.Method
-squashRegs n (R.Method name g) = R.Method name g'
+squashRegs :: Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
+squashRegs n g = g'
     where
     lGraph = liveness g
     iGraph = interference lGraph
     regMap = select n iGraph (map snd $ G.labNodes iGraph)
     g' = G.nmap (R.mapRegs (regMap M.!)) g
 
-allocateMethod' :: Int -> Int -> S.Program -> S.Class -> R.Method -> R.Method
-allocateMethod' spillCount n program c (R.Method name graph) = case spillMaybe of
-    Nothing -> R.Method name graph
-    Just v -> allocateMethod' (succ spillCount) n program c (R.Method name (strip $ performSpill spillCount v lGraph))
+allocateMethod' :: Int -> Int -> S.Program -> S.Class -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
+allocateMethod' spillCount n program c graph = case spillMaybe of
+    Nothing -> graph
+    Just v -> allocateMethod' (succ spillCount) n program c (strip $ performSpill spillCount v lGraph)
     where
     lGraph = liveness graph
     spillMaybe = find ((> n) . Set.size . _lOut . snd) $ G.labNodes lGraph
