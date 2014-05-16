@@ -2,14 +2,14 @@
 
 module TypeChecker where
 
-import qualified AST as U
-import qualified ASTTyped as T
 import qualified Data.Map as M
 import Data.Maybe
 import Data.List
 import Data.Graph
 import Control.Lens
 import Control.Applicative
+import qualified AST as U
+import qualified ASTTyped as T
 
 typeCheck :: U.Program -> T.Program
 typeCheck program = if validClassHierarchy (program ^. U.pClasses)
