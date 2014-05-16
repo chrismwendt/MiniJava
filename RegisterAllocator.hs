@@ -54,11 +54,11 @@ assignRegisters graph = G.gmap unifyRegs (removeUnifies graph)
         Right s' -> (ins, n, R.mapRegs translate s'    , outs)
 
 limitInterference :: Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
-limitInterference nRegs graph = limitInterference' 0 graph
+limitInterference nRegs graph = lim 0 graph
     where
-    limitInterference' spillCount g = case find (outExceedsLimit . snd) $ G.labNodes lGraph of
+    lim spillCount g = case find (outExceedsLimit . snd) $ G.labNodes lGraph of
         Nothing -> g
-        Just v -> limitInterference (succ spillCount) (unliveness $ performSpill spillCount v lGraph)
+        Just v -> lim (succ spillCount) (unliveness $ performSpill spillCount v lGraph)
         where
         lGraph = liveness g
         outExceedsLimit = (> nRegs) . Set.size . _lOut
