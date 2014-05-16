@@ -65,12 +65,10 @@ limitInterference nRegs graph = limitInterference' 0 graph
     where
     limitInterference' spillCount g = case spillMaybe of
         Nothing -> g
-        Just v -> limitInterference (succ spillCount) (strip $ performSpill spillCount v lGraph)
+        Just v -> limitInterference (succ spillCount) (unliveness $ performSpill spillCount v lGraph)
         where
         lGraph = liveness g
         spillMaybe = find ((> nRegs) . Set.size . _lOut . snd) $ G.labNodes lGraph
-
-strip g = G.nmap _lSt g
 
 maybeToSet = Set.fromList . maybeToList
 
@@ -167,6 +165,9 @@ liveness g = graph'
                 s' = LiveLabel s ds us vIns' vOuts'
                 newContext = (ins, n, s', outs)
             in newContext G.& g'
+
+unliveness :: G.Gr LiveLabel S.EdgeType -> G.Gr R.Statement S.EdgeType
+unliveness g = G.nmap _lSt g
 
 withRegister :: S.Statement -> Either (S.ID -> R.Statement) R.Statement
 withRegister (S.Load offset)            = Left  $ R.Load offset
