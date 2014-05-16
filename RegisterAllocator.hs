@@ -16,19 +16,12 @@ import Data.List
 
 type VID = Int
 
-data RState = RState
-    { _stSIDToVID :: M.Map S.ID VID
-    , _stVIDToVar :: SM.SetMap VID S.ID
-    }
-
 data CFLabel = CFLabel
     { _cfDef :: VID
     , _cfUse :: Set.Set VID
     , _cfIn :: Set.Set VID
     , _cfOut :: Set.Set VID
     }
-
-makeLenses ''RState
 
 allocate :: Int -> S.Program -> R.Program
 allocate = allocateProgram
