@@ -41,7 +41,7 @@ cMethod (T.Method _ name ps vs ss ret) = evalState cMethod' initialState
         mapM_ cVariable vs
         mapM_ cSt ss
         buildStep =<< SSA.Return <$> cExp ret
-        graph <- _stGraph <$> get
+        graph <- gets _stGraph
         return $ SSA.Method name graph
 
 cParameter :: U.Variable -> SSA.Position -> State CState SSA.ID
@@ -57,16 +57,16 @@ cSt (T.If cond branchTrue branchFalse) = do
 
     branchID <- buildStep (SSA.NBranch condID)
 
-    preBranchBindings <- _stVarToID <$> get
+    preBranchBindings <- gets _stVarToID
     cSt branchTrue
-    postTrueBindings <- _stVarToID <$> get
+    postTrueBindings <- gets _stVarToID
 
     trueGotoDoneID <- buildStep (SSA.Goto)
     elseID <- build (SSA.Label)
 
     modify $ stVarToID .~ preBranchBindings
     fromMaybe (return ()) (cSt <$> branchFalse)
-    postFalseBindings <- _stVarToID <$> get
+    postFalseBindings <- gets _stVarToID
 
     falseGotoDoneID <- buildStep (SSA.Goto)
 
@@ -80,7 +80,7 @@ cSt (T.If cond branchTrue branchFalse) = do
 cSt (T.While cond body) = do
     startID <- buildStep (SSA.Label)
 
-    pre <- _stVarToID <$> get
+    pre <- gets _stVarToID
 
     condID <- cExp cond
     branchID <- buildStep (SSA.NBranch condID)
@@ -90,7 +90,7 @@ cSt (T.While cond body) = do
     gotoID <- buildStep (SSA.Goto)
     doneID <- build SSA.Label
 
-    post <- _stVarToID <$> get
+    post <- gets _stVarToID
 
     modifyGraph $ G.insEdge (gotoID, startID, SSA.Jump)
     modifyGraph $ G.insEdge (branchID, doneID, SSA.Jump)
@@ -129,7 +129,7 @@ cExp (T.MemberGet cName object fName) = do
     object' <- cExp object
     buildStep $ SSA.MemberGet cName object' fName
 cExp (T.VariableGet name) = do
-    bs <- _stVarToID <$> get
+    bs <- gets _stVarToID
     case M.lookup name bs of
         Just s -> return s
         Nothing -> error "Varible not found"
@@ -164,7 +164,7 @@ binaryOps =
 
 buildStep :: SSA.Statement -> State CState SSA.ID
 buildStep s = do
-    pID <- _stPrevID <$> get
+    pID <- gets _stPrevID
     buildWithPrevs [(SSA.Step, pID)] s
 
 build :: SSA.Statement -> State CState SSA.ID
@@ -172,7 +172,7 @@ build = buildWithPrevs []
 
 buildWithPrevs :: [(SSA.EdgeType, SSA.ID)] -> SSA.Statement -> State CState SSA.ID
 buildWithPrevs prevs s = do
-    [sID] <- G.newNodes 1 . _stGraph <$> get
+    [sID] <- G.newNodes 1 <$> gets _stGraph
     modifyGraph $ ((prevs, sID, s, []) G.&)
     modify $ stPrevID .~ sID
     return sID
