@@ -85,7 +85,6 @@ interference g = live
     f :: Int -> Set.Set (Int, Int)
     f var = concatSet $ Set.map (h var) groups
     edgeSet = concatSet $ Set.map f allVars
-    vInsOf (_, _, _, vIns, _) = vIns
     live = G.mkGraph (map (\v -> (v, v)) $ Set.toList allVars) (map (\(from, to) -> (from, to, ())) $ Set.toList edgeSet)
 
 select :: Int -> G.Gr R.Register () -> [R.Register] -> M.Map R.Register R.Register
