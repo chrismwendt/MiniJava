@@ -13,6 +13,7 @@ import Data.Maybe
 import Control.Lens
 import qualified Data.Graph.Inductive as G
 import Data.List
+import qualified Data.IntDisjointSet as DJ
 
 type VID = Int
 
@@ -39,17 +40,13 @@ allocateClass n program c@(S.Class name fs ms) = R.Class name fs (map (allocateM
 allocateMethod :: Int -> S.Program -> S.Class -> S.Method -> R.Method
 allocateMethod n program c (S.Method name graph) = squashed
     where
-    varGraph :: G.Gr S.Statement ()
-    varGraph = G.mkGraph
-        (G.labNodes graph)
-        [(s, o, ()) | (s, S.Unify l r) <- G.labNodes graph, o <- [l, r]]
-    varGroups = M.fromList
-        $ concatMap (\(ns, v) -> zip ns (repeat v))
-        $ zip (G.components varGraph) [0 .. ]
+    singles = foldr DJ.insert DJ.empty (G.nodes graph)
+    groups = foldr (uncurry DJ.union) singles [(s, o) | (s, S.Unify l r) <- G.labNodes graph, o <- [l, r]]
+    translate = fromJust . fst . flip DJ.lookup groups
     conversion (ins, n, s, outs) = case withRegister s of
         Nothing -> error "withRegister failed"
-        Just (Left f) -> (ins, n, f (varGroups M.!) (varGroups M.! n), outs)
-        Just (Right s') -> (ins, n, s' (varGroups M.!), outs)
+        Just (Left f) -> (ins, n, f translate (translate n), outs)
+        Just (Right s') -> (ins, n, s' translate, outs)
     graph' = G.gmap conversion (ununify graph)
     squashed = squashRegs n $ allocateMethod' 0 n program c (R.Method name graph')
 
