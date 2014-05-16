@@ -5,7 +5,7 @@ module TypeChecker where
 import qualified Data.Map as M
 import Data.Maybe
 import Data.List
-import Data.Graph
+import Data.Graph.Inductive as G
 import Control.Lens
 import Control.Applicative
 import qualified AST as U
@@ -166,16 +166,16 @@ typeCheckExpression p c m e = case e of
     subtype a b = a == b
 
 validClassHierarchy :: [U.Class] -> Bool
-validClassHierarchy classes = allUnique names && all (pathTo "Object") names
+validClassHierarchy classes = allUnique names && all extendsObject names
     where
+    extendsObject name = node "Object" `elem` G.reachable (node name) classGraph
     names = "Object" : map (^. U.cName) classes
-    pathTo to from = fromMaybe False $ path graph <$> vertex from <*> vertex to
-        where
-        graph = buildG (0, length names - 1) edges
-        edges = mapMaybe edgeMaybe classes
-        edgeMaybe c = (,) <$> vertex (c ^. U.cName) <*> vertex (c ^. U.cParent)
-        vertex = flip M.lookup m
-        m = M.fromList $ zip names [0 .. ]
+    classGraph = G.mkUGraph (map snd m) (map edge classes) :: G.Gr () ()
+    edge (U.Class name parent _ _)  = (node name, node parent)
+    node name = case name `lookup` m of
+        Just n -> n
+        Nothing -> error $ "Class " ++ name ++ " not found"
+    m = zip names [0 .. ]
 
 allUnique :: Eq a => [a] -> Bool
 allUnique as = length (nub as) == length as
