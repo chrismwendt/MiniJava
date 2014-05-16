@@ -56,7 +56,7 @@ squashRegs n (R.Method name g) = R.Method name g'
     lGraph = liveness g
     iGraph = interference lGraph
     regMap = select n iGraph (map snd $ G.labNodes iGraph)
-    g' = G.nmap (\s -> mapRegs (regMap M.!) s) g
+    g' = G.nmap (\s -> R.mapRegs (regMap M.!) s) g
 
 allocateMethod' :: Int -> Int -> S.Program -> S.Class -> R.Method -> R.Method
 allocateMethod' spillCount n program c (R.Method name graph) = case spillMaybe of
@@ -134,7 +134,7 @@ doLoad sc r n = do
                                 [] -> error "no available register"
                                 (a:_) -> a
             let load = (ins, head (G.newNodes 1 g), LiveLabel (R.Load sc avail) (Just avail) us vIns vOuts, [])
-            put (([(S.Step, G.node' load)], n, LiveLabel (mapRegs (\x -> if x == r then avail else x) stu) ds us vIns vOuts, outs) G.& (load G.& g'))
+            put (([(S.Step, G.node' load)], n, LiveLabel (R.mapRegs (\x -> if x == r then avail else x) stu) ds us vIns vOuts, outs) G.& (load G.& g'))
 
 doStore :: Int -> R.Register -> G.Node -> State (G.Gr LiveLabel S.EdgeType) ()
 doStore sc r n = do
@@ -149,7 +149,7 @@ liveness :: G.Gr R.Statement S.EdgeType -> G.Gr LiveLabel S.EdgeType
 liveness g = graph'
     where
     lGraph = map fst $ linear g
-    initialGraph = G.gmap (\(ins, n, s, outs) -> (ins, n, LiveLabel s (R.def s) (vUses s) Set.empty Set.empty, outs)) g
+    initialGraph = G.gmap (\(ins, n, s, outs) -> (ins, n, LiveLabel s (R.def s) (R.uses s) Set.empty Set.empty, outs)) g
     graph' = snd $ until (\(old, new) -> old == new) f (f (initialGraph, initialGraph))
     f (prevOld, prevNew) = (prevNew, f' prevNew)
     f' g = foldr f'' g lGraph
@@ -204,85 +204,6 @@ withRegister (S.BeginMethod)            = Right $ \f -> R.BeginMethod
 withRegister (S.Label)                  = Right $ \f -> R.Label
 withRegister (S.Goto)                   = Right $ \f -> R.Goto
 withRegister (S.Unify _ _)              = error "withRegister of Unify"
-
-vUses :: R.Statement -> Set.Set R.Register
-vUses (R.Load offset r)            = Set.fromList []
-vUses (R.Null t r)                 = Set.fromList []
-vUses (R.NewObj s1 r)              = Set.fromList []
-vUses (R.NewIntArray r1 r)         = Set.fromList [r1]
-vUses (R.This r)                   = Set.fromList []
-vUses (R.SInt v r)                 = Set.fromList []
-vUses (R.SBoolean v r)             = Set.fromList []
-vUses (R.Parameter position r)     = Set.fromList []
-vUses (R.Call s1 r1 s2 is r)       = Set.fromList [r1]
-vUses (R.MemberGet s1 r1 s2 r)     = Set.fromList [r1]
-vUses (R.MemberAssg s1 r1 s2 r2 r) = Set.fromList [r1, r2]
-vUses (R.VarAssg r1 r)             = Set.fromList [r1]
-vUses (R.IndexGet r1 r2 r)         = Set.fromList [r1, r2]
-vUses (R.IndexAssg r1 r2 r3 r)     = Set.fromList [r1, r2, r3]
-vUses (R.ArrayLength r1 r)         = Set.fromList [r1]
-vUses (R.Not r1 r)                 = Set.fromList [r1]
-vUses (R.Lt r1 r2 r)               = Set.fromList [r1, r2]
-vUses (R.Le r1 r2 r)               = Set.fromList [r1, r2]
-vUses (R.Eq r1 r2 r)               = Set.fromList [r1, r2]
-vUses (R.Ne r1 r2 r)               = Set.fromList [r1, r2]
-vUses (R.Gt r1 r2 r)               = Set.fromList [r1, r2]
-vUses (R.Ge r1 r2 r)               = Set.fromList [r1, r2]
-vUses (R.And r1 r2 r)              = Set.fromList [r1, r2]
-vUses (R.Or r1 r2 r)               = Set.fromList [r1, r2]
-vUses (R.Plus r1 r2 r)             = Set.fromList [r1, r2]
-vUses (R.Minus r1 r2 r)            = Set.fromList [r1, r2]
-vUses (R.Mul r1 r2 r)              = Set.fromList [r1, r2]
-vUses (R.Div r1 r2 r)              = Set.fromList [r1, r2]
-vUses (R.Mod r1 r2 r)              = Set.fromList [r1, r2]
-vUses (R.Store r1 offset)          = Set.fromList [r1]
-vUses (R.Branch r1)                = Set.fromList [r1]
-vUses (R.NBranch r1)               = Set.fromList [r1]
-vUses (R.Arg r1 p)                 = Set.fromList [r1]
-vUses (R.Return r1)                = Set.fromList [r1]
-vUses (R.Print r1)                 = Set.fromList [r1]
-vUses (R.BeginMethod)              = Set.fromList []
-vUses (R.Label)                    = Set.fromList []
-vUses (R.Goto)                     = Set.fromList []
-
-mapRegs f (R.Load offset r)            = R.Load offset (f r)
-mapRegs f (R.Null t r)                 = R.Null t (f r)
-mapRegs f (R.NewObj s1 r)              = R.NewObj s1 (f r)
-mapRegs f (R.NewIntArray r1 r)         = R.NewIntArray (f r1) (f r)
-mapRegs f (R.This r)                   = R.This (f r)
-mapRegs f (R.SInt v r)                 = R.SInt v (f r)
-mapRegs f (R.SBoolean v r)             = R.SBoolean v (f r)
-mapRegs f (R.Parameter position r)     = R.Parameter position (f r)
-mapRegs f (R.Call s1 r1 s2 is r)       = R.Call s1 (f r1) s2 is (f r)
-mapRegs f (R.MemberGet s1 r1 s2 r)     = R.MemberGet s1 (f r1) s2 (f r)
-mapRegs f (R.MemberAssg s1 r1 s2 r2 r) = R.MemberAssg s1 (f r1) s2 (f r2) (f r)
-mapRegs f (R.VarAssg r1 r)             = R.VarAssg (f r1) (f r)
-mapRegs f (R.IndexGet r1 r2 r)         = R.IndexGet (f r1) (f r2) (f r)
-mapRegs f (R.IndexAssg r1 r2 r3 r)     = R.IndexAssg (f r1) (f r2) (f r3) (f r)
-mapRegs f (R.ArrayLength r1 r)         = R.ArrayLength (f r1) (f r)
-mapRegs f (R.Not r1 r)                 = R.Not (f r1) (f r)
-mapRegs f (R.Lt r1 r2 r)               = R.Lt (f r1) (f r2) (f r)
-mapRegs f (R.Le r1 r2 r)               = R.Le (f r1) (f r2) (f r)
-mapRegs f (R.Eq r1 r2 r)               = R.Eq (f r1) (f r2) (f r)
-mapRegs f (R.Ne r1 r2 r)               = R.Ne (f r1) (f r2) (f r)
-mapRegs f (R.Gt r1 r2 r)               = R.Gt (f r1) (f r2) (f r)
-mapRegs f (R.Ge r1 r2 r)               = R.Ge (f r1) (f r2) (f r)
-mapRegs f (R.And r1 r2 r)              = R.And (f r1) (f r2) (f r)
-mapRegs f (R.Or r1 r2 r)               = R.Or (f r1) (f r2) (f r)
-mapRegs f (R.Plus r1 r2 r)             = R.Plus (f r1) (f r2) (f r)
-mapRegs f (R.Minus r1 r2 r)            = R.Minus (f r1) (f r2) (f r)
-mapRegs f (R.Mul r1 r2 r)              = R.Mul (f r1) (f r2) (f r)
-mapRegs f (R.Div r1 r2 r)              = R.Div (f r1) (f r2) (f r)
-mapRegs f (R.Mod r1 r2 r)              = R.Mod (f r1) (f r2) (f r)
-mapRegs f (R.Store r1 offset)          = R.Store (f r1) offset
-mapRegs f (R.Branch r1)                = R.Branch (f r1)
-mapRegs f (R.NBranch r1)               = R.NBranch (f r1)
-mapRegs f (R.Arg r1 p)                 = R.Arg (f r1) p
-mapRegs f (R.Return r1)                = R.Return (f r1)
-mapRegs f (R.Print r1)                 = R.Print (f r1)
-mapRegs f (R.BeginMethod)              = R.BeginMethod
-mapRegs f (R.Label)                    = R.Label
-mapRegs f (R.Goto)                     = R.Goto
 
 linear :: G.Gr R.Statement S.EdgeType -> [(G.Node, R.Statement)]
 linear g = snd $ evalState (runWriterT (doLinear begin)) Set.empty
