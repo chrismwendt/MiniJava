@@ -48,7 +48,7 @@ allocateMethod nRegs program c (S.Method name graph) = R.Method name graph'
         Left s' ->  (ins, n, R.mapRegs translate (s' n), outs)
         Right s' -> (ins, n, R.mapRegs translate s'    , outs)
     patchedGraph = G.gmap unifyRegs (removeUnifies graph)
-    graph' = squashRegs nRegs $ limitInterference 0 nRegs patchedGraph
+    graph' = squashRegs nRegs $ limitInterference nRegs 0 patchedGraph
 
 squashRegs :: Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
 squashRegs nRegs g = g'
@@ -59,7 +59,7 @@ squashRegs nRegs g = g'
     g' = G.nmap (R.mapRegs (regMap M.!)) g
 
 limitInterference :: Int -> Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
-limitInterference spillCount nRegs graph = case spillMaybe of
+limitInterference nRegs spillCount graph = case spillMaybe of
     Nothing -> graph
     Just v -> limitInterference (succ spillCount) nRegs (strip $ performSpill spillCount v lGraph)
     where
