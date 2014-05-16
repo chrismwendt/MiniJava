@@ -61,24 +61,24 @@ cSt (T.If cond branchTrue branchFalse) = do
     cSt branchTrue
     postTrue <- gets _stVarToID
 
-    trueGotoDoneID <- buildStep (SSA.Goto)
-    elseID <- build (SSA.Label)
+    trueGotoDone <- buildStep (SSA.Goto)
+    elseLabel <- build (SSA.Label)
 
     modify $ stVarToID .~ pre
     fromMaybe (return ()) (cSt <$> branchFalse)
     postFalse <- gets _stVarToID
 
-    falseGotoDoneID <- buildStep (SSA.Goto)
+    falseGotoDone <- buildStep (SSA.Goto)
 
-    doneID <- buildStep (SSA.Label)
+    doneLabel <- buildStep (SSA.Label)
 
-    modifyGraph $ G.insEdge (branch, elseID, SSA.Jump)
-    modifyGraph $ G.insEdge (trueGotoDoneID, doneID, SSA.Jump)
-    modifyGraph $ G.insEdge (falseGotoDoneID, doneID, SSA.Jump)
+    modifyGraph $ G.insEdge (branch, elseLabel, SSA.Jump)
+    modifyGraph $ G.insEdge (trueGotoDone, doneLabel, SSA.Jump)
+    modifyGraph $ G.insEdge (falseGotoDone, doneLabel, SSA.Jump)
 
     unify postTrue postFalse
 cSt (T.While cond body) = do
-    startID <- buildStep (SSA.Label)
+    conditionLabel <- buildStep (SSA.Label)
 
     pre <- gets _stVarToID
 
@@ -87,13 +87,13 @@ cSt (T.While cond body) = do
 
     cSt body
 
-    gotoID <- buildStep (SSA.Goto)
-    doneID <- build SSA.Label
+    goto <- buildStep (SSA.Goto)
+    doneLabel <- build SSA.Label
 
     post <- gets _stVarToID
 
-    modifyGraph $ G.insEdge (gotoID, startID, SSA.Jump)
-    modifyGraph $ G.insEdge (branch, doneID, SSA.Jump)
+    modifyGraph $ G.insEdge (goto, conditionLabel, SSA.Jump)
+    modifyGraph $ G.insEdge (branch, doneLabel, SSA.Jump)
 
     unify pre post
 cSt (T.Print e) = do
