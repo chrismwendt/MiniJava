@@ -24,8 +24,7 @@ typeCheckProgram p@(U.Program main classes)
 
 typeCheckClass :: U.Program -> U.Class -> T.Class
 typeCheckClass p c@(U.Class name parent fields methods)
-    | length (nub $ map U._mName methods) == length methods =
-        T.Class name parent fields (map (typeCheckMethod p c) methods)
+    | allUnique $ map U._mName methods = T.Class name parent fields (map (typeCheckMethod p c) methods)
     | otherwise =  error "Duplicate method"
 
 typeCheckMethod :: U.Program -> U.Class -> U.Method -> T.Method
@@ -164,7 +163,6 @@ typeCheckExpression p c m e = case e of
 validClassHierarchy :: [U.Class] -> Bool
 validClassHierarchy classes = allUnique names && all (pathTo "Object") names
     where
-    allUnique as = length (nub as) == length as
     names = "Object" : map (^. U.cName) classes
     pathTo to from = fromMaybe False $ path graph <$> vertex from <*> vertex to
         where
@@ -173,3 +171,6 @@ validClassHierarchy classes = allUnique names && all (pathTo "Object") names
         edgeMaybe c = (,) <$> vertex (c ^. U.cName) <*> vertex (c ^. U.cParent)
         vertex = flip M.lookup m
         m = M.fromList $ zip names [0 .. ]
+
+allUnique :: Eq a => [a] -> Bool
+allUnique as = length (nub as) == length as
