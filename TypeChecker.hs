@@ -31,11 +31,11 @@ typeCheckClass p c@(U.Class name parent fields methods)
 
 typeCheckMethod :: U.Program -> U.Class -> U.Method -> T.Method
 typeCheckMethod p c m@(U.Method retType name ps ls ss ret)
-    | retType == snd (typeCheckExpression p c m ret) =
-        let tcS_ = fst . typeCheckStatement p c m
-            tcE_ = fst . typeCheckExpression p c m
-        in T.Method retType name ps ls (map tcS_ ss) (tcE_ ret)
+    | retType == (snd . tcE) ret = T.Method retType name ps ls (map (fst . tcS) ss) ((fst . tcE) ret)
     | otherwise =  error "Return type of method must match declaration"
+    where
+    tcS = typeCheckStatement p c m
+    tcE = typeCheckExpression p c m
 
 typeCheckStatement :: U.Program -> U.Class -> U.Method -> U.Statement -> (T.Statement, U.Type)
 typeCheckStatement p c m s = (s', U.TypeVoid)
