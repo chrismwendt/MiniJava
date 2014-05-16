@@ -39,7 +39,9 @@ allocateClass :: Int -> S.Class -> R.Class
 allocateClass nRegs (S.Class name fs ms) = R.Class name fs (map (allocateMethod nRegs) ms)
 
 allocateMethod :: Int -> S.Method -> R.Method
-allocateMethod nRegs (S.Method name graph) = R.Method name (squashRegs nRegs $ limitInterference nRegs $ patchUnifies graph)
+allocateMethod nRegs (S.Method name graph) = R.Method name graph'
+    where
+    graph' = squashRegs nRegs . limitInterference nRegs . patchUnifies $ graph
 
 patchUnifies :: G.Gr S.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
 patchUnifies graph = G.gmap unifyRegs (removeUnifies graph)
