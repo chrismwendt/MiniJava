@@ -37,18 +37,18 @@ cMethod (T.Method _ name ps vs ss ret) = evalState cMethod' initialState
     where
     initialState = (CState M.empty (G.mkGraph [(0, SSA.BeginMethod)] []) 0)
     cMethod' = do
-        zipWithM_ cPar ps [0 .. ]
-        mapM_ cVar vs
+        zipWithM_ cParameter ps [0 .. ]
+        mapM_ cVariable vs
         mapM_ cSt ss
         buildStep =<< SSA.Return <$> cExp ret
         graph <- _stGraph <$> get
         return $ SSA.Method name graph
 
-cPar :: U.Variable -> SSA.Position -> State CState SSA.ID
-cPar (U.Variable _ name) i = buildStep (SSA.Parameter i) >>= bind name
+cParameter :: U.Variable -> SSA.Position -> State CState SSA.ID
+cParameter (U.Variable _ name) i = buildStep (SSA.Parameter i) >>= bind name
 
-cVar :: U.Variable -> State CState SSA.ID
-cVar (U.Variable t name) = buildStep (SSA.Null t) >>= bind name
+cVariable :: U.Variable -> State CState SSA.ID
+cVariable (U.Variable t name) = buildStep (SSA.Null t) >>= bind name
 
 cSt :: T.Statement -> State CState ()
 cSt (T.Block ss) = void (mapM cSt ss)
