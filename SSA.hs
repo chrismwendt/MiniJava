@@ -2,13 +2,12 @@
 
 module SSA where
 
-import qualified AST as AST
-import qualified ASTTyped as T
 import qualified Data.Map as M
 import Control.Lens
 import Text.Printf
 import Data.List
 import Data.Graph.Inductive
+import qualified AST as U
 
 type ID = Int
 
@@ -45,7 +44,7 @@ data Statement =
     | Store ID Offset
     | Load Offset
 
-    | Null AST.Type
+    | Null U.Type
     | NewObj String
     | NewIntArray ID
     | This
