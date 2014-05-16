@@ -51,7 +51,7 @@ cVariable :: U.Variable -> State CState SSA.ID
 cVariable (U.Variable t name) = buildStep (SSA.Null t) >>= bind name
 
 cSt :: T.Statement -> State CState ()
-cSt (T.Block ss) = void (mapM cSt ss)
+cSt (T.Block ss) = mapM_ cSt ss
 cSt (T.If cond branchTrue branchFalse) = do
     condID <- cExp cond
 
@@ -143,7 +143,7 @@ unify bs1 bs2 = do
     let bindings = M.assocs $ M.intersectionWith (,) bs1 bs2
     let mismatches = filter (uncurry (/=) . snd) bindings
     unifies <- mapM (buildStep . uncurry SSA.Unify . snd) mismatches
-    void $ zipWithM_ bind (map fst mismatches) unifies
+    zipWithM_ bind (map fst mismatches) unifies
 
 binaryOps :: [(U.BinaryOperator, SSA.ID -> SSA.ID -> SSA.Statement)]
 binaryOps =
