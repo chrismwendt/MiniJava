@@ -146,7 +146,6 @@ typeCheckExpression p c m e = case e of
 
     tcExp = typeCheckExpression p c m
     tcExpE = fst . tcExp
-    tcExpT = snd . tcExp
 
     getClassField Nothing _ = error "Class not found"
     getClassField (Just c) fName = case find (\f -> f ^. U.vName == fName) (c ^. U.cFields) of
