@@ -161,7 +161,7 @@ typeCheckExpression p c m e = case e of
     (U.TypeObject nameA) `subtype` b@(U.TypeObject nameB) = if nameA == nameB
         then True
         else case M.lookup nameA classMap of
-            Just classA -> U.TypeObject (classA ^. U.cParent) `subtype` b
+            Just (U.Class _ parent _ _) -> U.TypeObject parent `subtype` b
             Nothing -> False
     a `subtype` b = a == b
 
