@@ -64,7 +64,7 @@ limitInterference nRegs graph = lim 0 graph
         outExceedsLimit = (> nRegs) . Set.size . _lOut
 
 performSpill :: Int -> (G.Node, LiveLabel) -> G.Gr LiveLabel S.EdgeType -> G.Gr LiveLabel S.EdgeType
-performSpill sc (node, label)  g = case Set.toList $ (label ^. lOut) `Set.difference` (maybeToSet (label ^. lDef)) of
+performSpill sc (node, label) g = case Set.toList $ (label ^. lOut) `Set.difference` (maybeToSet (label ^. lDef)) of
     [] -> error "no room"
     (toSpill:_) -> doSpill sc toSpill g
 
