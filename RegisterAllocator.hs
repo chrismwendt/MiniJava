@@ -46,11 +46,11 @@ allocateMethod n program c (S.Method name graph) = squashed
     varGroups = M.fromList
         $ concatMap (\(ns, v) -> zip ns (repeat v))
         $ zip (G.components varGraph) [0 .. ]
-    conversion s = case withRegister s of
+    conversion (ins, n, s, outs) = case withRegister s of
         Nothing -> error "withRegister failed"
-        Just (Left f) -> f (varGroups M.!) (varGroups M.! n)
-        Just (Right s') -> s' (varGroups M.!)
-    graph' = G.nmap conversion (ununify graph)
+        Just (Left f) -> (ins, n, f (varGroups M.!) (varGroups M.! n), outs)
+        Just (Right s') -> (ins, n, s' (varGroups M.!), outs)
+    graph' = G.gmap conversion (ununify graph)
     squashed = squashRegs n $ allocateMethod' 0 n program c (R.Method name graph')
 
 squashRegs :: Int -> R.Method -> R.Method
