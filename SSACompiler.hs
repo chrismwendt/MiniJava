@@ -24,7 +24,10 @@ data CState = CState
 makeLenses ''CState
 
 compile :: T.Program -> SSA.Program
-compile (T.Program m cs) = SSA.Program (cClass m) (map cClass cs)
+compile = compileProgram
+
+compileProgram :: T.Program -> SSA.Program
+compileProgram (T.Program m cs) = SSA.Program (cClass m) (map cClass cs)
 
 cClass :: T.Class -> SSA.Class
 cClass (T.Class name _ vs ms) = SSA.Class name (map U._vName vs) (map cMethod ms)
