@@ -33,13 +33,13 @@ allocate :: Int -> S.Program -> R.Program
 allocate = allocateProgram
 
 allocateProgram :: Int -> S.Program -> R.Program
-allocateProgram nRegs p@(S.Program m cs) = R.Program (allocateClass nRegs p m) (map (allocateClass nRegs p) cs)
+allocateProgram nRegs (S.Program m cs) = R.Program (allocateClass nRegs m) (map (allocateClass nRegs) cs)
 
-allocateClass :: Int -> S.Program -> S.Class -> R.Class
-allocateClass nRegs program c@(S.Class name fs ms) = R.Class name fs (map (allocateMethod nRegs program c) ms)
+allocateClass :: Int -> S.Class -> R.Class
+allocateClass nRegs (S.Class name fs ms) = R.Class name fs (map (allocateMethod nRegs) ms)
 
-allocateMethod :: Int -> S.Program -> S.Class -> S.Method -> R.Method
-allocateMethod nRegs program c (S.Method name graph) = R.Method name (squashRegs nRegs $ limitInterference nRegs $ patchUnifies graph)
+allocateMethod :: Int -> S.Method -> R.Method
+allocateMethod nRegs (S.Method name graph) = R.Method name (squashRegs nRegs $ limitInterference nRegs $ patchUnifies graph)
 
 patchUnifies :: G.Gr S.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
 patchUnifies graph = G.gmap unifyRegs (removeUnifies graph)
