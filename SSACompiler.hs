@@ -53,9 +53,9 @@ cVariable (U.Variable t name) = buildStep (SSA.Null t) >>= bind name
 cSt :: T.Statement -> State CState ()
 cSt (T.Block ss) = mapM_ cSt ss
 cSt (T.If cond branchTrue branchFalse) = do
-    condID <- cExp cond
+    cond' <- cExp cond
 
-    branchID <- buildStep (SSA.NBranch condID)
+    branchID <- buildStep (SSA.NBranch cond')
 
     preBranchBindings <- gets _stVarToID
     cSt branchTrue
@@ -82,8 +82,8 @@ cSt (T.While cond body) = do
 
     pre <- gets _stVarToID
 
-    condID <- cExp cond
-    branchID <- buildStep (SSA.NBranch condID)
+    cond' <- cExp cond
+    branchID <- buildStep (SSA.NBranch cond')
 
     cSt body
 
