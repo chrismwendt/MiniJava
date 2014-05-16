@@ -2,15 +2,11 @@
 
 module SSARegisters where
 
-import qualified AST as AST
-import qualified ASTTyped as T
-import qualified Data.Map as M
 import Control.Lens
-import Text.Printf
-import Data.List
 import Data.Graph.Inductive
-import qualified SSA as S
 import qualified Data.Set as Set
+import qualified AST as AST
+import qualified SSA as SSA
 
 type ID = Int
 
@@ -35,7 +31,7 @@ data Class = Class
 
 data Method = Method
     { _mName :: String
-    , _mControlFlow :: Gr Statement S.EdgeType
+    , _mControlFlow :: Gr Statement SSA.EdgeType
     }
     deriving (Show)
 
@@ -136,44 +132,44 @@ def (Label)                = Nothing
 def (Goto)                 = Nothing
 
 uses :: Statement -> Set.Set Register
-uses (Load offset r)            = Set.fromList []
-uses (Null t r)                 = Set.fromList []
-uses (NewObj s1 r)              = Set.fromList []
-uses (NewIntArray r1 r)         = Set.fromList [r1]
-uses (This r)                   = Set.fromList []
-uses (SInt v r)                 = Set.fromList []
-uses (SBoolean v r)             = Set.fromList []
-uses (Parameter position r)     = Set.fromList []
-uses (Call s1 r1 s2 r)          = Set.fromList [r1]
-uses (MemberGet s1 r1 s2 r)     = Set.fromList [r1]
-uses (MemberAssg s1 r1 s2 r2 r) = Set.fromList [r1, r2]
-uses (VarAssg r1 r)             = Set.fromList [r1]
-uses (IndexGet r1 r2 r)         = Set.fromList [r1, r2]
-uses (IndexAssg r1 r2 r3 r)     = Set.fromList [r1, r2, r3]
-uses (ArrayLength r1 r)         = Set.fromList [r1]
-uses (Not r1 r)                 = Set.fromList [r1]
-uses (Lt r1 r2 r)               = Set.fromList [r1, r2]
-uses (Le r1 r2 r)               = Set.fromList [r1, r2]
-uses (Eq r1 r2 r)               = Set.fromList [r1, r2]
-uses (Ne r1 r2 r)               = Set.fromList [r1, r2]
-uses (Gt r1 r2 r)               = Set.fromList [r1, r2]
-uses (Ge r1 r2 r)               = Set.fromList [r1, r2]
-uses (And r1 r2 r)              = Set.fromList [r1, r2]
-uses (Or r1 r2 r)               = Set.fromList [r1, r2]
-uses (Plus r1 r2 r)             = Set.fromList [r1, r2]
-uses (Minus r1 r2 r)            = Set.fromList [r1, r2]
-uses (Mul r1 r2 r)              = Set.fromList [r1, r2]
-uses (Div r1 r2 r)              = Set.fromList [r1, r2]
-uses (Mod r1 r2 r)              = Set.fromList [r1, r2]
-uses (Store r1 offset)          = Set.fromList [r1]
-uses (Branch r1)                = Set.fromList [r1]
-uses (NBranch r1)               = Set.fromList [r1]
-uses (Arg r1 p)                 = Set.fromList [r1]
-uses (Return r1)                = Set.fromList [r1]
-uses (Print r1)                 = Set.fromList [r1]
-uses (BeginMethod)              = Set.fromList []
-uses (Label)                    = Set.fromList []
-uses (Goto)                     = Set.fromList []
+uses (Load _ _)               = Set.fromList []
+uses (Null _ _)               = Set.fromList []
+uses (NewObj _ _)             = Set.fromList []
+uses (NewIntArray r1 _)       = Set.fromList [r1]
+uses (This _)                 = Set.fromList []
+uses (SInt _ _)               = Set.fromList []
+uses (SBoolean _ _)           = Set.fromList []
+uses (Parameter _ _)          = Set.fromList []
+uses (Call _ r1 _ _)          = Set.fromList [r1]
+uses (MemberGet _ r1 _ _)     = Set.fromList [r1]
+uses (MemberAssg _ r1 _ r2 _) = Set.fromList [r1, r2]
+uses (VarAssg r1 _)           = Set.fromList [r1]
+uses (IndexGet r1 r2 _)       = Set.fromList [r1, r2]
+uses (IndexAssg r1 r2 r3 _)   = Set.fromList [r1, r2, r3]
+uses (ArrayLength r1 _)       = Set.fromList [r1]
+uses (Not r1 _)               = Set.fromList [r1]
+uses (Lt r1 r2 _)             = Set.fromList [r1, r2]
+uses (Le r1 r2 _)             = Set.fromList [r1, r2]
+uses (Eq r1 r2 _)             = Set.fromList [r1, r2]
+uses (Ne r1 r2 _)             = Set.fromList [r1, r2]
+uses (Gt r1 r2 _)             = Set.fromList [r1, r2]
+uses (Ge r1 r2 _)             = Set.fromList [r1, r2]
+uses (And r1 r2 _)            = Set.fromList [r1, r2]
+uses (Or r1 r2 _)             = Set.fromList [r1, r2]
+uses (Plus r1 r2 _)           = Set.fromList [r1, r2]
+uses (Minus r1 r2 _)          = Set.fromList [r1, r2]
+uses (Mul r1 r2 _)            = Set.fromList [r1, r2]
+uses (Div r1 r2 _)            = Set.fromList [r1, r2]
+uses (Mod r1 r2 _)            = Set.fromList [r1, r2]
+uses (Store r1 _)             = Set.fromList [r1]
+uses (Branch r1)              = Set.fromList [r1]
+uses (NBranch r1)             = Set.fromList [r1]
+uses (Arg r1 _)               = Set.fromList [r1]
+uses (Return r1)              = Set.fromList [r1]
+uses (Print r1)               = Set.fromList [r1]
+uses (BeginMethod)            = Set.fromList []
+uses (Label)                  = Set.fromList []
+uses (Goto)                   = Set.fromList []
 
 mapRegs :: (Register -> Register) -> Statement -> Statement
 mapRegs f (Load offset r)            = Load offset (f r)
@@ -211,6 +207,6 @@ mapRegs f (NBranch r1)               = NBranch (f r1)
 mapRegs f (Arg r1 p)                 = Arg (f r1) p
 mapRegs f (Return r1)                = Return (f r1)
 mapRegs f (Print r1)                 = Print (f r1)
-mapRegs f (BeginMethod)              = BeginMethod
-mapRegs f (Label)                    = Label
-mapRegs f (Goto)                     = Goto
+mapRegs _ (BeginMethod)              = BeginMethod
+mapRegs _ (Label)                    = Label
+mapRegs _ (Goto)                     = Goto
