@@ -44,8 +44,8 @@ allocateMethod n program c (S.Method name graph) = squashed
     groups = foldr (uncurry DJ.union) singles [(s, o) | (s, S.Unify l r) <- G.labNodes graph, o <- [l, r]]
     translate = fromJust . fst . flip DJ.lookup groups
     conversion (ins, n, s, outs) = case withRegister s of
-        Left f -> (ins, n, f translate (translate n), outs)
-        Right s' -> (ins, n, s' translate, outs)
+        Left f ->   (ins, n, f translate (translate n), outs)
+        Right s' -> (ins, n, s' translate             , outs)
     graph' = G.gmap conversion (ununify graph)
     squashed = squashRegs n $ allocateMethod' 0 n program c (R.Method name graph')
 
