@@ -158,9 +158,9 @@ typeCheckExpression p c m e = case e of
         Just m -> Just (c, m)
         Nothing -> findClassMethod (M.lookup (c ^. U.cParent) classMap) mName
 
-    (U.TypeObject name) `subtype` b@(U.TypeObject name') = if name == name'
+    (U.TypeObject nameA) `subtype` b@(U.TypeObject nameB) = if nameA == nameB
         then True
-        else case M.lookup name classMap of
+        else case M.lookup nameA classMap of
             Just classA -> subtype (U.TypeObject (classA ^. U.cParent)) b
             Nothing -> False
     a `subtype` b = a == b
