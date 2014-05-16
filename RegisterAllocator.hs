@@ -69,10 +69,9 @@ performSpill sc label g = case Set.toList $ (label ^. lOut) `Set.difference` (ma
     (toSpill:_) -> doSpill sc toSpill g
 
 doSpill :: Int -> R.Register -> G.Gr LiveLabel S.EdgeType -> G.Gr LiveLabel S.EdgeType
-doSpill sc r g = g''
-    where
-    g' = execState (mapM (doLoad sc r) $ filter (\n -> r `Set.member` ((fromJust $ G.lab g n) ^. lUse)) (G.nodes g)) g
-    g'' = execState (mapM (doStore sc r) $ filter (\n -> r `Set.member` (maybeToSet $ (fromJust $ G.lab g n) ^. lDef)) (G.nodes g)) g'
+doSpill sc r g = flip execState g $ do
+    mapM_ (doLoad sc r) $ filter (\n -> r `Set.member` ((fromJust $ G.lab g n) ^. lUse)) (G.nodes g)
+    mapM_ (doStore sc r) $ filter (\n -> r `Set.member` (maybeToSet $ (fromJust $ G.lab g n) ^. lDef)) (G.nodes g)
 
 doLoad :: Int -> R.Register -> G.Node -> State (G.Gr LiveLabel S.EdgeType) ()
 doLoad sc r n = do
