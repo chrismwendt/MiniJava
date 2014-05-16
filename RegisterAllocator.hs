@@ -284,8 +284,9 @@ mapRegs f (R.Label)                    = R.Label
 mapRegs f (R.Goto)                     = R.Goto
 
 linear :: G.Gr R.Statement S.EdgeType -> [(G.Node, R.Statement)]
-linear g = evalState (doLinear 0) Set.empty
+linear g = evalState (doLinear begin) Set.empty
     where
+    begin = head [n | (n, R.BeginMethod) <- G.labNodes g]
     doLinear node = do
         seen <- get
         if node `Set.member` seen
