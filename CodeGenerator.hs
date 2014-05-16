@@ -122,7 +122,6 @@ gStatement ast cName mName spillSpace callerSaved (ins, node, statement, outs) =
             line $ printf " move $v0, $%s" (reg r1)
             line $ printf " lw $v1, ($v0)"
             line $ printf " lw $v1, %s($v1)" (show $ methodOffset ast s1 s2 * wordsize)
-            -- line $ printf " lw $v1, %s($v1)" (show $ (\x -> bug' (s1, s2, x) x) $ methodOffset ast s1 s2 * wordsize)
             line " jal $v1"
             line $ printf " move $%s, $v0" (reg r)
             loadAll (callerSaved \\ [freeRegisters !! r]) spillSpace
