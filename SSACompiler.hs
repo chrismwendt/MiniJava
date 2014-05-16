@@ -13,11 +13,11 @@ import qualified AST as U
 import qualified ASTTyped as T
 import qualified SSA as SSA
 
-type Graph = G.Gr SSA.Statement SSA.EdgeType
+type ControlFlowGraph = G.Gr SSA.Statement SSA.EdgeType
 
 data CState = CState
     { _stVarToID :: M.Map String SSA.ID
-    , _stGraph :: Graph
+    , _stGraph :: ControlFlowGraph
     , _stPrevID :: SSA.ID
     }
 
@@ -177,5 +177,5 @@ buildWithPrevs prevs s = do
 bind :: String -> SSA.ID -> State CState SSA.ID
 bind name sID = modify (stVarToID %~ M.insert name sID) >> return sID
 
-modifyGraph :: (Graph -> Graph) -> State CState ()
+modifyGraph :: (ControlFlowGraph -> ControlFlowGraph) -> State CState ()
 modifyGraph f =  modify $ stGraph %~ f
