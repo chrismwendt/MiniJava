@@ -39,7 +39,10 @@ allocateClass :: Int -> S.Program -> S.Class -> R.Class
 allocateClass nRegs program c@(S.Class name fs ms) = R.Class name fs (map (allocateMethod nRegs program c) ms)
 
 allocateMethod :: Int -> S.Program -> S.Class -> S.Method -> R.Method
-allocateMethod nRegs program c (S.Method name graph) = R.Method name graph'
+allocateMethod nRegs program c (S.Method name graph) = R.Method name (squashRegs nRegs $ limitInterference nRegs $ patchUnifies graph)
+
+patchUnifies :: G.Gr S.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
+patchUnifies graph = G.gmap unifyRegs (removeUnifies graph)
     where
     singles = foldr DJ.insert DJ.empty (G.nodes graph)
     variables = foldr (uncurry DJ.union) singles [(s, o) | (s, S.Unify l r) <- G.labNodes graph, o <- [l, r]]
@@ -47,8 +50,6 @@ allocateMethod nRegs program c (S.Method name graph) = R.Method name graph'
     unifyRegs (ins, n, s, outs) = case withRegister s of
         Left s' ->  (ins, n, R.mapRegs translate (s' n), outs)
         Right s' -> (ins, n, R.mapRegs translate s'    , outs)
-    patchedGraph = G.gmap unifyRegs (removeUnifies graph)
-    graph' = squashRegs nRegs $ limitInterference nRegs patchedGraph
 
 squashRegs :: Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
 squashRegs nRegs g = g'
