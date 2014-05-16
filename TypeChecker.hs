@@ -31,30 +31,30 @@ typeCheckClass p c@(U.Class name parent fields methods)
 
 typeCheckMethod :: U.Program -> U.Class -> U.Method -> T.Method
 typeCheckMethod p c m@(U.Method retType name ps ls ss ret)
-    | retType == (snd . tcE) ret = T.Method retType name ps ls (map (fst . tcS) ss) ((fst . tcE) ret)
+    | retType == eType ret = T.Method retType name ps ls (map tcSt ss) (tcExp ret)
     | otherwise =  error "Return type of method must match declaration"
     where
-    tcS = typeCheckStatement p c m
-    tcE = typeCheckExpression p c m
+    tcSt = typeCheckStatement p c m
+    tcExp = fst . typeCheckExpression p c m
+    eType = snd . typeCheckExpression p c m
 
-typeCheckStatement :: U.Program -> U.Class -> U.Method -> U.Statement -> (T.Statement, U.Type)
-typeCheckStatement p c m s = (s', U.TypeVoid)
+typeCheckStatement :: U.Program -> U.Class -> U.Method -> U.Statement -> T.Statement
+typeCheckStatement p c m s = s'
     where
     s' = case s of
-        U.Block ss -> T.Block $ map tcS_ ss
+        U.Block ss -> T.Block $ map tcSt ss
         U.If condition true falseMaybe -> case tcE condition of
-            (e, U.TypeBoolean) -> T.If e (tcS_ true) (tcS_ <$> falseMaybe)
+            (e, U.TypeBoolean) -> T.If e (tcSt true) (tcSt <$> falseMaybe)
             _ -> error "Type of if condition must be boolean"
         U.While condition body -> case tcE condition of
-            (e, U.TypeBoolean) -> T.While e (tcS_ body)
+            (e, U.TypeBoolean) -> T.While e (tcSt body)
             _ -> error "Type of while condition must be boolean"
         U.Print expression -> case tcE expression of
             (e, U.TypeInt) -> T.Print e
             _ -> error "Type of print must be int"
         U.ExpressionStatement expression -> T.ExpressionStatement (tcE_ expression)
-    tcS = typeCheckStatement p c m
+    tcSt = typeCheckStatement p c m
     tcE = typeCheckExpression p c m
-    tcS_ = fst . tcS
     tcE_ = fst . tcE
 
 typeCheckExpression :: U.Program -> U.Class -> U.Method -> U.Expression -> (T.Expression, U.Type)
