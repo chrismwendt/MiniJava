@@ -301,6 +301,6 @@ linear g = evalState (doLinear 0) Set.empty
 removeUnifies :: G.Gr S.Statement S.EdgeType -> G.Gr S.Statement S.EdgeType
 removeUnifies g = case [n | (n, S.Unify _ _) <- G.labNodes g] of
     [] -> g
-    (n:ns) -> let (ins, _, _, outs) = G.context g n
-                  some edge = snd . fromJust . find ((== edge) . fst)
-              in removeUnifies $ G.insEdge (some S.Step ins, some S.Step outs, S.Step) $ G.delNode n g
+    (n : _) -> let (ins, _, _, outs) = G.context g n
+                   some edge = snd . fromJust . find ((== edge) . fst)
+               in removeUnifies $ G.insEdge (some S.Step ins, some S.Step outs, S.Step) (G.delNode n g)
