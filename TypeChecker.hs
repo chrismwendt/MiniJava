@@ -111,22 +111,21 @@ typeCheckExpression p c m e = case e of
         let (object', object't) = tcExp object
             args' = map tcExp args
         in case object't of
-            U.TypeObject cName -> case findClassMethod (M.lookup cName classMap) method of
-                Just (implementor, m) ->
-                    let ps = m ^. U.mParameters
-                        argCountCorrect = length args == length ps
-                        argTypesCorrect = and $ zipWith subtype (map snd args') (map U._vType ps)
-                    in if argCountCorrect && argTypesCorrect
-                        then (T.Call (implementor ^. U.cName) object' method (map tcExpE args), m ^. U.mReturnType)
-                        else error "Number and types of arguments to method call must match definition"
-                Nothing -> error "Method not found"
+            U.TypeObject cName ->
+                let (implementor, m) = getClassMethod (M.lookup cName classMap) method
+                    ps = m ^. U.mParameters
+                    argCountCorrect = length args == length ps
+                    argTypesCorrect = and $ zipWith subtype (map snd args') (map U._vType ps)
+                in if argCountCorrect && argTypesCorrect
+                    then (T.Call (implementor ^. U.cName) object' method (map tcExpE args), m ^. U.mReturnType)
+                    else error "Number and types of arguments to method call must match definition"
             _ -> error "Method call must be performed on an object"
     U.MemberGet object fName ->
         let (object', object't) = tcExp object
         in case object't of
-            U.TypeObject cName -> case findClassField (M.lookup cName classMap) fName of
-                Just (c, field) -> (T.MemberGet (c ^. U.cName) object' fName, field ^. U.vType)
-                Nothing -> error "Field not found"
+            U.TypeObject cName ->
+                let (c, field) = getClassField (M.lookup cName classMap) fName
+                in (T.MemberGet (c ^. U.cName) object' fName, field ^. U.vType)
             U.TypeIntArray -> if fName == "length"
                 then (T.IntArrayLength object', U.TypeInt)
                 else error "Int arrays only have a length field"
@@ -150,15 +149,15 @@ typeCheckExpression p c m e = case e of
     tcExpE = fst . tcExp
     tcExpT = snd . tcExp
 
-    findClassField Nothing _ = Nothing
-    findClassField (Just c) fName = case find (\f -> f ^. U.vName == fName) (c ^. U.cFields) of
-        Just f -> Just (c, f)
-        Nothing -> findClassField (M.lookup (c ^. U.cParent) classMap) fName
+    getClassField Nothing _ = error "Class not found"
+    getClassField (Just c) fName = case find (\f -> f ^. U.vName == fName) (c ^. U.cFields) of
+        Just f -> (c, f)
+        Nothing -> getClassField (M.lookup (c ^. U.cParent) classMap) fName
 
-    findClassMethod Nothing _ = Nothing
-    findClassMethod (Just c) mName = case find (\m -> m ^. U.mName == mName) (c ^. U.cMethods) of
-        Just m -> Just (c, m)
-        Nothing -> findClassMethod (M.lookup (c ^. U.cParent) classMap) mName
+    getClassMethod Nothing _ = error "Method not found"
+    getClassMethod (Just c) mName = case find (\m -> m ^. U.mName == mName) (c ^. U.cMethods) of
+        Just m -> (c, m)
+        Nothing -> getClassMethod (M.lookup (c ^. U.cParent) classMap) mName
 
     (U.TypeObject nameA) `subtype` b@(U.TypeObject nameB) = if nameA == nameB
         then True
