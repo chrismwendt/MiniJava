@@ -63,12 +63,12 @@ squashRegs nRegs g = G.nmap (R.mapRegs (regMap M.!)) g
 limitInterference :: Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
 limitInterference nRegs graph = limitInterference' 0 graph
     where
-    limitInterference' spillCount g = case spillMaybe of
+    limitInterference' spillCount g = case find (outExceedsLimit . snd) $ G.labNodes lGraph of
         Nothing -> g
         Just v -> limitInterference (succ spillCount) (unliveness $ performSpill spillCount v lGraph)
         where
         lGraph = liveness g
-        spillMaybe = find ((> nRegs) . Set.size . _lOut . snd) $ G.labNodes lGraph
+        outExceedsLimit = (> nRegs) . Set.size . _lOut
 
 interference :: G.Gr LiveLabel S.EdgeType -> G.Gr R.Register ()
 interference g = live
