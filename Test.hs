@@ -1,5 +1,6 @@
 import System.Environment
 import System.Process
+import System.Exit
 import Control.Monad.Loops
 import System.Exit
 import Control.Monad
@@ -65,7 +66,7 @@ testCode file = do
     putStr stdout
     case e of
         ExitSuccess -> return True
-        ExitFailure _ -> return False
+        ExitFailure e -> exitWith (ExitFailure e)
 
 compDiff file ecCanonical ecMine = case (ecCanonical, ecMine) of
         (ExitSuccess, ExitSuccess) -> do
