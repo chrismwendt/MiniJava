@@ -64,30 +64,30 @@ data Statement =
 
     | Print Register
 
-    | MemberGet String Register String Register
+    | MemberGet  String Register String Register
     | MemberAssg String Register String Register Register
 
     | VarAssg Register Register
 
-    | IndexGet Register Register Register
-    | IndexAssg Register Register Register Register
+    | IndexGet    Register Register Register
+    | IndexAssg   Register Register Register Register
     | ArrayLength Register Register
 
     | Not Register Register
 
-    | Lt Register Register Register
-    | Le Register Register Register
-    | Eq Register Register Register
-    | Ne Register Register Register
-    | Gt Register Register Register
-    | Ge Register Register Register
-    | And Register Register Register
-    | Or Register Register Register
-    | Plus Register Register Register
+    | Lt    Register Register Register
+    | Le    Register Register Register
+    | Eq    Register Register Register
+    | Ne    Register Register Register
+    | Gt    Register Register Register
+    | Ge    Register Register Register
+    | And   Register Register Register
+    | Or    Register Register Register
+    | Plus  Register Register Register
     | Minus Register Register Register
-    | Mul Register Register Register
-    | Div Register Register Register
-    | Mod Register Register Register
+    | Mul   Register Register Register
+    | Div   Register Register Register
+    | Mod   Register Register Register
     deriving (Eq, Show)
 
 makeLenses ''Program
