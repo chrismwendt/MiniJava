@@ -2,14 +2,10 @@
 
 module RegisterAllocator where
 
-import qualified ASTTyped as T
-import qualified AST
 import qualified SSA as S
 import qualified SSARegisters as R
 import Data.Functor
-import Control.Applicative
 import Control.Monad.State
-import Control.Monad.Writer
 import qualified Data.Map as M
 import qualified Data.SetMap as SM
 import qualified Data.Set as Set
@@ -17,14 +13,6 @@ import Data.Maybe
 import Control.Lens
 import qualified Data.Graph.Inductive as G
 import Data.List
-import Data.Ord
-import Safe
-import Debug.Trace
-import Text.Show.Pretty
-import Data.Tuple
-
-bug x = trace (ppShow x) x
-bug' x y = trace (ppShow x) y
 
 type VID = Int
 
