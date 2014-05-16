@@ -1,14 +1,10 @@
 import System.Environment
 import Options.Applicative
-import Parser
+import qualified Parser as P
 import qualified TypeChecker as TC
 import qualified SSACompiler as SSA
 import qualified RegisterAllocator as Reg
 import qualified CodeGenerator as Code
-import Control.Monad.State
-import Data.Maybe
-import qualified Data.Map as M
-import Data.Bifunctor
 
 data Options = Options
     { oStopAt :: String
@@ -30,7 +26,7 @@ main = do
 
     input <- readFile file
 
-    let atParse = parseString input
+    let atParse = P.parseString input
         atType  = TC.typeCheck atParse
         atSSA   = SSA.compile atType
         atReg   = Reg.allocate registerLimit atSSA
