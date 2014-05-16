@@ -181,4 +181,4 @@ bind :: String -> SSA.ID -> State CState SSA.ID
 bind name sID = modify (stVarToID %~ M.insert name sID) >> return sID
 
 modifyGraph :: (ControlFlowGraph -> ControlFlowGraph) -> State CState ()
-modifyGraph f =  modify $ stGraph %~ f
+modifyGraph f = modify $ stGraph %~ f
