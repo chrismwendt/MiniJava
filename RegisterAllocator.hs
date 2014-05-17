@@ -93,8 +93,7 @@ storeReg sc r n = do
 squashRegs :: Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
 squashRegs nRegs g = G.nmap (R.mapRegs (regMap M.!)) g
     where
-    lGraph = liveness g
-    iGraph = interference lGraph
+    iGraph = interference $ liveness g
     regMap = select nRegs iGraph (map snd $ G.labNodes iGraph)
 
 interference :: G.Gr LiveLabel S.EdgeType -> G.Gr R.Register ()
