@@ -100,12 +100,12 @@ spillReg nextStackIndex r g = flip execState g $ do
 squashRegs :: Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
 squashRegs nRegs g = G.nmap (R.mapRegs (regMap M.!)) g
     where
-    regMap = makeRegMap nRegs . interference . liveness $ g
+    regMap = makeRegMap nRegs (interference g)
 
-interference :: G.Gr LiveLabel S.EdgeType -> G.Gr () ()
+interference :: G.Gr R.Statement S.EdgeType -> G.Gr () ()
 interference g = G.mkUGraph (Set.toList $ concatSet groups) (Set.toList edgeSet)
     where
-    groups = Set.fromList $ map (_lOut . snd) $ G.labNodes g
+    groups = Set.fromList $ map (_lOut . snd) $ G.labNodes (liveness g)
     edgesInGroup group = Set.fromList [ (from, to)
                                       | from <- Set.toList group
                                       , to <- Set.toList $ Set.delete from group]
