@@ -108,8 +108,6 @@ squashRegs nRegs g = G.nmap (R.mapRegs (regMap M.!)) g
 interference :: G.Gr LiveLabel S.EdgeType -> G.Gr R.Register ()
 interference g = live
     where
-    concatSet :: Ord a => Set.Set (Set.Set a) -> Set.Set a
-    concatSet = Set.foldr Set.union Set.empty
     groups :: Set.Set (Set.Set Int)
     groups = Set.fromList $ map (\(_, label) -> ((maybeToSet $ label ^. lDef) `Set.union` (label ^. lIn)) `Set.union` (label ^. lOut)) $ G.labNodes g
     allVars = concatSet groups
@@ -223,3 +221,6 @@ removeUnifies g = case [n | (n, S.Unify _ _) <- G.labNodes g] of
 
 maybeToSet :: Maybe Int -> Set.Set Int
 maybeToSet = Set.fromList . maybeToList
+
+concatSet :: Ord a => Set.Set (Set.Set a) -> Set.Set a
+concatSet = Set.foldr Set.union Set.empty
