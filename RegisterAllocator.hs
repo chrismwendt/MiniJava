@@ -16,6 +16,7 @@ import qualified Data.Graph.Inductive as G
 import Data.List
 import qualified Data.IntDisjointSet as DJ
 import Sandbox
+import Control.Monad.Loops
 
 type VID = Int
 
@@ -112,20 +113,16 @@ interference g = G.mkUGraph (Set.toList $ concatSet groups) (Set.toList edgeSet)
     edgeSet = concatSet $ Set.map edgesInGroup groups
 
 makeRegMap :: Int -> G.Gr () () -> M.Map R.Register R.Register
-makeRegMap nRegs graph = M.fromList $ mapMaybe f $ zip allRegs $ evalState (mapM (select' nRegs) allRegs) (G.gmap (\(ins, n, (), outs) -> (ins, n, (n, Nothing), outs)) graph)
+makeRegMap nRegs g = M.fromList $ evalState (whileM ((not . G.isEmpty) <$> get) select) initialGraph
     where
-    f (r, Just r') = Just (r, r')
-    f (_, Nothing) = Nothing
-    allRegs = G.nodes graph
-
-select' :: Int -> R.Register -> State (G.Gr (R.Register, Maybe R.Register) ()) (Maybe R.Register)
-select' nRegs r = do
-    graph <- get
-    case Set.toList (Set.fromList [0 .. nRegs - 1] `Set.difference` Set.fromList (catMaybes $ map snd $ map (fromJust . G.lab graph) (G.neighbors graph r))) of
-        [] -> return Nothing
-        (r':_) -> do
-            modify $ G.nmap (\(a, o) -> if a == r then (a, Just r') else (a, o))
-            return $ Just r'
+    initialGraph = G.nmap (const $ Set.fromList [0 .. nRegs - 1]) g :: G.Gr (Set.Set R.Register) ()
+    select = do
+        g <- get
+        let ((_, n, pool, outs), g') = G.matchAny g
+            r' = head $ Set.toList pool
+            takeR' n' pool' = if n' `elem` map snd outs then Set.delete r' pool' else pool'
+        put $ G.gmap (\(ins', n', pool', outs') -> (ins', n', takeR' n' pool', outs')) g'
+        return (n, r')
 
 liveness :: G.Gr R.Statement S.EdgeType -> G.Gr LiveLabel S.EdgeType
 liveness g = graph'
