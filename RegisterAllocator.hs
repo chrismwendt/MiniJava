@@ -15,6 +15,7 @@ import Control.Lens
 import qualified Data.Graph.Inductive as G
 import Data.List
 import qualified Data.IntDisjointSet as DJ
+import Sandbox
 
 type VID = Int
 
@@ -108,17 +109,14 @@ squashRegs nRegs g = G.nmap (R.mapRegs (regMap M.!)) g
 interference :: G.Gr LiveLabel S.EdgeType -> G.Gr () ()
 interference g = live
     where
-    groups :: Set.Set (Set.Set Int)
-    groups = Set.fromList $ map (\(_, label) -> ((maybeToSet $ label ^. lDef) `Set.union` (label ^. lIn)) `Set.union` (label ^. lOut)) $ G.labNodes g
-    allVars = concatSet groups
-    h :: Int -> Set.Set Int -> Set.Set (Int, Int)
-    h var gr = if Set.member var gr
-        then Set.map (\x -> (var, x)) (Set.delete var gr)
+    groups = Set.fromList $ map (_lOut . snd) $ G.labNodes g
+    allRegs = concatSet groups
+    h r group = if Set.member r group
+        then Set.map (\x -> (r, x)) (Set.delete r group)
         else Set.empty
-    f :: Int -> Set.Set (Int, Int)
-    f var = concatSet $ Set.map (h var) groups
-    edgeSet = concatSet $ Set.map f allVars
-    live = G.mkUGraph (Set.toList allVars) (Set.toList edgeSet)
+    edgesFor r = concatSet $ Set.map (h r) groups
+    edgeSet = concatSet $ Set.map edgesFor allRegs
+    live = G.mkUGraph (Set.toList allRegs) (Set.toList edgeSet)
 
 select :: Int -> G.Gr () () -> [R.Register] -> M.Map R.Register R.Register
 select nRegs graph regs = M.fromList $ mapMaybe f $ zip regs $ evalState (mapM (select' nRegs) regs) (G.gmap (\(ins, n, (), outs) -> (ins, n, (n, Nothing), outs)) graph)
