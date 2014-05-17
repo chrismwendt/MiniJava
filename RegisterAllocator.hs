@@ -128,11 +128,10 @@ makeRegMap nRegs g = M.fromList $ evalState (whileM ((not . G.isEmpty) <$> get) 
         return (n, r')
 
 liveness :: G.Gr R.Statement S.EdgeType -> G.Gr LiveLabel S.EdgeType
-liveness g = graph'
+liveness g = snd $ until (uncurry (==)) f (f (initialGraph, initialGraph))
     where
     lGraph = map fst $ linear g
     initialGraph = G.nmap (\s -> LiveLabel s (R.def s) (R.uses s) Set.empty Set.empty) g
-    graph' = snd $ until (uncurry (==)) f (f (initialGraph, initialGraph))
     f (prevOld, prevNew) = (prevNew, f' prevNew)
     f' g = foldr f'' g lGraph
     f'' n g = case G.match n g of
