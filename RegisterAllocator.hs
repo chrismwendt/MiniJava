@@ -130,19 +130,18 @@ makeRegMap nRegs g = M.fromList $ evalState (whileM ((not . G.isEmpty) <$> get) 
 liveness :: G.Gr R.Statement S.EdgeType -> G.Gr LiveLabel S.EdgeType
 liveness graph = until (\g' -> g' == makePass g') makePass initialGraph
     where
-    linearNodes = map fst $ linear graph
     initialGraph = G.nmap (\s -> LiveLabel s (R.def s) (R.uses s) Set.empty Set.empty) graph
-    makePass g = foldr f'' g linearNodes
-    f'' n g = case G.match n g of
-        (Nothing, _) -> error "match failure"
-        (Just (ins, _, LiveLabel s def uses rIns rOuts, outs), g') ->
-            let rIns' = uses `Set.union` (rOuts `Set.difference` (maybeToSet def))
-                (_, _, _, fullOuts) = G.context g n
-                succVIns = map (_lIn . G.lab' . G.context g) (map snd fullOuts)
-                rOuts' = (maybeToSet def) `Set.union` (foldr Set.union Set.empty succVIns)
-                s' = LiveLabel s def uses rIns' rOuts'
-                newContext = (ins, n, s', outs)
-            in newContext G.& g'
+    linearNodes = map fst $ linear graph
+    makePass g = foldr update g linearNodes
+        where
+        update n g = case G.match n g of
+            (Just (ins, _, LiveLabel s def uses rIns rOuts, outs), g') ->
+                let rIns' = uses `Set.union` (rOuts `Set.difference` (maybeToSet def))
+                    succRIns = map (_lIn . fromJust . G.lab g) (map snd outs)
+                    rOuts' = (maybeToSet def) `Set.union` (foldr Set.union Set.empty succRIns)
+                    s' = LiveLabel s def uses rIns' rOuts'
+                in (ins, n, s', outs) G.& g'
+            (Nothing, _) -> error "match failure"
 
 unliveness :: G.Gr LiveLabel S.EdgeType -> G.Gr R.Statement S.EdgeType
 unliveness g = G.nmap _lSt g
@@ -214,3 +213,6 @@ maybeToSet = Set.fromList . maybeToList
 
 concatSet :: Ord a => Set.Set (Set.Set a) -> Set.Set a
 concatSet = Set.foldr Set.union Set.empty
+
+modifyContext :: (G.Context a b -> G.Context a b) -> G.Gr a b -> G.Node -> G.Gr a b
+modifyContext f g n = G.gmap (\c@(_, n', _, _) -> if n' == n then f c else c) g
