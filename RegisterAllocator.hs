@@ -125,10 +125,11 @@ makeRegMap nRegs g = M.fromList $ evalState (whileM ((not . G.isEmpty) <$> get) 
         return (n, r')
 
 liveness :: G.Gr R.Statement S.EdgeType -> G.Gr LiveLabel S.EdgeType
-liveness g = until (\g' -> g' == makePass g') makePass initialGraph
+liveness graph = until (\g' -> g' == makePass g') makePass initialGraph
     where
-    initialGraph = G.nmap (\s -> LiveLabel s (R.def s) (R.uses s) Set.empty Set.empty) g
-    makePass g = foldr f'' g (map fst $ linear g)
+    linearNodes = map fst $ linear graph
+    initialGraph = G.nmap (\s -> LiveLabel s (R.def s) (R.uses s) Set.empty Set.empty) graph
+    makePass g = foldr f'' g linearNodes
     f'' n g = case G.match n g of
         (Nothing, _) -> error "match failure"
         (Just (ins, _, LiveLabel s def uses rIns rOuts, outs), g') ->
