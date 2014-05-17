@@ -51,7 +51,7 @@ assignRegisters graph = G.gmap unifyRegs (removeUnifies graph)
     singles = foldr DJ.insert DJ.empty (G.nodes graph)
     variables = foldr (uncurry DJ.union) singles [(s, o) | (s, S.Unify l r) <- G.labNodes graph, o <- [l, r]]
     translate = fromJust . fst . flip DJ.lookup variables
-    unifyRegs (ins, n, s, outs) = case withRegister s of
+    unifyRegs (ins, n, s, outs) = case R.withRegister s of
         Left s' ->  (ins, n, R.mapRegs translate (s' n), outs)
         Right s' -> (ins, n, R.mapRegs translate s'    , outs)
 
@@ -145,47 +145,6 @@ liveness graph = until (\g' -> g' == makePass g') makePass initialGraph
 
 unliveness :: G.Gr LiveLabel S.EdgeType -> G.Gr R.Statement S.EdgeType
 unliveness g = G.nmap _lSt g
-
-withRegister :: S.Statement -> Either (S.ID -> R.Statement) R.Statement
-withRegister (S.Load offset)            = Left  $ R.Load offset
-withRegister (S.Null t)                 = Left  $ R.Null t
-withRegister (S.NewObj s1)              = Left  $ R.NewObj s1
-withRegister (S.NewIntArray i1)         = Left  $ R.NewIntArray i1
-withRegister (S.This)                   = Left  $ R.This
-withRegister (S.SInt v)                 = Left  $ R.SInt v
-withRegister (S.SBoolean v)             = Left  $ R.SBoolean v
-withRegister (S.Parameter position)     = Left  $ R.Parameter position
-withRegister (S.Call s1 i1 s2 is)       = Left  $ R.Call s1 i1 s2
-withRegister (S.MemberGet s1 i1 s2)     = Left  $ R.MemberGet s1 i1 s2
-withRegister (S.MemberAssg s1 i1 s2 i2) = Left  $ R.MemberAssg s1 i1 s2 i2
-withRegister (S.VarAssg i1)             = Left  $ R.VarAssg i1
-withRegister (S.IndexGet i1 i2)         = Left  $ R.IndexGet i1 i2
-withRegister (S.IndexAssg i1 i2 i3)     = Left  $ R.IndexAssg i1 i2 i3
-withRegister (S.ArrayLength i1)         = Left  $ R.ArrayLength i1
-withRegister (S.Not i1)                 = Left  $ R.Not i1
-withRegister (S.Lt i1 i2)               = Left  $ R.Lt i1 i2
-withRegister (S.Le i1 i2)               = Left  $ R.Le i1 i2
-withRegister (S.Eq i1 i2)               = Left  $ R.Eq i1 i2
-withRegister (S.Ne i1 i2)               = Left  $ R.Ne i1 i2
-withRegister (S.Gt i1 i2)               = Left  $ R.Gt i1 i2
-withRegister (S.Ge i1 i2)               = Left  $ R.Ge i1 i2
-withRegister (S.And i1 i2)              = Left  $ R.And i1 i2
-withRegister (S.Or i1 i2)               = Left  $ R.Or i1 i2
-withRegister (S.Plus i1 i2)             = Left  $ R.Plus i1 i2
-withRegister (S.Minus i1 i2)            = Left  $ R.Minus i1 i2
-withRegister (S.Mul i1 i2)              = Left  $ R.Mul i1 i2
-withRegister (S.Div i1 i2)              = Left  $ R.Div i1 i2
-withRegister (S.Mod i1 i2)              = Left  $ R.Mod i1 i2
-withRegister (S.Store i1 offset)        = Right $ R.Store i1 offset
-withRegister (S.Branch i1)              = Right $ R.Branch i1
-withRegister (S.NBranch i1)             = Right $ R.NBranch i1
-withRegister (S.Arg i1 p)               = Right $ R.Arg i1 p
-withRegister (S.Return i1)              = Right $ R.Return i1
-withRegister (S.Print i1)               = Right $ R.Print i1
-withRegister (S.BeginMethod)            = Right $ R.BeginMethod
-withRegister (S.Label)                  = Right $ R.Label
-withRegister (S.Goto)                   = Right $ R.Goto
-withRegister (S.Unify _ _)              = error "withRegister of Unify"
 
 linear :: G.Gr R.Statement S.EdgeType -> [(G.Node, R.Statement)]
 linear g = snd $ evalState (runWriterT (doLinear begin)) Set.empty
