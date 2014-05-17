@@ -128,7 +128,7 @@ liveness :: G.Gr R.Statement S.EdgeType -> G.Gr LiveLabel S.EdgeType
 liveness g = graph'
     where
     lGraph = map fst $ linear g
-    initialGraph = G.gmap (\(ins, n, s, outs) -> (ins, n, LiveLabel s (R.def s) (R.uses s) Set.empty Set.empty, outs)) g
+    initialGraph = G.nmap (\s -> LiveLabel s (R.def s) (R.uses s) Set.empty Set.empty) g
     graph' = snd $ until (uncurry (==)) f (f (initialGraph, initialGraph))
     f (prevOld, prevNew) = (prevNew, f' prevNew)
     f' g = foldr f'' g lGraph
