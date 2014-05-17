@@ -129,7 +129,7 @@ liveness g = graph'
     where
     lGraph = map fst $ linear g
     initialGraph = G.gmap (\(ins, n, s, outs) -> (ins, n, LiveLabel s (R.def s) (R.uses s) Set.empty Set.empty, outs)) g
-    graph' = snd $ until (\(old, new) -> old == new) f (f (initialGraph, initialGraph))
+    graph' = snd $ until (uncurry (==)) f (f (initialGraph, initialGraph))
     f (prevOld, prevNew) = (prevNew, f' prevNew)
     f' g = foldr f'' g lGraph
     f'' n g = case G.match n g of
