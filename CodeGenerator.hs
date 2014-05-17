@@ -12,6 +12,7 @@ import qualified Data.Graph.Inductive as G
 import Data.List
 import Safe
 import Text.Printf
+import Text.PrettyPrint
 
 generate :: T.Program -> R.Program -> String
 generate ast (R.Program (R.Class mainClassName _ [m]) cs) = unlines $ execWriter $ do
@@ -38,11 +39,12 @@ gMethod ast cName (R.Method name g) = do
     line $ " sw $fp, ($sp)"
     line $ " move $fp, $sp"
 
-    let spillSpace = case maximumMay [o | (R.Store _ o) <- map snd (G.labNodes g)] of
+    let statements = map snd (RA.linear g)
+    let spillSpace = case maximumMay [o | (R.Store _ o) <- statements] of
         { Nothing -> 0
         ; Just o -> o + 1
         }
-    let fromSaved list = [fr | Just r <- map (R.def . snd) (G.labNodes g)
+    let fromSaved list = [fr | Just r <- map R.def statements
                           , let fr = freeRegisters !! r
                           , fr `elem` list]
     let calleeSaved = fromSaved calleeSavedRegisters
@@ -57,7 +59,7 @@ gMethod ast cName (R.Method name g) = do
     line $ " add $sp, $sp, " ++ show (-wordsize)
     line " sw $ra, ($sp)"
 
-    let argSpace = case maximumMay [p | (R.Arg _ p) <- map snd (G.labNodes g)] of
+    let argSpace = case maximumMay [p | (R.Arg _ p) <- statements] of
         { Nothing -> 0
         ; Just p -> p + 1
         }
