@@ -15,7 +15,6 @@ import Control.Lens
 import qualified Data.Graph.Inductive as G
 import Data.List
 import qualified Data.IntDisjointSet as DJ
-import Sandbox
 import Control.Monad.Loops
 
 type VID = Int
