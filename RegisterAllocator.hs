@@ -107,13 +107,11 @@ interference :: G.Gr LiveLabel S.EdgeType -> G.Gr () ()
 interference g = live
     where
     groups = Set.fromList $ map (_lOut . snd) $ G.labNodes g
-    allRegs = concatSet groups
-    h r group = if Set.member r group
-        then Set.map (\x -> (r, x)) (Set.delete r group)
-        else Set.empty
-    edgesFor r = concatSet $ Set.map (h r) groups
-    edgeSet = concatSet $ Set.map edgesFor allRegs
-    live = G.mkUGraph (Set.toList allRegs) (Set.toList edgeSet)
+    edgesInGroup group = Set.fromList [ (from, to)
+                                      | from <- Set.toList group
+                                      , to <- Set.toList $ Set.delete from group]
+    edgeSet = concatSet $ Set.map edgesInGroup groups
+    live = G.mkUGraph (Set.toList $ concatSet groups) (Set.toList edgeSet)
 
 select :: Int -> G.Gr () () -> [R.Register] -> M.Map R.Register R.Register
 select nRegs graph regs = M.fromList $ mapMaybe f $ zip regs $ evalState (mapM (select' nRegs) regs) (G.gmap (\(ins, n, (), outs) -> (ins, n, (n, Nothing), outs)) graph)
