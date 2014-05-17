@@ -65,8 +65,10 @@ limitInterference nRegs graph = lim 0 graph
 
 spillReg :: Int -> R.Register -> G.Gr LiveLabel S.EdgeType -> G.Gr LiveLabel S.EdgeType
 spillReg sc r g = flip execState g $ do
-    mapM_ (loadReg sc r) $ filter (\n -> r `Set.member` ((fromJust $ G.lab g n) ^. lUse)) (G.nodes g)
-    mapM_ (storeReg sc r) $ filter (\n -> r `Set.member` (maybeToSet $ (fromJust $ G.lab g n) ^. lDef)) (G.nodes g)
+    mapM_ (loadReg sc r) $ filterBy _lUse
+    mapM_ (storeReg sc r) $ filterBy (maybeToSet . _lDef)
+    where
+    filterBy f = filter (\n -> r `Set.member` (f $ fromJust $ G.lab g n)) (G.nodes g)
 
 loadReg :: Int -> R.Register -> G.Node -> State (G.Gr LiveLabel S.EdgeType) ()
 loadReg sc r n = do
