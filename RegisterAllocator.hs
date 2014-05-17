@@ -103,9 +103,9 @@ squashRegs :: Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
 squashRegs nRegs g = G.nmap (R.mapRegs (regMap M.!)) g
     where
     iGraph = interference $ liveness g
-    regMap = select nRegs iGraph (map snd $ G.labNodes iGraph)
+    regMap = select nRegs iGraph (G.nodes iGraph)
 
-interference :: G.Gr LiveLabel S.EdgeType -> G.Gr R.Register ()
+interference :: G.Gr LiveLabel S.EdgeType -> G.Gr () ()
 interference g = live
     where
     groups :: Set.Set (Set.Set Int)
@@ -118,10 +118,10 @@ interference g = live
     f :: Int -> Set.Set (Int, Int)
     f var = concatSet $ Set.map (h var) groups
     edgeSet = concatSet $ Set.map f allVars
-    live = G.mkGraph (map (\v -> (v, v)) $ Set.toList allVars) (map (\(from, to) -> (from, to, ())) $ Set.toList edgeSet)
+    live = G.mkUGraph (Set.toList allVars) (Set.toList edgeSet)
 
-select :: Int -> G.Gr R.Register () -> [R.Register] -> M.Map R.Register R.Register
-select nRegs graph regs = M.fromList $ mapMaybe f $ zip regs $ evalState (mapM (select' nRegs) regs) (G.nmap (\a -> (a, Nothing)) graph)
+select :: Int -> G.Gr () () -> [R.Register] -> M.Map R.Register R.Register
+select nRegs graph regs = M.fromList $ mapMaybe f $ zip regs $ evalState (mapM (select' nRegs) regs) (G.gmap (\(ins, n, (), outs) -> (ins, n, (n, Nothing), outs)) graph)
     where
     f (r, Just r') = Just (r, r')
     f (_, Nothing) = Nothing
