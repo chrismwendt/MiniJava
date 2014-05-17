@@ -79,9 +79,9 @@ spillReg sc r g = flip execState g $ do
     loadReg ((ins, n, LiveLabel stu ds us vIns vOuts, outs), g') = do
         g <- get
         let allRegs = [def | (_, LiveLabel { _lDef = Just def }) <- G.labNodes g]
-            avail = head $ Set.toList $ Set.fromList allRegs `Set.difference` (Set.delete r vIns)
-            load = (ins, head (G.newNodes 1 g), LiveLabel (R.Load sc avail) (Just avail) us vIns vOuts, [])
-        put (([(S.Step, G.node' load)], n, LiveLabel (R.mapRegs (\x -> if x == r then avail else x) stu) ds us vIns vOuts, outs) G.& (load G.& g'))
+            r' = head $ Set.toList $ Set.fromList allRegs `Set.difference` (Set.delete r vIns)
+            load = (ins, head (G.newNodes 1 g), LiveLabel (R.Load sc r') (Just r') us vIns vOuts, [])
+        put (([(S.Step, G.node' load)], n, LiveLabel (R.mapRegs (\x -> if x == r then r' else x) stu) ds us vIns vOuts, outs) G.& (load G.& g'))
 
     storeReg ((ins, n, label@(LiveLabel stu ds us vIns vOuts), outs), g') = do
         g <- get
