@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveFunctor #-}
 
 module SSARegisters where
 
@@ -15,6 +16,8 @@ type Position = Int
 type Offset = Int
 
 type Register = Int
+
+type Statement = StatementA Register
 
 data Program = Program
     { _pMain :: Class
@@ -35,61 +38,61 @@ data Method = Method
     }
     deriving (Show)
 
-data Statement =
+data StatementA a =
       BeginMethod
 
-    | Store Register Offset
-    | Load Offset Register
+    | Store a Offset
+    | Load Offset a
 
-    | Null AST.Type Register
-    | NewObj String Register
-    | NewIntArray Register Register
-    | This Register
-    | SInt Int Register
-    | SBoolean Bool Register
+    | Null AST.Type a
+    | NewObj String a
+    | NewIntArray a a
+    | This a
+    | SInt Int a
+    | SBoolean Bool a
 
     | Label
     | Goto
-    | Branch Register
-    | NBranch Register
+    | Branch a
+    | NBranch a
 
-    | Parameter Position Register
-    | Arg Register Position
-    | Call String Register String Register
-    | Return Register
+    | Parameter Position a
+    | Arg a Position
+    | Call String a String a
+    | Return a
 
-    | Print Register
+    | Print a
 
-    | MemberGet  String Register String Register
-    | MemberAssg String Register String Register Register
+    | MemberGet  String a String a
+    | MemberAssg String a String a a
 
-    | VarAssg Register Register
+    | VarAssg a a
 
-    | IndexGet    Register Register Register
-    | IndexAssg   Register Register Register Register
-    | ArrayLength Register Register
+    | IndexGet    a a a
+    | IndexAssg   a a a a
+    | ArrayLength a a
 
-    | Not Register Register
+    | Not a a
 
-    | Lt    Register Register Register
-    | Le    Register Register Register
-    | Eq    Register Register Register
-    | Ne    Register Register Register
-    | Gt    Register Register Register
-    | Ge    Register Register Register
-    | And   Register Register Register
-    | Or    Register Register Register
-    | Plus  Register Register Register
-    | Minus Register Register Register
-    | Mul   Register Register Register
-    | Div   Register Register Register
-    | Mod   Register Register Register
-    deriving (Eq, Show)
+    | Lt    a a a
+    | Le    a a a
+    | Eq    a a a
+    | Ne    a a a
+    | Gt    a a a
+    | Ge    a a a
+    | And   a a a
+    | Or    a a a
+    | Plus  a a a
+    | Minus a a a
+    | Mul   a a a
+    | Div   a a a
+    | Mod   a a a
+    deriving (Eq, Show, Functor)
 
 makeLenses ''Program
 makeLenses ''Class
 makeLenses ''Method
-makeLenses ''Statement
+makeLenses ''StatementA
 
 def :: Statement -> Maybe Register
 def (Load _ r)             = Just r
@@ -170,46 +173,6 @@ uses (Print r1)               = Set.fromList [r1]
 uses (BeginMethod)            = Set.fromList []
 uses (Label)                  = Set.fromList []
 uses (Goto)                   = Set.fromList []
-
-mapRegs :: (Register -> Register) -> Statement -> Statement
-mapRegs f (Load offset r)            = Load offset (f r)
-mapRegs f (Null t r)                 = Null t (f r)
-mapRegs f (NewObj s1 r)              = NewObj s1 (f r)
-mapRegs f (NewIntArray r1 r)         = NewIntArray (f r1) (f r)
-mapRegs f (This r)                   = This (f r)
-mapRegs f (SInt v r)                 = SInt v (f r)
-mapRegs f (SBoolean v r)             = SBoolean v (f r)
-mapRegs f (Parameter position r)     = Parameter position (f r)
-mapRegs f (Call s1 r1 s2 r)          = Call s1 (f r1) s2 (f r)
-mapRegs f (MemberGet s1 r1 s2 r)     = MemberGet s1 (f r1) s2 (f r)
-mapRegs f (MemberAssg s1 r1 s2 r2 r) = MemberAssg s1 (f r1) s2 (f r2) (f r)
-mapRegs f (VarAssg r1 r)             = VarAssg (f r1) (f r)
-mapRegs f (IndexGet r1 r2 r)         = IndexGet (f r1) (f r2) (f r)
-mapRegs f (IndexAssg r1 r2 r3 r)     = IndexAssg (f r1) (f r2) (f r3) (f r)
-mapRegs f (ArrayLength r1 r)         = ArrayLength (f r1) (f r)
-mapRegs f (Not r1 r)                 = Not (f r1) (f r)
-mapRegs f (Lt r1 r2 r)               = Lt (f r1) (f r2) (f r)
-mapRegs f (Le r1 r2 r)               = Le (f r1) (f r2) (f r)
-mapRegs f (Eq r1 r2 r)               = Eq (f r1) (f r2) (f r)
-mapRegs f (Ne r1 r2 r)               = Ne (f r1) (f r2) (f r)
-mapRegs f (Gt r1 r2 r)               = Gt (f r1) (f r2) (f r)
-mapRegs f (Ge r1 r2 r)               = Ge (f r1) (f r2) (f r)
-mapRegs f (And r1 r2 r)              = And (f r1) (f r2) (f r)
-mapRegs f (Or r1 r2 r)               = Or (f r1) (f r2) (f r)
-mapRegs f (Plus r1 r2 r)             = Plus (f r1) (f r2) (f r)
-mapRegs f (Minus r1 r2 r)            = Minus (f r1) (f r2) (f r)
-mapRegs f (Mul r1 r2 r)              = Mul (f r1) (f r2) (f r)
-mapRegs f (Div r1 r2 r)              = Div (f r1) (f r2) (f r)
-mapRegs f (Mod r1 r2 r)              = Mod (f r1) (f r2) (f r)
-mapRegs f (Store r1 offset)          = Store (f r1) offset
-mapRegs f (Branch r1)                = Branch (f r1)
-mapRegs f (NBranch r1)               = NBranch (f r1)
-mapRegs f (Arg r1 p)                 = Arg (f r1) p
-mapRegs f (Return r1)                = Return (f r1)
-mapRegs f (Print r1)                 = Print (f r1)
-mapRegs _ (BeginMethod)              = BeginMethod
-mapRegs _ (Label)                    = Label
-mapRegs _ (Goto)                     = Goto
 
 withRegister :: SSA.Statement -> Either (SSA.ID -> Statement) Statement
 withRegister (SSA.Load offset)            = Left  $ Load offset

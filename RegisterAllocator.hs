@@ -51,8 +51,8 @@ assignRegisters graph = G.gmap unifyRegs (removeUnifies graph)
     variables = foldr (uncurry DJ.union) singles [(s, o) | (s, S.Unify l r) <- G.labNodes graph, o <- [l, r]]
     translate = fromJust . fst . flip DJ.lookup variables
     unifyRegs (ins, n, s, outs) = case R.withRegister s of
-        Left s' ->  (ins, n, R.mapRegs translate (s' n), outs)
-        Right s' -> (ins, n, R.mapRegs translate s'    , outs)
+        Left s' ->  (ins, n, translate <$> (s' n), outs)
+        Right s' -> (ins, n, translate <$> s'    , outs)
 
 limitInterference :: Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
 limitInterference nRegs graph = unliveness . lim 0 . liveness $ graph
@@ -84,7 +84,7 @@ spillReg nextStackIndex r g = flip execState g $ do
                    , LiveLabel (R.Load nextStackIndex r') (Just r') uses rIns rOuts
                    , []
                    )
-            newLabel = LiveLabel (R.mapRegs (\x -> if x == r then r' else x) st) def uses rIns rOuts
+            newLabel = LiveLabel (fmap (\x -> if x == r then r' else x) st) def uses rIns rOuts
 
         put (([(S.Step, G.node' load)], n, newLabel, outs) G.& (load G.& g'))
 
@@ -98,7 +98,7 @@ spillReg nextStackIndex r g = flip execState g $ do
         put (store G.& ((ins, n, label, []) G.& g'))
 
 squashRegs :: Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
-squashRegs nRegs g = G.nmap (R.mapRegs (regMap M.!)) g
+squashRegs nRegs g = G.nmap (fmap (regMap M.!)) g
     where
     regMap = makeRegMap nRegs (interference g)
 
