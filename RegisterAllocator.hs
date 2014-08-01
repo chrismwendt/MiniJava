@@ -64,7 +64,7 @@ limitInterference nRegs graph = lim 0 graph
                 (r : _) -> spillReg spillCount r (liveness g)
 
 spillReg :: Int -> R.Register -> G.Gr LiveLabel S.EdgeType -> G.Gr LiveLabel S.EdgeType
-spillReg sc r g = flip execState g $ do
+spillReg nextStackIndex r g = flip execState g $ do
     mapM_ (modifyGDecomp loadReg) $ filterBy _lUse
     mapM_ (modifyGDecomp storeReg) $ filterBy (maybeToSet . _lDef)
     where
@@ -80,13 +80,23 @@ spillReg sc r g = flip execState g $ do
         g <- get
         let allRegs = [def | (_, LiveLabel { _lDef = Just def }) <- G.labNodes g']
             r' = head $ Set.toList $ Set.fromList allRegs `Set.difference` (Set.delete r rIns)
-            load = (ins, head (G.newNodes 1 g'), LiveLabel (R.Load sc r') (Just r') uses rIns rOuts, [])
+            load = ( ins
+                   , head (G.newNodes 1 g')
+                   , LiveLabel (R.Load nextStackIndex r') (Just r') uses rIns rOuts
+                   , []
+                   )
             newLabel = LiveLabel (R.mapRegs (\x -> if x == r then r' else x) st) def uses rIns rOuts
+
         put (([(S.Step, G.node' load)], n, newLabel, outs) G.& (load G.& g'))
 
     storeReg ((ins, n, label@(LiveLabel st def uses rIns rOuts), outs), g') = do
         g <- get
-        let store = ([(S.Step, n)], head (G.newNodes 1 g), lSt .~ R.Store r sc $ label,  outs)
+        let store = ( [(S.Step, n)]
+                    , head (G.newNodes 1 g)
+                    , lSt .~ R.Store r nextStackIndex $ label
+                    , outs
+                    )
+
         put (store G.& ((ins, n, label, []) G.& g'))
 
 squashRegs :: Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
