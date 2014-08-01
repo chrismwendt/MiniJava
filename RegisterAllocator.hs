@@ -56,12 +56,9 @@ assignRegisters graph = G.gmap unifyRegs (removeUnifies graph)
 limitInterference :: Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
 limitInterference nRegs graph = lim 0 graph
     where
-    lim spillCount g = case find (outExceedsLimit . snd) $ G.labNodes lGraph of
+    lim spillCount g = case find ((> nRegs) . Set.size . _lOut . snd) $ G.labNodes (liveness g) of
         Nothing -> g
-        Just (_, label) -> lim (succ spillCount) (unliveness $ performSpill spillCount label lGraph)
-        where
-        lGraph = liveness g
-        outExceedsLimit = (> nRegs) . Set.size . _lOut
+        Just (_, label) -> lim (succ spillCount) (unliveness $ performSpill spillCount label (liveness g))
 
 performSpill :: Int -> LiveLabel -> G.Gr LiveLabel S.EdgeType -> G.Gr LiveLabel S.EdgeType
 performSpill sc label g = case Set.toList $ (label ^. lOut) `Set.difference` (maybeToSet (label ^. lDef)) of
