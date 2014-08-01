@@ -76,15 +76,15 @@ spillReg sc r g = flip execState g $ do
             (Nothing, _) -> error "match failure"
             (Just c, g') -> f (c, g')
 
-    loadReg ((ins, n, LiveLabel st ds us vIns vOuts, outs), g') = do
+    loadReg ((ins, n, LiveLabel st def uses rIns rOuts, outs), g') = do
         g <- get
         let allRegs = [def | (_, LiveLabel { _lDef = Just def }) <- G.labNodes g']
-            r' = head $ Set.toList $ Set.fromList allRegs `Set.difference` (Set.delete r vIns)
-            load = (ins, head (G.newNodes 1 g'), LiveLabel (R.Load sc r') (Just r') us vIns vOuts, [])
-            newLabel = LiveLabel (R.mapRegs (\x -> if x == r then r' else x) st) ds us vIns vOuts
+            r' = head $ Set.toList $ Set.fromList allRegs `Set.difference` (Set.delete r rIns)
+            load = (ins, head (G.newNodes 1 g'), LiveLabel (R.Load sc r') (Just r') uses rIns rOuts, [])
+            newLabel = LiveLabel (R.mapRegs (\x -> if x == r then r' else x) st) def uses rIns rOuts
         put (([(S.Step, G.node' load)], n, newLabel, outs) G.& (load G.& g'))
 
-    storeReg ((ins, n, label@(LiveLabel st ds us vIns vOuts), outs), g') = do
+    storeReg ((ins, n, label@(LiveLabel st def uses rIns rOuts), outs), g') = do
         g <- get
         let store = ([(S.Step, n)], head (G.newNodes 1 g), lSt .~ R.Store r sc $ label,  outs)
         put (store G.& ((ins, n, label, []) G.& g'))
@@ -137,12 +137,12 @@ liveness g = graph'
     f' g = foldr f'' g lGraph
     f'' n g = case G.match n g of
         (Nothing, _) -> error "match failure"
-        (Just (ins, _, LiveLabel s ds us vIns vOuts, outs), g') ->
-            let vIns' = us `Set.union` (vOuts `Set.difference` (maybeToSet ds))
+        (Just (ins, _, LiveLabel s def uses rIns rOuts, outs), g') ->
+            let rIns' = uses `Set.union` (rOuts `Set.difference` (maybeToSet def))
                 (_, _, _, fullOuts) = G.context g n
                 succVIns = map (_lIn . G.lab' . G.context g) (map snd fullOuts)
-                vOuts' = (maybeToSet ds) `Set.union` (foldr Set.union Set.empty succVIns)
-                s' = LiveLabel s ds us vIns' vOuts'
+                rOuts' = (maybeToSet def) `Set.union` (foldr Set.union Set.empty succVIns)
+                s' = LiveLabel s def uses rIns' rOuts'
                 newContext = (ins, n, s', outs)
             in newContext G.& g'
 
