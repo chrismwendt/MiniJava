@@ -76,16 +76,17 @@ spillReg sc r g = flip execState g $ do
             (Nothing, _) -> error "match failure"
             (Just c, g') -> f (c, g')
 
-    loadReg ((ins, n, LiveLabel stu ds us vIns vOuts, outs), g') = do
+    loadReg ((ins, n, LiveLabel st ds us vIns vOuts, outs), g') = do
         g <- get
-        let allRegs = [def | (_, LiveLabel { _lDef = Just def }) <- G.labNodes g]
+        let allRegs = [def | (_, LiveLabel { _lDef = Just def }) <- G.labNodes g']
             r' = head $ Set.toList $ Set.fromList allRegs `Set.difference` (Set.delete r vIns)
-            load = (ins, head (G.newNodes 1 g), LiveLabel (R.Load sc r') (Just r') us vIns vOuts, [])
-        put (([(S.Step, G.node' load)], n, LiveLabel (R.mapRegs (\x -> if x == r then r' else x) stu) ds us vIns vOuts, outs) G.& (load G.& g'))
+            load = (ins, head (G.newNodes 1 g'), LiveLabel (R.Load sc r') (Just r') us vIns vOuts, [])
+            newLabel = LiveLabel (R.mapRegs (\x -> if x == r then r' else x) st) ds us vIns vOuts
+        put (([(S.Step, G.node' load)], n, newLabel, outs) G.& (load G.& g'))
 
-    storeReg ((ins, n, label@(LiveLabel stu ds us vIns vOuts), outs), g') = do
+    storeReg ((ins, n, label@(LiveLabel st ds us vIns vOuts), outs), g') = do
         g <- get
-        let store = ([(S.Step, n)], head (G.newNodes 1 g), LiveLabel (R.Store r sc) ds us vIns vOuts,  outs)
+        let store = ([(S.Step, n)], head (G.newNodes 1 g), lSt .~ R.Store r sc $ label,  outs)
         put (store G.& ((ins, n, label, []) G.& g'))
 
 squashRegs :: Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
