@@ -58,12 +58,10 @@ limitInterference nRegs graph = lim 0 graph
     where
     lim spillCount g = case find ((> nRegs) . Set.size . _lOut . snd) $ G.labNodes (liveness g) of
         Nothing -> g
-        Just (_, label) -> lim (succ spillCount) (unliveness $ performSpill spillCount label (liveness g))
-
-performSpill :: Int -> LiveLabel -> G.Gr LiveLabel S.EdgeType -> G.Gr LiveLabel S.EdgeType
-performSpill sc label g = case Set.toList $ (label ^. lOut) `Set.difference` (maybeToSet (label ^. lDef)) of
-    [] -> error "no room"
-    (toSpill:_) -> doSpill sc toSpill g
+        Just (_, label) -> lim (succ spillCount) $ unliveness $
+            case Set.toList $ (label ^. lOut) `Set.difference` (maybeToSet (label ^. lDef)) of
+                [] -> error "no room"
+                (toSpill:_) -> doSpill spillCount toSpill (liveness g)
 
 doSpill :: Int -> R.Register -> G.Gr LiveLabel S.EdgeType -> G.Gr LiveLabel S.EdgeType
 doSpill sc r g = flip execState g $ do
