@@ -75,12 +75,14 @@ spillReg sc r g = flip execState g $ do
             (Nothing, _) -> error "match failure"
             a@(Just (ins, _, LiveLabel stu ds us vIns vOuts, outs), g') -> f a
     loadReg (Just (ins, n, LiveLabel stu ds us vIns vOuts, outs), g') = do
+        g <- get
         let avail = case Set.toList $ (Set.fromList [def | (_, LiveLabel { _lDef = Just def }) <- G.labNodes g]) `Set.difference` (Set.delete r vIns) of
                             [] -> error "no available register"
                             (a:_) -> a
         let load = (ins, head (G.newNodes 1 g), LiveLabel (R.Load sc avail) (Just avail) us vIns vOuts, [])
         put (([(S.Step, G.node' load)], n, LiveLabel (R.mapRegs (\x -> if x == r then avail else x) stu) ds us vIns vOuts, outs) G.& (load G.& g'))
     storeReg (Just (ins, n, label@(LiveLabel stu ds us vIns vOuts), outs), g') = do
+        g <- get
         let store = ([(S.Step, n)], head (G.newNodes 1 g), LiveLabel (R.Store r sc) ds us vIns vOuts,  outs)
         put (store G.& ((ins, n, label, []) G.& g'))
 
