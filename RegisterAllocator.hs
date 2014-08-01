@@ -61,15 +61,15 @@ limitInterference nRegs graph = lim 0 graph
         Just (_, label) -> lim (succ spillCount) $ unliveness $
             case Set.toList $ (label ^. lOut) `Set.difference` (maybeToSet (label ^. lDef)) of
                 [] -> error "no room"
-                (toSpill:_) -> doSpill spillCount toSpill (liveness g)
+                (r : _) -> spillReg spillCount r (liveness g)
 
-doSpill :: Int -> R.Register -> G.Gr LiveLabel S.EdgeType -> G.Gr LiveLabel S.EdgeType
-doSpill sc r g = flip execState g $ do
-    mapM_ (doLoad sc r) $ filter (\n -> r `Set.member` ((fromJust $ G.lab g n) ^. lUse)) (G.nodes g)
-    mapM_ (doStore sc r) $ filter (\n -> r `Set.member` (maybeToSet $ (fromJust $ G.lab g n) ^. lDef)) (G.nodes g)
+spillReg :: Int -> R.Register -> G.Gr LiveLabel S.EdgeType -> G.Gr LiveLabel S.EdgeType
+spillReg sc r g = flip execState g $ do
+    mapM_ (loadReg sc r) $ filter (\n -> r `Set.member` ((fromJust $ G.lab g n) ^. lUse)) (G.nodes g)
+    mapM_ (storeReg sc r) $ filter (\n -> r `Set.member` (maybeToSet $ (fromJust $ G.lab g n) ^. lDef)) (G.nodes g)
 
-doLoad :: Int -> R.Register -> G.Node -> State (G.Gr LiveLabel S.EdgeType) ()
-doLoad sc r n = do
+loadReg :: Int -> R.Register -> G.Node -> State (G.Gr LiveLabel S.EdgeType) ()
+loadReg sc r n = do
     g <- get
     case G.match n g of
         (Nothing, _) -> error "match failure"
@@ -81,8 +81,8 @@ doLoad sc r n = do
             let load = (ins, head (G.newNodes 1 g), LiveLabel (R.Load sc avail) (Just avail) us vIns vOuts, [])
             put (([(S.Step, G.node' load)], n, LiveLabel (R.mapRegs (\x -> if x == r then avail else x) stu) ds us vIns vOuts, outs) G.& (load G.& g'))
 
-doStore :: Int -> R.Register -> G.Node -> State (G.Gr LiveLabel S.EdgeType) ()
-doStore sc r n = do
+storeReg :: Int -> R.Register -> G.Node -> State (G.Gr LiveLabel S.EdgeType) ()
+storeReg sc r n = do
     g <- get
     case G.match n g of
         (Nothing, _) -> error "match failure"
