@@ -55,13 +55,14 @@ assignRegisters graph = G.gmap unifyRegs (removeUnifies graph)
         Right s' -> (ins, n, translate <$> s'    , outs)
 
 limitInterference :: Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
-limitInterference nRegs graph = unliveness . lim 0 . liveness $ graph
+limitInterference nRegs graph = lim 0 graph
     where
-    lim spillCount g = case find ((> nRegs) . Set.size . _lOut . snd) $ G.labNodes g of
+    lim spillCount g = case find ((> nRegs) . Set.size . _lOut . snd) $ G.labNodes (liveness g) of
         Nothing -> g
-        Just (_, label) -> case Set.toList $ (label ^. lOut) `Set.difference` (maybeToSet (label ^. lDef)) of
-            [] -> error "no room"
-            (r : _) -> spillReg spillCount r g
+        Just (_, label) -> lim (succ spillCount) $ unliveness $
+            case Set.toList $ (label ^. lOut) `Set.difference` (maybeToSet (label ^. lDef)) of
+                [] -> error "no room"
+                (r : _) -> spillReg spillCount r (liveness g)
 
 spillReg :: Int -> R.Register -> G.Gr LiveLabel S.EdgeType -> G.Gr LiveLabel S.EdgeType
 spillReg nextStackIndex r g = flip execState g $ do
@@ -77,6 +78,7 @@ spillReg nextStackIndex r g = flip execState g $ do
             (Just c, g') -> f (c, g')
 
     loadReg ((ins, n, LiveLabel st def uses rIns rOuts, outs), g') = do
+        g <- get
         let allRegs = [def | (_, LiveLabel { _lDef = Just def }) <- G.labNodes g']
             r' = head $ Set.toList $ Set.fromList allRegs `Set.difference` (Set.delete r rIns)
             load = ( ins
@@ -89,6 +91,7 @@ spillReg nextStackIndex r g = flip execState g $ do
         put (([(S.Step, G.node' load)], n, newLabel, outs) G.& (load G.& g'))
 
     storeReg ((ins, n, label@(LiveLabel st def uses rIns rOuts), outs), g') = do
+        g <- get
         let store = ( [(S.Step, n)]
                     , head (G.newNodes 1 g)
                     , lSt .~ R.Store r nextStackIndex $ label
