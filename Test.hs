@@ -54,6 +54,8 @@ testReg file = do
     compDiff file ecCanonical ecMine
 
 testCode file = do
+    putStrLn ""
+    putStrLn file
     system $ "canonical/bin/mjcompile-mips " ++ file ++ " > canonical.mips"
     system $ "runhaskell Main.hs --stopAt code " ++ file ++ " > mine.mips"
     (_, canonicalOut, _) <- readProcessWithExitCode "spim" (words "-file canonical.mips") ""
