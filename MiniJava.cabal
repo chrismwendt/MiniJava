@@ -17,4 +17,4 @@ cabal-version:       >=1.8
 executable MiniJava
   -- main-is:             
   -- other-modules:       
-  build-depends:       base ==4.6.*, containers ==0.5.*, pretty-show ==1.6.*, fgl ==5.5.*, parsec ==3.1.*, process ==1.1.*, monad-loops ==0.4.*, bifunctors ==4.1.*, lens ==4.1.*, optparse-applicative ==0.8.*, mtl ==2.1.*, multimap ==1.2.*, disjoint-set ==0.2.*, transformers ==0.3.*, safe ==0.3.*, pretty ==1.1.*
+  build-depends:       base ==4.*, containers ==0.5.*, pretty-show ==1.6.*, fgl ==5.5.*, parsec ==3.1.*, process ==1.*, monad-loops ==0.4.*, bifunctors ==4.1.*, lens ==4.1.*, optparse-applicative ==0.8.*, mtl ==2.1.*, multimap ==1.2.*, disjoint-set ==0.2.*, transformers ==0.3.*, safe ==0.3.*, pretty ==1.1.*
