@@ -1,7 +1,7 @@
 name:                MiniJava
 version:             0.1.0.0
 synopsis:            A MiniJava compiler
--- description:         
+description:         Compiles MiniJava (a subset of Java) to MIPS assembly
 author:              Chris Wendt
 maintainer:          chrismwendt@gmail.com
 category:            Compiler
