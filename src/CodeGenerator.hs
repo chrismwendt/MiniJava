@@ -104,7 +104,8 @@ gStatement ast cName mName spillSpace callerSaved (ins, node, statement, outs) =
             loadAll (callerSaved \\ [freeRegisters !! r]) spillSpace
         R.This r                   -> line $ printf " move $%s, $v0" (reg r)
         R.SInt v r                 -> line $ printf " li $%s, %s" (reg r) (show v)
-        R.SBoolean v r             -> line $ printf " li $%s, %s" (reg r) (if v then "1" else "0")
+        R.SBoolean False r         -> line $ printf " li $%s, 0" (reg r)
+        R.SBoolean True r          -> line $ printf " li $%s, 1" (reg r)
         R.Parameter position r     -> line $ printf " lw $%s, %s($fp)" (reg r) (show $ (position + 1) * wordsize)
         R.Call s1 r1 s2 r       -> do
             storeAll (callerSaved \\ [freeRegisters !! r]) spillSpace
@@ -130,7 +131,7 @@ gStatement ast cName mName spillSpace callerSaved (ins, node, statement, outs) =
             line $ printf " add $v1, $v1, $%s" (reg r1)
             line $ printf " sw $%s, ($v1)" (reg r3)
             line $ printf " move $%s, $%s" (reg r) (reg r3)
-        R.ArrayLength r1 r         -> line $ printf " lw $%s, %s($%s)" (reg r) "0" (reg r1)
+        R.ArrayLength r1 r         -> line $ printf " lw $%s, 0($%s)" (reg r) (reg r1)
         R.Not r1 r                 -> line $ printf " seq $%s, $zero, $%s" (reg r) (reg r1)
         R.Lt r1 r2 r               -> line $ printf " slt $%s, $%s, $%s" (reg r) (reg r1) (reg r2)
         R.Le r1 r2 r               -> line $ printf " sle $%s, $%s, $%s" (reg r) (reg r1) (reg r2)
@@ -140,10 +141,10 @@ gStatement ast cName mName spillSpace callerSaved (ins, node, statement, outs) =
         R.Ge r1 r2 r               -> line $ printf " sge $%s, $%s, $%s" (reg r) (reg r1) (reg r2)
         R.And r1 r2 r              -> do
             line $ printf " add $%s, $%s, $%s" (reg r2) (reg r1) (reg r2)
-            line $ printf " seq $%s, $%s, %s" (reg r) (reg r2) "2"
+            line $ printf " seq $%s, $%s, 2" (reg r) (reg r2)
         R.Or r1 r2 r               -> do
             line $ printf " add $%s, $%s, $%s" (reg r2) (reg r1) (reg r2)
-            line $ printf " sgt $%s, $%s, %s" (reg r) (reg r2) "0"
+            line $ printf " sgt $%s, $%s, 0" (reg r) (reg r2)
         R.Plus r1 r2 r             -> line $ printf " add $%s, $%s, $%s" (reg r) (reg r1) (reg r2)
         R.Minus r1 r2 r            -> line $ printf " sub $%s, $%s, $%s" (reg r) (reg r1) (reg r2)
         R.Mul r1 r2 r              -> line $ printf " mul $%s, $%s, $%s" (reg r) (reg r1) (reg r2)

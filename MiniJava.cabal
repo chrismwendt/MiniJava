@@ -1,28 +1,57 @@
-name:                MiniJava
-version:             0.1.0.0
-synopsis:            A MiniJava compiler
-description:         Compiles MiniJava (a subset of Java) to MIPS assembly
-author:              Chris Wendt
-maintainer:          chrismwendt@gmail.com
-category:            Compiler
-build-type:          Simple
-cabal-version:       >=1.8
+name: MiniJava
+version: 0.1.0.0
+synopsis: A MiniJava compiler
+description: Compiles MiniJava (a subset of Java) to MIPS assembly
+author: Chris Wendt
+maintainer: chrismwendt@gmail.com
+category: Compiler
+build-type: Simple
+cabal-version: >=1.8
+
+library
+  hs-source-dirs: src
+  exposed-modules:
+    AST
+    , ASTTyped
+    , CodeGenerator
+    , Lexer
+    , Parser
+    , RegisterAllocator
+    , SSA
+    , SSACompiler
+    , SSARegisters
+    , TypeChecker
+  build-depends:
+    base
+    , containers
+    , pretty-show
+    , fgl
+    , parsec
+    , process
+    , monad-loops
+    , bifunctors
+    , lens
+    , mtl
+    , multimap
+    , disjoint-set
+    , transformers
+    , safe
+    , pretty
 
 executable MiniJava
-  main-is:             Main.hs
-  build-depends:       base
-                     , containers
-                     , pretty-show
-                     , fgl
-                     , parsec
-                     , process
-                     , monad-loops
-                     , bifunctors
-                     , lens
-                     , optparse-applicative
-                     , mtl
-                     , multimap
-                     , disjoint-set
-                     , transformers
-                     , safe
-                     , pretty
+  main-is: Main.hs
+  hs-source-dirs: app
+  build-depends:
+    base
+    , MiniJava
+    , optparse-applicative
+
+test-suite MiniJava-test
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is: Test.hs
+  build-depends:
+    base
+    , MiniJava
+    , process
+    , monad-loops

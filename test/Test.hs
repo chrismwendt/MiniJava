@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 import System.Environment
 import System.Process
 import System.Exit
@@ -9,6 +11,9 @@ import SSACompiler
 
 -- main = allM test examples >> return ()
 main = do
+    readProcessWithExitCode "type" ["spim"] "" >>= \case
+        (ExitFailure _, _, _) -> putStrLn "spim not found - try brew install spim"
+        _ -> return ()
     args <- getArgs
     case args of
         ["type"] -> do
