@@ -2,124 +2,54 @@
 
 import System.Environment
 import System.Process
+import System.Directory
 import System.Exit
 import Control.Monad.Loops
+import Control.Exception
 import System.Exit
 import Control.Monad
 import Data.List
 import SSACompiler
+import Test.Tasty
+import Test.Tasty.HUnit
+import Interface
 
--- main = allM test examples >> return ()
-main = do
-    readProcessWithExitCode "type" ["spim"] "" >>= \case
-        (ExitFailure _, _, _) -> putStrLn "spim not found - try brew install spim"
-        _ -> return ()
-    args <- getArgs
-    case args of
-        ["type"] -> do
-            (_, stdout, _) <- readProcessWithExitCode "find" ["examples"] ""
-            let files = filter ("java" `isSuffixOf`) $ lines stdout
-            allM testType files >> return ()
-        ("type":files) -> allM testType files >> return ()
-        ("reg":files) -> allM testReg files >> return ()
-        ["SSA", "golden", golden, file] -> ensureGolden (readProcess "runhaskell" ["Main.hs", "--stopAt", "SSA", file] "") (readProcess "cat" [golden] "")
-        -- ["type", "golden", golden, file] -> ensureGolden golden file
-        ["SSA"] -> allM testSSA successExamples >> return ()
-        ("SSA":files) -> allM testSSA files >> return ()
-        ("code":files) -> allM testCode files >> return ()
+main
+  = defaultMain
+  $ testGroup "Unit tests"
+  $ map (testCase "Compile" . uncurry testCode) successExamples
 
-ensureGolden a b = do
-    outA <- a
-    outB <- b
-    if outA == outB
-        then return ()
-        else do
-            putStrLn outA
-            error "crud"
+runProgram program = bracket (writeFile "program.mips" program) (const $ removeFile "program.mips") $ \_ -> do
+    (_, output, _) <- readProcessWithExitCode "spim" ["-file", "program.mips"] ""
+    return output
 
-testSSA file = do
-    putStrLn $ "Testing " ++ file
-
-    ecCanonical <- system $ "canonical/bin/mjcompile-ssa -s " ++ file ++ " > canonical.out"
-    ecMine <- system $ "runhaskell Main.hs --stopAt SSA " ++ file ++ " > mine.out"
-
-    compDiff file ecCanonical ecMine
-
-    -- system $ "canonical/bin/mjparse-ast " ++ file ++ " | runhaskell PrettySExp.hs > canonical.out"
-    -- system $ "runhaskell Main.hs --stopAt parse " ++ file ++ " | runhaskell PrettySExp.hs > mine.out"
-
-testType file = do
-    ecCanonical <- system $ "canonical/bin/mjcompile-ssa -s -t " ++ file ++ " > canonical.out"
-    ecMine <- system $ "runhaskell Main.hs --stopAt type " ++ file ++ " > mine.out"
-    comp file ecCanonical ecMine
-
-testReg file = do
-    ecCanonical <- system $ "canonical/bin/mjcompile-ssa -s -t -r " ++ file ++ " > canonical.out"
-    ecMine <- system $ "runhaskell Main.hs --stopAt reg " ++ file ++ " > mine.out"
-    compDiff file ecCanonical ecMine
-
-testCode file = do
-    putStrLn ""
-    putStrLn file
-    system $ "canonical/bin/mjcompile-mips " ++ file ++ " > canonical.mips"
-    system $ "runhaskell Main.hs --stopAt code " ++ file ++ " > mine.mips"
-    (_, canonicalOut, _) <- readProcessWithExitCode "spim" (words "-file canonical.mips") ""
-    (_, mineOut, _) <- readProcessWithExitCode "spim" (words "-file mine.mips") ""
-    let canonicalOut' = unlines $ drop 5 $ lines canonicalOut
-    let mineOut'      = unlines $ drop 5 $ lines mineOut
-    writeFile "canonical.out" canonicalOut'
-    writeFile "mine.out" mineOut'
-    (e, stdout, _) <- readProcessWithExitCode "diff" (words "-y canonical.out mine.out") ""
-    putStr stdout
-    case e of
-        ExitSuccess -> return True
-        ExitFailure e -> exitWith (ExitFailure e)
-
-compDiff file ecCanonical ecMine = case (ecCanonical, ecMine) of
-        (ExitSuccess, ExitSuccess) -> do
-            (_, stdout, _) <- readProcessWithExitCode "diff" ["-y", "canonical.out", "mine.out"] ""
-            putStr stdout
-            return True
-        (ExitSuccess, ExitFailure _) -> error ("Canonical succeeded, mine failed " ++ file)
-        (ExitFailure _, ExitSuccess) -> error ("Canonical failed, mine succeeded " ++ file)
-        (ExitFailure _, ExitFailure _) -> putStr "Both failed" >> return True
-
-comp file ecCanonical ecMine = case (ecCanonical, ecMine) of
-        (ExitSuccess, ExitSuccess) -> readProcessWithExitCode "diff" ["-y", "canonical.out", "mine.out"] "" >> return True
-        (ExitSuccess, ExitFailure _) -> error ("Canonical succeeded, mine failed " ++ file)
-        (ExitFailure _, ExitSuccess) -> error ("Canonical failed, mine succeeded " ++ file)
-        (ExitFailure _, ExitFailure _) -> putStr "Both failed" >> return True
-
-diffPrint a b = do
-    (e, stdout, _) <- readProcessWithExitCode "diff" ["-y", a, b] ""
-    putStr stdout
-    case e of
-        ExitSuccess -> return True
-        ExitFailure _ -> return False
+testCode sourceFile expectedOutputFile = do
+    expected <- readFile expectedOutputFile
+    actual <- (unlines . drop 1 . lines) <$> (runProgram =<< atCode <$> readFile sourceFile)
+    actual @?= expected
 
 successExamples =
-    [ "examples/Leet.java"
-    , "examples/Spill.java"
-    , "examples/Call.java"
-    , "examples/BinarySearch.java"
-    , "examples/BinaryTree.java"
-    , "examples/LogicAnd.java"
-    , "examples/StackArgs.java"
-    , "examples/TreeVisitor.java"
-    , "examples/Loops.java"
-    , "examples/Fields.java"
-    , "examples/CallThis.java"
-    , "examples/Extends.java"
-    , "examples/Arg.java"
-    , "examples/LinearSearch.java"
-    , "examples/Arithmetic.java"
-    , "examples/LinkedList.java"
-    , "examples/BubbleSort.java"
-    , "examples/Min.java"
-    , "examples/Factorial.java"
-    , "examples/Comparisons.java"
-    , "examples/QuickSort.java"
-    , "examples/Add.java"
+    [ ("examples/Leet.java", "examples/Leet.output")
+    , ("examples/Spill.java", "examples/Spill.output")
+    , ("examples/Call.java", "examples/Call.output")
+    , ("examples/BinarySearch.java", "examples/BinarySearch.output")
+    , ("examples/BinaryTree.java", "examples/BinaryTree.output")
+    , ("examples/StackArgs.java", "examples/StackArgs.output")
+    , ("examples/TreeVisitor.java", "examples/TreeVisitor.output")
+    , ("examples/Loops.java", "examples/Loops.output")
+    , ("examples/Fields.java", "examples/Fields.output")
+    , ("examples/CallThis.java", "examples/CallThis.output")
+    , ("examples/Extends.java", "examples/Extends.output")
+    , ("examples/Arg.java", "examples/Arg.output")
+    , ("examples/LinearSearch.java", "examples/LinearSearch.output")
+    , ("examples/Arithmetic.java", "examples/Arithmetic.output")
+    , ("examples/LinkedList.java", "examples/LinkedList.output")
+    , ("examples/BubbleSort.java", "examples/BubbleSort.output")
+    , ("examples/Min.java", "examples/Min.output")
+    , ("examples/Factorial.java", "examples/Factorial.output")
+    , ("examples/Comparisons.java", "examples/Comparisons.output")
+    , ("examples/QuickSort.java", "examples/QuickSort.output")
+    , ("examples/Add.java", "examples/Add.output")
     ]
 
 failExamples =

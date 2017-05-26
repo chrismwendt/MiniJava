@@ -21,6 +21,7 @@ library
     , SSACompiler
     , SSARegisters
     , TypeChecker
+    , Interface
   build-depends:
     base
     , containers
@@ -55,3 +56,7 @@ test-suite MiniJava-test
     , MiniJava
     , process
     , monad-loops
+    , tasty
+    , tasty-hunit
+    , HUnit
+    , directory
