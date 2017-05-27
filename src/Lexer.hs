@@ -5,13 +5,13 @@ import Text.ParserCombinators.Parsec.Language
 import Text.ParserCombinators.Parsec
 
 lexer = Token.makeTokenParser emptyDef
-    { Token.commentStart    = "/*"
-    , Token.commentEnd      = "*/"
-    , Token.commentLine     = "//"
-    , Token.identStart      = letter
-    , Token.identLetter     = alphaNum <|> char '_'
-    , Token.reservedNames   = words "class main public static void extends return int boolean if else while System.out.println true false this new"
-    }
+  { Token.commentStart    = "/*"
+  , Token.commentEnd      = "*/"
+  , Token.commentLine     = "//"
+  , Token.identStart      = letter
+  , Token.identLetter     = alphaNum <|> char '_'
+  , Token.reservedNames   = words "class main public static void extends return int boolean if else while System.out.println true false this new"
+  }
 
 identifier = Token.identifier lexer
 reserved   = Token.reserved   lexer

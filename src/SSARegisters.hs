@@ -20,74 +20,74 @@ type Register = Int
 type Statement = StatementA Register
 
 data Program = Program
-    { _pMain :: Class
-    , _pClasses :: [Class]
-    }
-    deriving (Show)
+  { _pMain :: Class
+  , _pClasses :: [Class]
+  }
+  deriving (Show)
 
 data Class = Class
-    { _cName :: String
-    , _cFields :: [String]
-    , _cMethods :: [Method]
-    }
-    deriving (Show)
+  { _cName :: String
+  , _cFields :: [String]
+  , _cMethods :: [Method]
+  }
+  deriving (Show)
 
 data Method = Method
-    { _mName :: String
-    , _mControlFlow :: Gr Statement SSA.EdgeType
-    }
-    deriving (Show)
+  { _mName :: String
+  , _mControlFlow :: Gr Statement SSA.EdgeType
+  }
+  deriving (Show)
 
 data StatementA a =
-      BeginMethod
+    BeginMethod
 
-    | Store a Offset
-    | Load Offset a
+  | Store a Offset
+  | Load Offset a
 
-    | Null AST.Type a
-    | NewObj String a
-    | NewIntArray a a
-    | This a
-    | SInt Int a
-    | SBoolean Bool a
+  | Null AST.Type a
+  | NewObj String a
+  | NewIntArray a a
+  | This a
+  | SInt Int a
+  | SBoolean Bool a
 
-    | Label
-    | Goto
-    | Branch a
-    | NBranch a
+  | Label
+  | Goto
+  | Branch a
+  | NBranch a
 
-    | Parameter Position a
-    | Arg a Position
-    | Call String a String a
-    | Return a
+  | Parameter Position a
+  | Arg a Position
+  | Call String a String a
+  | Return a
 
-    | Print a
+  | Print a
 
-    | MemberGet  String a String a
-    | MemberAssg String a String a a
+  | MemberGet  String a String a
+  | MemberAssg String a String a a
 
-    | VarAssg a a
+  | VarAssg a a
 
-    | IndexGet    a a a
-    | IndexAssg   a a a a
-    | ArrayLength a a
+  | IndexGet    a a a
+  | IndexAssg   a a a a
+  | ArrayLength a a
 
-    | Not a a
+  | Not a a
 
-    | Lt    a a a
-    | Le    a a a
-    | Eq    a a a
-    | Ne    a a a
-    | Gt    a a a
-    | Ge    a a a
-    | And   a a a
-    | Or    a a a
-    | Plus  a a a
-    | Minus a a a
-    | Mul   a a a
-    | Div   a a a
-    | Mod   a a a
-    deriving (Eq, Show, Functor)
+  | Lt    a a a
+  | Le    a a a
+  | Eq    a a a
+  | Ne    a a a
+  | Gt    a a a
+  | Ge    a a a
+  | And   a a a
+  | Or    a a a
+  | Plus  a a a
+  | Minus a a a
+  | Mul   a a a
+  | Div   a a a
+  | Mod   a a a
+  deriving (Eq, Show, Functor)
 
 makeLenses ''Program
 makeLenses ''Class
