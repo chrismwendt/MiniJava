@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE LambdaCase #-}
 
 module TypeChecker where
 
@@ -10,80 +11,86 @@ import Control.Lens
 import Control.Applicative
 import qualified AST as U
 import qualified ASTTyped as T
+import Control.Monad.Except
 
-typeCheck :: U.Program -> T.Program
+flub :: String -> Except String a
+flub = throwError
+
+typeCheck :: U.Program -> Except String T.Program
 typeCheck = typeCheckProgram
 
-typeCheckProgram :: U.Program -> T.Program
-typeCheckProgram p@(U.Program main classes)
-    | validClassHierarchy classes = T.Program main' classes'
-    | otherwise = error "Invalid class hierarchy"
-    where
-    main' = typeCheckClass p main
-    classes' = map (typeCheckClass p) classes
+typeCheckProgram :: U.Program -> Except String T.Program
+typeCheckProgram p@(U.Program main classes) = do
+    main' <- typeCheckClass p main
+    classes' <- mapM (typeCheckClass p) classes
+    if validClassHierarchy classes
+        then return $ T.Program main' classes'
+        else flub "Invalid class hierarchy"
 
-typeCheckClass :: U.Program -> U.Class -> T.Class
-typeCheckClass p c@(U.Class name parent fields methods)
-    | allUnique $ map U._mName methods = T.Class name parent fields methods'
-    | otherwise =  error "Duplicate method"
-    where
-    methods' = map (typeCheckMethod p c) methods
+typeCheckClass :: U.Program -> U.Class -> Except String T.Class
+typeCheckClass p c@(U.Class name parent fields methods) = do
+    methods' <- mapM (typeCheckMethod p c) methods
+    if allUnique $ map U._mName methods
+        then return $ T.Class name parent fields methods'
+        else flub "Duplicate method"
 
-typeCheckMethod :: U.Program -> U.Class -> U.Method -> T.Method
-typeCheckMethod p c m@(U.Method retType name ps ls ss ret)
-    | retType == tcExpT ret = T.Method retType name ps ls (map tcSt ss) (tcExpE ret)
-    | otherwise =  error "Return type of method must match declaration"
+typeCheckMethod :: U.Program -> U.Class -> U.Method -> Except String T.Method
+typeCheckMethod p c m@(U.Method retType name ps ls ss ret) = do
+    r <- tcExpT ret
+    if retType == r
+        then T.Method retType name ps ls <$> mapM tcSt ss <*> tcExpE ret
+        else flub "Return type of method must match declaration"
     where
     tcSt = typeCheckStatement p c m
     tcExp = typeCheckExpression p c m
-    tcExpE = fst . tcExp
-    tcExpT = snd . tcExp
+    tcExpE = fmap fst . tcExp
+    tcExpT = fmap snd . tcExp
 
-typeCheckStatement :: U.Program -> U.Class -> U.Method -> U.Statement -> T.Statement
+typeCheckStatement :: U.Program -> U.Class -> U.Method -> U.Statement -> Except String T.Statement
 typeCheckStatement p c m s = s'
     where
     s' = case s of
-        U.Block ss -> T.Block $ map tcSt ss
-        U.If condition true falseMaybe -> case tcExpT condition of
-            U.TypeBoolean -> T.If (tcExpE condition) (tcSt true) (tcSt <$> falseMaybe)
-            _ -> error "Type of if condition must be boolean"
-        U.While condition body -> case tcExpT condition of
-            U.TypeBoolean -> T.While (tcExpE condition) (tcSt body)
-            _ -> error "Type of while condition must be boolean"
-        U.Print expression -> case tcExpT expression of
-            U.TypeInt -> T.Print (tcExpE expression)
-            _ -> error "Type of print must be int"
-        U.ExpressionStatement expression -> T.ExpressionStatement (tcExpE expression)
+        U.Block ss -> T.Block <$> mapM tcSt ss
+        U.If condition true falseMaybe -> tcExpT condition >>= \case
+            U.TypeBoolean -> T.If <$> tcExpE condition <*> tcSt true <*> (traverse tcSt falseMaybe)
+            _ -> flub "Type of if condition must be boolean"
+        U.While condition body -> tcExpT condition >>= \case
+            U.TypeBoolean -> T.While <$> tcExpE condition <*> tcSt body
+            _ -> flub "Type of while condition must be boolean"
+        U.Print expression -> tcExpT expression >>= \case
+            U.TypeInt -> T.Print <$> tcExpE expression
+            _ -> flub "Type of print must be int"
+        U.ExpressionStatement expression -> T.ExpressionStatement <$> tcExpE expression
     tcSt = typeCheckStatement p c m
     tcExp = typeCheckExpression p c m
-    tcExpE = fst . tcExp
-    tcExpT = snd . tcExp
+    tcExpE = fmap fst . tcExp
+    tcExpT = fmap snd . tcExp
 
-typeCheckExpression :: U.Program -> U.Class -> U.Method -> U.Expression -> (T.Expression, U.Type)
+typeCheckExpression :: U.Program -> U.Class -> U.Method -> U.Expression -> Except String (T.Expression, U.Type)
 typeCheckExpression p c m e = case e of
-    U.LiteralInt value -> (T.LiteralInt value, U.TypeInt)
-    U.LiteralBoolean value -> (T.LiteralBoolean value, U.TypeBoolean)
-    U.Assignment target value ->
-        let (t', t'Type) = tcExp target
-            (v', v'Type) = tcExp value
-            e' = case t' of
-                T.VariableGet name -> T.VariableAssignment name v'
-                T.MemberGet cName object fName -> T.MemberAssignment cName object fName v'
-                T.IndexGet array index -> T.IndexAssignment array index v'
-                _ -> error "Invalid target of assignment"
-        in if v'Type `subtype` t'Type
-            then (e', t'Type)
-            else error "Assignment value must be a subtype"
-    U.Binary l op r ->
-        let (l', l't) = tcExp l
-            (r', r't) = tcExp r
-            checkOp lExpect rExpect resultType = if l't == lExpect && r't == rExpect
-                then (T.Binary l' op r', resultType)
-                else error "Incorrect types to binary operator"
+    U.LiteralInt value -> return (T.LiteralInt value, U.TypeInt)
+    U.LiteralBoolean value -> return (T.LiteralBoolean value, U.TypeBoolean)
+    U.Assignment target value -> do
+        (t', t'Type) <- tcExp target
+        (v', v'Type) <- tcExp value
+        e' <- case t' of
+            T.VariableGet name -> return $ T.VariableAssignment name v'
+            T.MemberGet cName object fName -> return $ T.MemberAssignment cName object fName v'
+            T.IndexGet array index -> return $ T.IndexAssignment array index v'
+            _ -> flub "Invalid target of assignment"
+        if v'Type `subtype` t'Type
+            then return (e', t'Type)
+            else flub "Assignment value must be a subtype"
+    U.Binary l op r -> do
+        (l', l't) <- tcExp l
+        (r', r't) <- tcExp r
+        let checkOp lExpect rExpect resultType = if l't == lExpect && r't == rExpect
+                then return (T.Binary l' op r', resultType)
+                else flub "Incorrect types to binary operator"
             logicOp   = checkOp U.TypeBoolean U.TypeBoolean U.TypeBoolean
             compareOp = checkOp U.TypeInt     U.TypeInt     U.TypeBoolean
             arithOp   = checkOp U.TypeInt     U.TypeInt     U.TypeInt
-        in case op of
+        case op of
             U.Lt    -> compareOp
             U.Le    -> compareOp
             U.Eq    -> compareOp
@@ -97,64 +104,64 @@ typeCheckExpression p c m e = case e of
             U.Mul   -> arithOp
             U.Div   -> arithOp
             U.Mod   -> arithOp
-    U.Not e -> case tcExp e of
-        (e', U.TypeBoolean) -> (T.Not e', U.TypeBoolean)
-        _ -> error "Not operand must be boolean"
-    U.IndexGet array index ->
-        let (array', array't) = tcExp array
-            (index', index't) = tcExp index
-        in if array't == U.TypeIntArray && index't == U.TypeInt
-            then (T.IndexGet array' index', U.TypeInt)
-            else error "Array must be int[] and index must be int"
-    U.Call object method args ->
-        let (object', object't) = tcExp object
-            args' = map tcExp args
-        in case object't of
-            U.TypeObject cName ->
-                let (implementor, m) = getClassMethod (M.lookup cName classMap) method
-                    ps = m ^. U.mParameters
+    U.Not e -> tcExp e >>= \case
+        (e', U.TypeBoolean) -> return (T.Not e', U.TypeBoolean)
+        _ -> flub "Not operand must be boolean"
+    U.IndexGet array index -> do
+        (array', array't) <- tcExp array
+        (index', index't) <- tcExp index
+        if array't == U.TypeIntArray && index't == U.TypeInt
+            then return (T.IndexGet array' index', U.TypeInt)
+            else flub "Array must be int[] and index must be int"
+    U.Call object method args -> do
+        (object', object't) <- tcExp object
+        args' <- mapM tcExp args
+        case object't of
+            U.TypeObject cName -> do
+                (implementor, m) <- getClassMethod (M.lookup cName classMap) method
+                let ps = m ^. U.mParameters
                     argCountCorrect = length args == length ps
                     argTypesCorrect = and $ zipWith subtype (map snd args') (map U._vType ps)
-                in if argCountCorrect && argTypesCorrect
-                    then (T.Call (implementor ^. U.cName) object' method (map tcExpE args), m ^. U.mReturnType)
-                    else error "Number and types of arguments to method call must match definition"
-            _ -> error "Method call must be performed on an object"
-    U.MemberGet object fName ->
-        let (object', object't) = tcExp object
-        in case object't of
-            U.TypeObject cName ->
-                let (c, field) = getClassField (M.lookup cName classMap) fName
-                in (T.MemberGet (c ^. U.cName) object' fName, field ^. U.vType)
+                if argCountCorrect && argTypesCorrect
+                    then return (T.Call (implementor ^. U.cName) object' method (map fst args'), m ^. U.mReturnType)
+                    else flub "Number and types of arguments to method call must match definition"
+            _ -> flub "Method call must be performed on an object"
+    U.MemberGet object fName -> do
+        (object', object't) <- tcExp object
+        case object't of
+            U.TypeObject cName -> do
+                (c, field) <- getClassField (M.lookup cName classMap) fName
+                return (T.MemberGet (c ^. U.cName) object' fName, field ^. U.vType)
             U.TypeIntArray -> if fName == "length"
-                then (T.IntArrayLength object', U.TypeInt)
-                else error "Int arrays only have a length field"
-            _ -> error "Member access must be performed on an object or length of array"
+                then return (T.IntArrayLength object', U.TypeInt)
+                else flub "Int arrays only have a length field"
+            _ -> flub "Member access must be performed on an object or length of array"
     U.VariableGet name -> case find ((== name) . U._vName) (m ^. U.mLocals ++ m ^. U.mParameters) of
-        Just v -> (T.VariableGet name, v ^. U.vType)
+        Just v -> return (T.VariableGet name, v ^. U.vType)
         Nothing -> tcExp (U.MemberGet U.This name)
-    U.This -> (T.This, U.TypeObject (c ^. U.cName))
-    U.NewIntArray size -> case tcExp size of
-        (size', U.TypeInt) -> (T.NewIntArray size', U.TypeIntArray)
-        _ -> error "Size of new int array must be int"
+    U.This -> return (T.This, U.TypeObject (c ^. U.cName))
+    U.NewIntArray size -> tcExp size >>= \case
+        (size', U.TypeInt) -> return (T.NewIntArray size', U.TypeIntArray)
+        _ -> flub "Size of new int array must be int"
     U.NewObject cName -> if M.member cName classMap
-        then (T.NewObject cName, U.TypeObject cName)
-        else error "Class not found"
+        then return (T.NewObject cName, U.TypeObject cName)
+        else flub "Class not found"
 
     where
 
     classMap = M.fromList $ map (\c -> (c ^. U.cName, c)) (p ^. U.pClasses)
 
     tcExp = typeCheckExpression p c m
-    tcExpE = fst . tcExp
+    tcExpE = fmap fst . tcExp
 
-    getClassField Nothing _ = error "Class not found"
+    getClassField Nothing _ = flub "Class not found"
     getClassField (Just c) fName = case find (\f -> f ^. U.vName == fName) (c ^. U.cFields) of
-        Just f -> (c, f)
+        Just f -> return (c, f)
         Nothing -> getClassField (M.lookup (c ^. U.cParent) classMap) fName
 
-    getClassMethod Nothing _ = error "Method not found"
+    getClassMethod Nothing _ = flub "Method not found"
     getClassMethod (Just c) mName = case find (\m -> m ^. U.mName == mName) (c ^. U.cMethods) of
-        Just m -> (c, m)
+        Just m -> return (c, m)
         Nothing -> getClassMethod (M.lookup (c ^. U.cParent) classMap) mName
 
     (U.TypeObject nameA) `subtype` b@(U.TypeObject nameB) = if nameA == nameB

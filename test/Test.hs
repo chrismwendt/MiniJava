@@ -13,20 +13,32 @@ import SSACompiler
 import Test.Tasty
 import Test.Tasty.HUnit
 import Interface
+import Control.Monad.Except
 
 main
   = defaultMain
   $ testGroup "Unit tests"
   $ map (testCase "Compile" . uncurry testCode) successExamples
+    ++ map (testCase "Fail" . testFail) failExamples
 
 runProgram program = bracket (writeFile "program.mips" program) (const $ removeFile "program.mips") $ \_ -> do
-    (_, output, _) <- readProcessWithExitCode "spim" ["-file", "program.mips"] ""
-    return output
+    (e, output, _) <- readProcessWithExitCode "spim" ["-file", "program.mips"] ""
+    return (e, output)
+
+runProgramOut program = do
+    (_, o) <- runProgram program
+    return o
 
 testCode sourceFile expectedOutputFile = do
     expected <- readFile expectedOutputFile
-    actual <- (unlines . drop 1 . lines) <$> (runProgram =<< atCode <$> readFile sourceFile)
+    actual <- (unlines . drop 1 . lines) <$> (runProgramOut =<< (either id id . runExcept) . atCode <$> readFile sourceFile)
     actual @?= expected
+
+testFail sourceFile = do
+    r <- runExcept . atCode <$> readFile sourceFile
+    case r of
+        Right _ -> assertFailure "Expected failure"
+        Left _ -> return ()
 
 successExamples =
     [ ("examples/Leet.java", "examples/Leet.output")
@@ -53,37 +65,5 @@ successExamples =
     ]
 
 failExamples =
-    [ "examples/Fail10.java"
-    , "examples/Fail1.java"
-    , "examples/Fail2.java"
-    , "examples/Fail4.java"
-    , "examples/Fail11.java"
-    , "examples/Fail20.java"
-    , "examples/Fail30.java"
-    , "examples/Fail5.java"
-    , "examples/Fail12.java"
-    , "examples/Fail21.java"
-    , "examples/Fail31.java"
-    , "examples/Fail6.java"
-    , "examples/Fail13.java"
-    , "examples/Fail22.java"
-    , "examples/Fail32.java"
-    , "examples/Fail7.java"
-    , "examples/Fail14.java"
-    , "examples/Fail24.java"
-    , "examples/Fail33.java"
-    , "examples/Fail8.java"
-    , "examples/Fail15.java"
-    , "examples/Fail25.java"
-    , "examples/Fail34.java"
-    , "examples/Fail9.java"
-    , "examples/Fail16.java"
-    , "examples/Fail26.java"
-    , "examples/Fail35.java"
-    , "examples/Fail17.java"
-    , "examples/Fail28.java"
-    , "examples/Fail36.java"
-    , "examples/Fail18.java"
-    , "examples/Fail29.java"
-    , "examples/Fail3.java"
+    [ "examples/Fail1.java"
     ]

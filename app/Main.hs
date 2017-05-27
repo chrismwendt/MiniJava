@@ -1,6 +1,8 @@
 import System.Environment
 import Options.Applicative
 import Interface
+import Control.Monad.Identity
+import Control.Monad.Except
 
 data Options = Options
     { oStopAt :: String
@@ -24,4 +26,4 @@ main = do
         "type"  -> show $ atType input
         "SSA"   -> show $ atSSA input
         "reg"   -> show $ atReg input
-        _       -> atCode input
+        _       -> either id id $ runExcept $ atCode input

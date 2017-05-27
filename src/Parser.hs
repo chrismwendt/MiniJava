@@ -10,11 +10,12 @@ import Control.Applicative
 import Data.Maybe
 import Lexer
 import AST
+import Control.Monad.Except
+import Control.Error.Util (hoistEither)
+import Data.Bifunctor
 
-parseString :: String -> Program
-parseString str = case parse program "" str of
-    Left e  -> error $ show e
-    Right r -> r
+parseString :: String -> Except String Program
+parseString str = hoistEither $ first show $ parse program "" str
 
 program :: Parser Program
 program = Program <$> (whiteSpace *> mainClass) <*> many normalClass <* eof

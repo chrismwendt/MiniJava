@@ -38,6 +38,7 @@ library
     , transformers
     , safe
     , pretty
+    , errors
 
 executable MiniJava
   main-is: Main.hs
@@ -46,6 +47,7 @@ executable MiniJava
     base
     , MiniJava
     , optparse-applicative
+    , mtl
 
 test-suite MiniJava-test
   type: exitcode-stdio-1.0
@@ -60,3 +62,4 @@ test-suite MiniJava-test
     , tasty-hunit
     , HUnit
     , directory
+    , mtl
