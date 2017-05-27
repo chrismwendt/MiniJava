@@ -19,6 +19,9 @@ import Data.List
 import qualified Data.IntDisjointSet as DJ
 import Control.Monad.Loops
 
+registerCount :: Int
+registerCount = 22
+
 type VID = Int
 
 data LiveLabel = LiveLabel
@@ -32,19 +35,19 @@ data LiveLabel = LiveLabel
 
 makeLenses ''LiveLabel
 
-allocate :: Int -> S.Program -> R.Program
+allocate :: S.Program -> R.Program
 allocate = allocateProgram
 
-allocateProgram :: Int -> S.Program -> R.Program
-allocateProgram nRegs (S.Program m cs) = R.Program (allocateClass nRegs m) (map (allocateClass nRegs) cs)
+allocateProgram :: S.Program -> R.Program
+allocateProgram (S.Program m cs) = R.Program (allocateClass m) (map allocateClass cs)
 
-allocateClass :: Int -> S.Class -> R.Class
-allocateClass nRegs (S.Class name fs ms) = R.Class name fs (map (allocateMethod nRegs) ms)
+allocateClass :: S.Class -> R.Class
+allocateClass (S.Class name fs ms) = R.Class name fs (map allocateMethod ms)
 
-allocateMethod :: Int -> S.Method -> R.Method
-allocateMethod nRegs (S.Method name graph) = R.Method name graph'
+allocateMethod :: S.Method -> R.Method
+allocateMethod (S.Method name graph) = R.Method name graph'
     where
-    graph' = squashRegs nRegs . limitInterference nRegs . assignRegisters $ graph
+    graph' = squashRegs . limitInterference . assignRegisters $ graph
 
 assignRegisters :: G.Gr S.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
 assignRegisters graph = G.gmap unifyRegs (removeUnifies graph)
@@ -56,10 +59,10 @@ assignRegisters graph = G.gmap unifyRegs (removeUnifies graph)
         Left s' ->  (ins, n, translate <$> (s' n), outs)
         Right s' -> (ins, n, translate <$> s'    , outs)
 
-limitInterference :: Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
-limitInterference nRegs graph = lim 0 graph
+limitInterference :: G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
+limitInterference graph = lim 0 graph
     where
-    lim spillCount g = case find ((> nRegs) . Set.size . _lOut . snd) $ G.labNodes (liveness g) of
+    lim spillCount g = case find ((> registerCount) . Set.size . _lOut . snd) $ G.labNodes (liveness g) of
         Nothing -> g
         Just (_, label) -> lim (succ spillCount) $ unliveness $
             case Set.toList $ (label ^. lOut) `Set.difference` (maybeToSet (label ^. lDef)) of
@@ -102,10 +105,10 @@ spillReg nextStackIndex r g = flip execState g $ do
 
         put (store G.& ((ins, n, label, []) G.& g'))
 
-squashRegs :: Int -> G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
-squashRegs nRegs g = G.nmap (fmap (regMap M.!)) g
+squashRegs :: G.Gr R.Statement S.EdgeType -> G.Gr R.Statement S.EdgeType
+squashRegs g = G.nmap (fmap (regMap M.!)) g
     where
-    regMap = makeRegMap nRegs (interference g)
+    regMap = makeRegMap (interference g)
 
 interference :: G.Gr R.Statement S.EdgeType -> G.Gr () ()
 interference g = G.mkUGraph (Set.toList $ concatSet groups) (Set.toList edgeSet)
@@ -116,10 +119,10 @@ interference g = G.mkUGraph (Set.toList $ concatSet groups) (Set.toList edgeSet)
                                       , to <- Set.toList $ Set.delete from group]
     edgeSet = concatSet $ Set.map edgesInGroup groups
 
-makeRegMap :: Int -> G.Gr () () -> M.Map R.Register R.Register
-makeRegMap nRegs g = M.fromList $ evalState (whileM ((not . G.isEmpty) <$> get) select) initialGraph
+makeRegMap :: G.Gr () () -> M.Map R.Register R.Register
+makeRegMap g = M.fromList $ evalState (whileM ((not . G.isEmpty) <$> get) select) initialGraph
     where
-    initialGraph = G.nmap (const $ Set.fromList [0 .. nRegs - 1]) g :: G.Gr (Set.Set R.Register) ()
+    initialGraph = G.nmap (const $ Set.fromList [0 .. registerCount - 1]) g :: G.Gr (Set.Set R.Register) ()
     select = do
         g <- get
         let ((_, n, pool, outs), g') = G.matchAny g

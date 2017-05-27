@@ -12,9 +12,6 @@ import qualified AST as U
 import qualified ASTTyped as T
 import Control.Monad.Except
 
-registerLimit :: Int
-registerLimit = 22
-
 atParse :: String -> Except String U.Program
 atParse = P.parseString
 
@@ -25,7 +22,7 @@ atSSA :: String -> Except String SSA.Program
 atSSA = fmap SSA.compile . atType
 
 atReg :: String -> Except String SSAR.Program
-atReg = fmap (Reg.allocate registerLimit) . atSSA
+atReg = fmap Reg.allocate . atSSA
 
 atCode :: String -> Except String String
 atCode input = Code.generate <$> (atType input) <*> (atReg input)

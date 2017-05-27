@@ -43,14 +43,14 @@ data Statement =
 data Expression =
       LiteralInt Int
     | LiteralBoolean Bool
+    | MemberAssignment String Expression String Expression
+    | VariableAssignment String Expression
     | Binary Expression U.BinaryOperator Expression
     | Not Expression
+    | IndexGet Expression Expression
     | Call String Expression String [Expression]
     | MemberGet String Expression String
-    | MemberAssignment String Expression String Expression
     | VariableGet String
-    | VariableAssignment String Expression
-    | IndexGet Expression Expression
     | IndexAssignment Expression Expression Expression
     | IntArrayLength Expression
     | This
