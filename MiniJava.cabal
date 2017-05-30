@@ -63,3 +63,13 @@ test-suite MiniJava-test
     , HUnit
     , directory
     , mtl
+
+benchmark MiniJava-benchmark
+  type: exitcode-stdio-1.0
+  hs-source-dirs: benchmark
+  main-is: Benchmark.hs
+  build-depends:
+    base
+    , criterion
+    , MiniJava
+    , mtl
