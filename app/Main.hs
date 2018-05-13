@@ -3,6 +3,7 @@ import Options.Applicative
 import Interface
 import Control.Monad.Identity
 import Control.Monad.Except
+import Data.Monoid
 
 data Options = Options
   { oStopAt :: String
