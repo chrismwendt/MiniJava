@@ -2,3 +2,9 @@ language: haskell
 
 notifications:
   email: false
+
+install:
+  - brew install spim
+
+script:
+  - stack --no-terminal --skip-ghc-check test
