@@ -14,12 +14,15 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import Interface
 import Control.Monad.Except
+import System.Directory
 
-main
-  = defaultMain
-  $ testGroup "Unit tests"
-  $ map (testCase "Compile" . uncurry testCode) successExamples
-    ++ map (testCase "Fail" . testFail) failExamples
+main = do
+  findExecutable "spim" >>= \case
+    Nothing -> putStrLn "spim (the MIPS simulator) was not found. Try `brew install spim`."
+    Just _ -> defaultMain
+      $ testGroup "Unit tests"
+      $ map (testCase "Compile" . uncurry testCode) successExamples
+        ++ map (testCase "Fail" . testFail) failExamples
 
 runProgram program = bracket (writeFile "program.mips" program) (const $ removeFile "program.mips") $ \_ -> do
   (e, output, _) <- readProcessWithExitCode "spim" ["-file", "program.mips"] ""
