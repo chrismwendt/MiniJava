@@ -15,7 +15,7 @@ import Data.Maybe
 import Control.Lens
 import qualified Data.Graph.Inductive as G
 import Data.List
-import qualified Data.IntDisjointSet as DJ
+import qualified Data.DisjointSet as DJ
 import Control.Monad.Loops
 
 registerCount :: Int
@@ -53,7 +53,7 @@ assignRegisters graph = G.gmap unifyRegs (removeUnifies graph)
   where
   singles = foldr DJ.insert DJ.empty (G.nodes graph)
   variables = foldr (uncurry DJ.union) singles [(s, o) | (s, S.Unify l r) <- G.labNodes graph, o <- [l, r]]
-  translate = fromJust . fst . flip DJ.lookup variables
+  translate = fromJust . flip DJ.representative variables
   unifyRegs (ins, n, s, outs) = case R.withRegister s of
     Left s' ->  (ins, n, translate <$> (s' n), outs)
     Right s' -> (ins, n, translate <$> s'    , outs)

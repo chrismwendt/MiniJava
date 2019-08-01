@@ -167,7 +167,7 @@ build = buildWithPrevs []
 
 buildWithPrevs :: [(SSA.EdgeType, SSA.ID)] -> SSA.Statement -> State CState SSA.ID
 buildWithPrevs prevs s = do
-  [sID] <- G.newNodes 1 <$> gets _stGraph
+  sID <- head . G.newNodes 1 <$> gets _stGraph
   modifyGraph $ ((prevs, sID, s, []) G.&)
   modify $ stPrevID .~ sID
   return sID

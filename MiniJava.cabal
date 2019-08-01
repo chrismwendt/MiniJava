@@ -34,7 +34,7 @@ library
     , lens
     , mtl
     , multimap
-    , disjoint-set
+    , disjoint-containers
     , transformers
     , safe
     , pretty
